@@ -1,0 +1,75 @@
+[2025-01-18 14:11:42] This is codeql execute queries -J-Xmx1800M --off-heap-ram=1445 --verbosity=progress --logdir=/mnt/c/GitHub/SpeQL/azure-api-db/log --evaluator-log-level=5 --warnings=show --dynamic-join-order-mode=none --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml -- /mnt/c/GitHub/SpeQL/azure-api-db/db-javascript path:/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql
+[2025-01-18 14:11:42] Calling plumbing command: codeql resolve queries --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml --format=json -- path:/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql
+[2025-01-18 14:11:43] [PROGRESS] resolve queries> Recording pack reference (anonymous QL pack at /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql) at /mnt/c/GitHub/SpeQL/src/queries.
+[2025-01-18 14:11:43] Plumbing command codeql resolve queries completed:
+                      [
+                        "/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql"
+                      ]
+[2025-01-18 14:11:43] Creating executor with 1 threads.
+[2025-01-18 14:11:43] Calling plumbing command: codeql resolve extensions --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml --include-extension-row-locations path:/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql
+[2025-01-18 14:11:43] Calling plumbing command: codeql resolve queries --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml --allow-library-packs --format startingpacks -- path:/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql
+[2025-01-18 14:11:43] [PROGRESS] resolve queries> Recording pack reference (anonymous QL pack at /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql) at /mnt/c/GitHub/SpeQL/src/queries.
+[2025-01-18 14:11:43] Plumbing command codeql resolve queries completed:
+                      [
+                        "/mnt/c/GitHub/SpeQL/src/queries"
+                      ]
+[2025-01-18 14:11:43] Calling plumbing command: codeql resolve extensions-by-pack --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml --include-extension-row-locations -- /mnt/c/GitHub/SpeQL/src/queries
+[2025-01-18 14:11:43] [SPAMMY] resolve extensions-by-pack> [INCOMPATIBILITY] <anonymous pack>: not 0.0.0 {root: <anonymous pack>@0.0.0}
+[2025-01-18 14:11:43] [SPAMMY] resolve extensions-by-pack> [DERIVATION] <anonymous pack>: 0.0.0 {<anonymous pack>: not 0.0.0 {root: <anonymous pack>@0.0.0}}
+[2025-01-18 14:11:43] [SPAMMY] resolve extensions-by-pack> [DECISION 1] <anonymous pack>: 0.0.0
+[2025-01-18 14:11:43] Plumbing command codeql resolve extensions-by-pack completed:
+                      {
+                        "models" : [ ],
+                        "data" : { },
+                        "threatModels" : { },
+                        "extensionPacks" : [ ]
+                      }
+[2025-01-18 14:11:43] Plumbing command codeql resolve extensions completed:
+                      {
+                        "models" : [ ],
+                        "data" : { },
+                        "threatModels" : { },
+                        "extensionPacks" : [ ]
+                      }
+[2025-01-18 14:11:43] Calling plumbing command: codeql resolve library-path --qlconfig-file=/mnt/c/GitHub/SpeQL/qlconfig.yml --query=/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql --format=json
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Resolving query at normalized path /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Found no pack; trying after symlink resolution with /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Found enclosing pack 'queries' at /mnt/c/GitHub/SpeQL/src/queries.
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Adding compilation cache at /home/prometheus/.codeql/compile-cache.
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Resolving library dependencies from /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] [SPAMMY] resolve library-path> [INCOMPATIBILITY] <anonymous pack>: not 0.0.0 {root: <anonymous pack>@0.0.0}
+[2025-01-18 14:11:43] [SPAMMY] resolve library-path> [DERIVATION] <anonymous pack>: 0.0.0 {<anonymous pack>: not 0.0.0 {root: <anonymous pack>@0.0.0}}
+[2025-01-18 14:11:43] [SPAMMY] resolve library-path> [DECISION 1] <anonymous pack>: 0.0.0
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> QL pack dependencies for /mnt/c/GitHub/SpeQL/src/queries resolved OK.
+[2025-01-18 14:11:43] [DETAILS] resolve library-path> Found no dbscheme through dependencies.
+[2025-01-18 14:11:43] Plumbing command codeql resolve library-path completed:
+                      {
+                        "libraryPath" : [
+                          "/mnt/c/GitHub/SpeQL/src/queries"
+                        ],
+                        "compilationCache" : [
+                          "/home/prometheus/.codeql/compile-cache"
+                        ],
+                        "relativeName" : "queries/exploreJsonObject.ql",
+                        "possibleAdvice" : "There should probably be a qlpack.yml file declaring dependencies in /mnt/c/GitHub/SpeQL/src/queries or an enclosing directory.",
+                        "qlPackName" : "queries"
+                      }
+[2025-01-18 14:11:43] [PROGRESS] execute queries> Compiling query plan for /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] [DETAILS] execute queries> Resolving imports for /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] Resolved file set for /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql hashes to 9c51dcf6fe620e2dec4d814052aa248b45146071.
+[2025-01-18 14:11:43] [DETAILS] execute queries> Checking QL for /mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql.
+[2025-01-18 14:11:43] Stale frontend caches are invalidated based on import graph reachability.
+[2025-01-18 14:11:43] ExternalModuleBindingPass ...
+[2025-01-18 14:11:43] ExternalModuleBindingPass time: 00:00.000
+[2025-01-18 14:11:43] CollectInstantiationsPass ...
+[2025-01-18 14:11:43] CollectInstantiationsPass time: 00:00.002
+[2025-01-18 14:11:43] Ql checks ...
+[2025-01-18 14:11:43] Ql checks time: 00:00.024
+[2025-01-18 14:11:43] [ERROR] execute queries> ERROR: could not resolve module javascript (/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql:1,8-18)
+[2025-01-18 14:11:43] [ERROR] execute queries> ERROR: could not resolve module DataFlow (/mnt/c/GitHub/SpeQL/src/queries/exploreJsonObject.ql:3,6-14)
+[2025-01-18 14:11:43] Sequence stamp origin is -6092627991682457437
+[2025-01-18 14:11:43] Pausing evaluation to close the cache at sequence stamp o+0
+[2025-01-18 14:11:43] The disk cache is freshly trimmed; leave it be.
+[2025-01-18 14:11:43] Unpausing evaluation
+[2025-01-18 14:11:43] This NaiveBuddyAllocator requested 0 eviction rounds.
+[2025-01-18 14:11:43] Exiting with code 2
