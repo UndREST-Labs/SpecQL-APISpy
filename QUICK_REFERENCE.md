@@ -1,0 +1,155 @@
+# SpeQL Quick Reference Guide
+
+## 🚀 Quick Start
+
+```bash
+# Run security analysis (Python - no dependencies!)
+python3 analyze.py
+
+# Expected output: List of security vulnerabilities found
+# Exit code: 0 = no issues, 1 = issues found
+```
+
+## 🎯 What Does SpeQL Detect?
+
+### 1. Azure Silent Reaper Vulnerabilities
+**Issue**: Logic App triggers without proper authentication
+**Risk**: Unauthorized workflow execution
+**Example**: HTTP triggers with missing or weak authentication
+
+### 2. Azure Vault Recon Vulnerabilities
+**Issue**: Key Vault misconfigurations
+**Risk**: Secret enumeration and unauthorized access
+**Example**: Key Vaults without network restrictions
+
+### 3. Missing Access Control
+**Issue**: API endpoints lacking authentication
+**Risk**: Unauthorized resource operations
+**Example**: DELETE/CREATE operations without security
+
+### 4. Insecure Credentials
+**Issue**: Hardcoded secrets in configurations
+**Risk**: Credential exposure and theft
+**Example**: Connection strings with embedded passwords
+
+## 📊 Understanding the Output
+
+### Error Severity Levels
+
+```
+[ERROR]   - Critical security issue requiring immediate attention
+[WARNING] - Potential security concern requiring review
+```
+
+### Sample Output
+
+```
+[ERROR] Sensitive Operation Without Authentication
+  File: logic.json
+  Sensitive operation 'Resource_Delete' missing security requirements
+```
+
+## 🔧 Usage Scenarios
+
+### Local Development
+```bash
+# Check your API specs before committing
+python3 analyze.py
+```
+
+### CI/CD Pipeline
+```yaml
+# GitHub Actions
+- name: Security Scan
+  run: python3 analyze.py
+```
+
+### Pre-commit Hook
+```bash
+#!/bin/bash
+cd /path/to/SpeQL
+python3 analyze.py || exit 1
+```
+
+## 🛠️ Advanced Usage
+
+### CodeQL Analysis (requires CodeQL CLI)
+```bash
+# Run all CodeQL queries
+./run-queries.sh
+
+# Run specific query
+codeql database analyze database/azure-api-db \
+    queries/azure-security/InsecureLogicAppTrigger.ql \
+    --format=sarif-latest \
+    --output=results/output.sarif
+```
+
+### Filtering Results
+```bash
+# Show only errors (not warnings)
+python3 analyze.py 2>&1 | grep "\[ERROR\]"
+
+# Count issues found
+python3 analyze.py 2>&1 | grep -c "\[ERROR\]"
+```
+
+## 📋 Common Issues and Solutions
+
+### Issue: "Azure API specifications not found"
+**Solution**: Run from the SpeQL root directory where `database/` exists
+
+### Issue: "Permission denied"
+**Solution**: Make scripts executable
+```bash
+chmod +x analyze.py run-queries.sh
+```
+
+### Issue: False positives detected
+**Solution**: Review the specific file and location. The tool follows security best practices - if authentication is truly not needed, document the exception.
+
+## 🔍 Interpreting Results
+
+### Sensitive Operations Without Authentication
+- **What**: API operations that modify data lack auth requirements
+- **Why it matters**: Allows unauthorized users to alter/delete resources
+- **Fix**: Add security requirements to the Swagger spec
+
+### Key Vault Without Network Restrictions
+- **What**: Key Vault accessible from any network
+- **Why it matters**: Increases attack surface for secret theft
+- **Fix**: Configure network ACLs with defaultAction: Deny
+
+### Hardcoded Credentials
+- **What**: Passwords/keys stored in config files
+- **Why it matters**: Credentials may be exposed in source control
+- **Fix**: Use Key Vault references instead
+
+## 📚 Related CWE Standards
+
+- **CWE-306**: Missing Authentication for Critical Function
+- **CWE-862**: Missing Authorization
+- **CWE-284**: Improper Access Control
+- **CWE-522**: Insufficiently Protected Credentials
+- **CWE-798**: Use of Hard-coded Credentials
+
+## 🔗 Additional Resources
+
+- [Azure Silent Reaper Blog](https://cirriustech.co.uk/blog/azure-silent-reaper/)
+- [Azure Vault Recon Blog](https://cirriustech.co.uk/blog/azure-vault-recon/)
+- [Azure Security Best Practices](https://docs.microsoft.com/en-us/azure/security/)
+- [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)
+
+## 💡 Tips
+
+1. **Run regularly**: Integrate into your development workflow
+2. **Review false positives**: Not all findings may apply to your context
+3. **Document exceptions**: If authentication isn't needed, document why
+4. **Update regularly**: Pull latest queries for new vulnerability patterns
+5. **Combine with other tools**: Use alongside Azure Security Center, Defender
+
+## ❓ Getting Help
+
+- Check EXAMPLE_OUTPUT.md for detailed examples
+- Review README.md for comprehensive documentation
+- Open an issue on GitHub for bugs or feature requests
