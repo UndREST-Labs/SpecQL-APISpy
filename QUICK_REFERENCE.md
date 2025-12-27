@@ -10,6 +10,37 @@ python3 analyze.py
 # Exit code: 0 = no issues, 1 = issues found
 ```
 
+## 🎯 Analysis Modes
+
+### Database Mode (Default - Fastest)
+```bash
+# Analyze from pre-built database (~309 files for Logic Apps)
+python3 analyze.py
+
+# Show detailed diagnostics
+python3 analyze.py --verbose
+```
+
+### Direct Repository Analysis
+```bash
+# Analyze full Azure specifications (~253,543 files)
+python3 analyze.py --source azure-rest-api-specs/specification
+
+# Analyze specific service
+python3 analyze.py --source azure-rest-api-specs/specification/keyvault
+python3 analyze.py --source azure-rest-api-specs/specification/compute
+
+# Analyze custom directory
+python3 analyze.py --source /path/to/specs
+```
+
+**Note**: First clone the repository to analyze it directly:
+```bash
+python3 refresh_database.py --all --skip-db-build
+```
+
+See `ANALYSIS_JSON_FILE_COUNT.md` for detailed comparison and performance info.
+
 ## 🔄 Database Refresh
 
 ```bash
