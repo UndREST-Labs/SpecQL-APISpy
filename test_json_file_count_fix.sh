@@ -85,15 +85,16 @@ if [ -d "azure-rest-api-specs/specification" ]; then
     # Test 4c: Full repository (just check it starts, don't wait for completion)
     echo -e "${BLUE}  4c: Full repository (specification)${NC}"
     timeout 10 python3 analyze.py --source azure-rest-api-specs/specification 2>&1 | head -15 > /tmp/full_mode.txt || true
-    if grep -q "253" /tmp/full_mode.txt; then
-        echo -e "${GREEN}  ✓ Full repository analysis starts (253K+ files detected)${NC}"
+    if grep -qE "JSON files found: [0-9]{3},[0-9]{3}" /tmp/full_mode.txt; then
+        echo -e "${GREEN}  ✓ Full repository analysis starts (large file count detected)${NC}"
         grep "JSON files found" /tmp/full_mode.txt || true
     else
         echo -e "${YELLOW}  ⚠ Full repository test inconclusive${NC}"
     fi
 else
     echo -e "${YELLOW}Test 4: Skipped (azure-rest-api-specs not cloned)${NC}"
-    echo -e "${YELLOW}  To test: python3 refresh_database.py --all --skip-db-build${NC}"
+    echo -e "${YELLOW}  To test, first clone the repository:${NC}"
+    echo -e "${YELLOW}  python3 refresh_database.py --skip-db-build --all${NC}"
 fi
 echo ""
 
