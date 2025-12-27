@@ -357,33 +357,6 @@ def validate_zip_file(zip_path: Path) -> bool:
         return False
 
 
-def check_dependencies() -> bool:
-    """Check if required Python modules are available"""
-    missing_deps = []
-    
-    try:
-        import zipfile
-    except ImportError:
-        missing_deps.append("zipfile")
-    
-    try:
-        import json
-    except ImportError:
-        missing_deps.append("json")
-    
-    try:
-        from pathlib import Path
-    except ImportError:
-        missing_deps.append("pathlib")
-    
-    if missing_deps:
-        print(f"{RED}Error: Missing required Python modules: {', '.join(missing_deps)}{NC}")
-        print(f"{YELLOW}Please ensure you're using Python 3.6 or later{NC}")
-        return False
-    
-    return True
-
-
 def main():
     """Main entry point"""
     print("═" * 60)
@@ -391,10 +364,6 @@ def main():
     print("  Detecting Azure Silent Reaper & Vault Recon vulnerabilities")
     print("═" * 60)
     print()
-    
-    # Check dependencies first
-    if not check_dependencies():
-        sys.exit(1)
     
     # Check if source is extracted
     db_path = Path("database/azure-api-db")
