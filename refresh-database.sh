@@ -324,7 +324,7 @@ main() {
     else
         print_success "Repository updated successfully (database build skipped)"
         echo ""
-        print_info "To build the database, run: $0 --skip-db-build=false"
+        print_info "To build the database, run: $0"
         echo ""
     fi
 }

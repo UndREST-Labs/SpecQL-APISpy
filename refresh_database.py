@@ -289,7 +289,6 @@ Examples:
     parser.add_argument(
         '-u', '--update',
         action='store_true',
-        default=True,
         help='Update existing Azure repo clone (default)'
     )
     parser.add_argument(

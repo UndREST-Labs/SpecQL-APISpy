@@ -68,8 +68,9 @@ jobs:
 
 # Alternative: Simpler workflow without CodeQL queries
 # Just uses the Python analyzer
+# Save this as a separate file: .github/workflows/quick-scan.yml
 
-name: Quick Azure Security Scan
+name: Quick Azure Security Scan (Analyzer Only)
 
 on:
   schedule:
