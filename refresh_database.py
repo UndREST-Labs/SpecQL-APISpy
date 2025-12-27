@@ -23,7 +23,7 @@ NC = '\033[0m'  # No Color
 AZURE_REPO_URL = "https://github.com/Azure/azure-rest-api-specs.git"
 SPECS_DIR = "azure-rest-api-specs"
 DATABASE_DIR = "database/azure-api-db"
-DEFAULT_SPEC_PATH = "specification"
+DEFAULT_SPEC_PATH = "specification/logic"
 
 
 def print_info(message: str):
