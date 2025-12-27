@@ -1,7 +1,8 @@
 # Dockerfile for SpeQL on ARM64 architecture (Raspberry Pi, Apple Silicon, etc.)
 # Based on Debian bookworm for ARM64
+# Use --platform flag when building: docker build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 .
 
-FROM arm64v8/debian:bookworm-slim
+FROM debian:bookworm-slim
 
 # Metadata
 LABEL maintainer="SpeQL Security Team"
@@ -12,7 +13,7 @@ LABEL version="1.0"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CODEQL_HOME=/opt/codeql
 ENV PATH="${CODEQL_HOME}:${PATH}"
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+ENV JAVA_HOME=/usr/lib/jvm/default-java
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # Install system dependencies
@@ -38,10 +39,28 @@ RUN apt-get update && apt-get install -y \
 # Using a specific version for reproducibility
 ARG CODEQL_VERSION=2.20.4
 RUN echo "Installing CodeQL ${CODEQL_VERSION} for ARM64..." && \
-    wget -q "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-linux-arm64.tar.gz" -O /tmp/codeql.tar.gz && \
-    mkdir -p /opt && \
-    tar -xzf /tmp/codeql.tar.gz -C /opt && \
-    rm /tmp/codeql.tar.gz && \
+    # Detect architecture and set appropriate binary name
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then \
+        CODEQL_ARCH="linux-arm64"; \
+        CODEQL_EXT="tar.gz"; \
+    else \
+        CODEQL_ARCH="linux64"; \
+        CODEQL_EXT="zip"; \
+    fi && \
+    echo "Detected architecture: $ARCH, using codeql-${CODEQL_ARCH}.${CODEQL_EXT}" && \
+    # Download appropriate binary
+    if [ "$CODEQL_EXT" = "tar.gz" ]; then \
+        wget -q "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-${CODEQL_ARCH}.tar.gz" -O /tmp/codeql.tar.gz && \
+        mkdir -p /opt && \
+        tar -xzf /tmp/codeql.tar.gz -C /opt && \
+        rm /tmp/codeql.tar.gz; \
+    else \
+        wget -q "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-${CODEQL_ARCH}.zip" -O /tmp/codeql.zip && \
+        mkdir -p /opt && \
+        unzip -q /tmp/codeql.zip -d /opt && \
+        rm /tmp/codeql.zip; \
+    fi && \
     # Verify installation
     codeql version
 
@@ -74,5 +93,22 @@ RUN echo "=== Installation Summary ===" && \
     echo "Git version:" && git --version && \
     echo "=========================="
 
-# Default command: Display help
-CMD ["python3", "analyze.py", "--help"]
+# Default command: Show welcome message and usage
+CMD ["/bin/bash", "-c", "echo '═══════════════════════════════════════════════════════════' && \
+     echo '  SpeQL - Security Query Language for Azure APIs (ARM64)' && \
+     echo '═══════════════════════════════════════════════════════════' && \
+     echo '' && \
+     echo 'Available commands:' && \
+     echo '  python3 analyze.py              - Run Python-based security analyzer' && \
+     echo '  ./refresh-database.sh           - Refresh Azure API database' && \
+     echo '  ./run-queries.sh                - Run CodeQL security queries' && \
+     echo '  codeql version                  - Show CodeQL version' && \
+     echo '' && \
+     echo 'To run a command:' && \
+     echo '  docker run --rm speql:arm64 python3 analyze.py' && \
+     echo '' && \
+     echo 'For interactive shell:' && \
+     echo '  docker run --rm -it speql:arm64 /bin/bash' && \
+     echo '' && \
+     echo 'Documentation: See README.md and DOCKER.md' && \
+     echo '═══════════════════════════════════════════════════════════'"]

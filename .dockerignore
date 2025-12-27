@@ -7,6 +7,11 @@
 *.md
 !README.md
 
+# Docker files (not needed in image)
+Dockerfile*
+docker-compose.yml
+.dockerignore
+
 # Results directory (will be mounted as volume)
 results/
 *.sarif

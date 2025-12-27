@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  speql:
+    build:
+      context: .
+      dockerfile: Dockerfile.arm64
+      args:
+        CODEQL_VERSION: 2.20.4
+    image: speql:arm64
+    container_name: speql-arm64
+    volumes:
+      # Mount results directory to persist analysis output
+      - ./results:/speql/results
+      # Optional: Mount external Azure specs
+      # - ./azure-rest-api-specs:/speql/azure-rest-api-specs
+    # Override command as needed
+    command: python3 analyze.py
+    # For interactive use:
+    # stdin_open: true
+    # tty: true
+    # command: /bin/bash

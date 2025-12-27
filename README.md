@@ -89,11 +89,40 @@ SpeQL/
 
 SpeQL provides a Docker image optimized for ARM64 architecture, making it easy to run on devices like Raspberry Pi, Apple Silicon Macs, and other ARM-based systems.
 
+**For detailed Docker instructions, see [DOCKER.md](./DOCKER.md)**
+
 #### Building the Docker Image
 
+**On ARM64 systems (Raspberry Pi, Apple Silicon, etc.):**
 ```bash
 # Build the ARM64 Docker image
 docker build -f Dockerfile.arm64 -t speql:arm64 .
+```
+
+**On x86_64 systems with Docker Buildx (cross-platform build):**
+```bash
+# Enable buildx for multi-platform builds
+docker buildx create --use
+
+# Build for ARM64 platform
+docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --load .
+```
+
+**Note**: Cross-platform builds on x86_64 systems may take significantly longer due to emulation.
+
+**Using Docker Compose:**
+```bash
+# Build and run with docker-compose
+docker-compose up
+
+# Run in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop and remove containers
+docker-compose down
 ```
 
 #### Running SpeQL in Docker
