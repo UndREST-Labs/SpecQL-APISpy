@@ -368,7 +368,10 @@ def main():
     # Check if source is extracted
     db_path = Path("database/azure-api-db")
     src_zip = db_path / "src.zip"
-    extracted_dir = db_path / "mnt"
+    
+    # Support both mnt/ and src/ directory structures
+    mnt_dir = db_path / "mnt"
+    src_dir = db_path / "src"
     
     # Diagnostic information
     print(f"{BLUE}Diagnostics:{NC}")
@@ -377,23 +380,29 @@ def main():
     print(f"  - src.zip exists: {src_zip.exists()}")
     if src_zip.exists():
         print(f"  - src.zip size: {src_zip.stat().st_size:,} bytes")
-    print(f"  - mnt directory exists: {extracted_dir.exists()}")
-    if extracted_dir.exists():
-        json_files = list(extracted_dir.rglob("*.json"))
+    print(f"  - mnt directory exists: {mnt_dir.exists()}")
+    if mnt_dir.exists():
+        json_files = list(mnt_dir.rglob("*.json"))
         print(f"  - JSON files in mnt: {len(json_files)}")
+    print(f"  - src directory exists: {src_dir.exists()}")
+    if src_dir.exists():
+        json_files = list(src_dir.rglob("*.json"))
+        print(f"  - JSON files in src: {len(json_files)}")
     print()
     
-    # Check if extraction is needed (directory missing or empty)
-    needs_extraction = False
-    if not extracted_dir.exists():
-        print(f"{YELLOW}mnt directory does not exist, extraction needed{NC}")
-        needs_extraction = True
-    elif not any(extracted_dir.rglob("*.json")):
-        # Directory exists but has no JSON files
-        print(f"{YELLOW}mnt directory is empty, extraction needed{NC}")
-        needs_extraction = True
+    # Determine which directory to use (prefer mnt, fallback to src)
+    extracted_dir = None
+    if mnt_dir.exists() and any(mnt_dir.rglob("*.json")):
+        extracted_dir = mnt_dir
+    elif src_dir.exists() and any(src_dir.rglob("*.json")):
+        extracted_dir = src_dir
+    
+    # Check if extraction is needed (both directories missing or empty)
+    needs_extraction = extracted_dir is None
     
     if needs_extraction:
+        print(f"{YELLOW}Specification directory not found or empty, extraction needed{NC}")
+        
         if not src_zip.exists():
             print(f"{RED}Error: Cannot extract - {src_zip} not found{NC}")
             print()
@@ -414,6 +423,13 @@ def main():
             with ZipFile(src_zip, 'r') as zip_ref:
                 zip_ref.extractall(db_path)
             print(f"{GREEN}✓ Extraction complete{NC}\n")
+            
+            # Re-determine which directory to use after extraction
+            if mnt_dir.exists() and any(mnt_dir.rglob("*.json")):
+                extracted_dir = mnt_dir
+            elif src_dir.exists() and any(src_dir.rglob("*.json")):
+                extracted_dir = src_dir
+                
         except Exception as e:
             print(f"{RED}Error: Extraction failed: {e}{NC}")
             print(f"{YELLOW}Please check file permissions and disk space.{NC}")
@@ -422,11 +438,12 @@ def main():
     # Analyze the specifications
     analyzer = AzureSecurityAnalyzer()
     
-    if extracted_dir.exists():
+    if extracted_dir and extracted_dir.exists():
+        print(f"{BLUE}Analyzing specifications from: {extracted_dir.name}/{NC}")
         analyzer.analyze_directory(extracted_dir)
     else:
         print(f"{RED}Error: Azure API specifications not found{NC}")
-        print(f"Expected at: {extracted_dir}")
+        print(f"Expected at: {mnt_dir} or {src_dir}")
         print()
         print(f"{YELLOW}This should not happen after extraction. Please check file permissions.{NC}")
         sys.exit(1)
