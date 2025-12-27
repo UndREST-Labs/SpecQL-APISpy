@@ -10,6 +10,21 @@ python3 analyze.py
 # Exit code: 0 = no issues, 1 = issues found
 ```
 
+## 🔄 Database Refresh
+
+```bash
+# Update database with latest Azure specs
+./refresh-database.sh --update
+
+# Fresh clone and rebuild
+./refresh-database.sh --fresh
+
+# Build for specific service (e.g., Key Vault)
+./refresh-database.sh --path specification/keyvault --fresh
+
+# See DATABASE_REFRESH.md for detailed documentation
+```
+
 ## 🎯 What Does SpeQL Detect?
 
 ### 1. Azure Silent Reaper Vulnerabilities

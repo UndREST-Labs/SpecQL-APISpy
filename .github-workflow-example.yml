@@ -1,0 +1,96 @@
+# Example GitHub Actions Workflow for SpeQL with Database Refresh
+
+name: Azure API Security Scan
+
+on:
+  # Run weekly to catch new vulnerabilities
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      service_path:
+        description: 'Azure service path to analyze (e.g., specification/logic)'
+        required: false
+        default: 'specification/logic'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout SpeQL
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install CodeQL
+        run: |
+          # Download and install CodeQL CLI
+          wget -q https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip
+          unzip -q codeql-linux64.zip
+          echo "$PWD/codeql" >> $GITHUB_PATH
+      
+      - name: Verify CodeQL Installation
+        run: codeql version
+      
+      - name: Refresh Database
+        run: |
+          # Use input service path or default
+          SERVICE_PATH="${{ github.event.inputs.service_path || 'specification/logic' }}"
+          ./refresh-database.sh --path "$SERVICE_PATH" --fresh
+      
+      - name: Run Security Analysis
+        run: python3 analyze.py
+        continue-on-error: true
+      
+      - name: Run CodeQL Queries
+        run: ./run-queries.sh
+        continue-on-error: true
+      
+      - name: Upload SARIF Results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: results/
+      
+      - name: Archive Results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-scan-results
+          path: results/
+          retention-days: 30
+
+# Alternative: Simpler workflow without CodeQL queries
+# Just uses the Python analyzer
+
+name: Quick Azure Security Scan
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Update Azure Specs
+        run: ./refresh-database.sh --skip-db-build --update
+      
+      - name: Run Analysis
+        run: python3 analyze.py
