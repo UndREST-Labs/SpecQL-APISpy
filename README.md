@@ -293,6 +293,23 @@ See `ANALYSIS_JSON_FILE_COUNT.md` for detailed information about file counts and
 
 For more advanced analysis with CodeQL (requires CodeQL CLI):
 
+#### Building Database for CodeQL Analysis
+
+**Important**: CodeQL queries run against the database. To analyze different Azure services with CodeQL, build the database with the desired path first:
+
+```bash
+# Build database with Key Vault specs
+python3 refresh_database.py --path specification/keyvault --fresh
+
+# Build database with all Azure specs (comprehensive analysis)
+python3 refresh_database.py --all --fresh
+
+# Build database with specific service (Compute, Storage, etc.)
+python3 refresh_database.py --path specification/compute --fresh
+```
+
+After building the database, run CodeQL queries against it:
+
 #### Run All Queries:
 ```bash
 ./run-queries.sh
@@ -309,6 +326,19 @@ codeql database analyze database/azure-api-db \
     queries/azure-security/InsecureLogicAppTrigger.ql \
     --format=sarif-latest \
     --output=results/InsecureLogicAppTrigger.sarif
+```
+
+#### Complete Workflow Example
+
+```bash
+# 1. Build database with Key Vault specifications
+python3 refresh_database.py --path specification/keyvault --fresh
+
+# 2. Run CodeQL queries against the database
+./run-queries.sh
+
+# 3. (Optional) Run Python analyzer on the same scope
+python3 analyze.py
 ```
 
 ### Viewing Results

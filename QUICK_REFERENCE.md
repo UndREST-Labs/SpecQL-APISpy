@@ -53,8 +53,28 @@ See `ANALYSIS_JSON_FILE_COUNT.md` for detailed comparison and performance info.
 # Build for specific service (e.g., Key Vault)
 ./refresh-database.sh --path specification/keyvault --fresh
 
+# Build for all Azure services (for comprehensive CodeQL analysis)
+./refresh-database.sh --all --fresh
+
 # See DATABASE_REFRESH.md for detailed documentation
 ```
+
+## 🔍 CodeQL Workflow
+
+**For running custom CodeQL queries**, build the database with your desired scope:
+
+```bash
+# 1. Build database with the service you want to analyze
+python3 refresh_database.py --path specification/keyvault --fresh
+
+# 2. Run CodeQL queries against that database
+./run-queries.sh
+
+# 3. (Optional) Also run Python analyzer
+python3 analyze.py
+```
+
+The database path matters for CodeQL! Build it with the specifications you want to query.
 
 ## 🎯 What Does SpeQL Detect?
 
