@@ -85,6 +85,45 @@ SpeQL/
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
 
+### Refreshing the Database
+
+The repository includes scripts to build and refresh the database directly from the Azure REST API specifications:
+
+#### Using the Bash Script (Linux/Mac):
+```bash
+# Update repository and rebuild database (default: Logic Apps specs)
+./refresh-database.sh
+
+# Fresh clone and rebuild
+./refresh-database.sh --fresh
+
+# Build database for specific Azure service (e.g., Key Vault)
+./refresh-database.sh --path specification/keyvault
+
+# Build database for all Azure specifications
+./refresh-database.sh --all
+
+# Just update the repo without rebuilding
+./refresh-database.sh --skip-db-build
+```
+
+#### Using the Python Script (Cross-platform):
+```bash
+# Update repository and rebuild database
+python3 refresh_database.py
+
+# Fresh clone and rebuild
+python3 refresh_database.py --fresh
+
+# Build for specific service
+python3 refresh_database.py --path specification/compute
+
+# Build for all specifications
+python3 refresh_database.py --all
+```
+
+**Note**: Building the database requires CodeQL CLI to be installed. To only update the repository without rebuilding, use the `--skip-db-build` flag.
+
 ## Usage
 
 ### Quick Start with Python Analyzer
@@ -133,6 +172,95 @@ Results from CodeQL are saved in SARIF format (Static Analysis Results Interchan
 - Viewed in VS Code with the SARIF Viewer extension
 - Uploaded to GitHub Advanced Security
 - Processed with SARIF tools
+
+## Database Management
+
+### Building and Refreshing the Database
+
+The SpeQL database can be built directly from the [Azure/azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository using either the bash or Python refresh scripts.
+
+#### Refresh Script Options
+
+Both `refresh-database.sh` and `refresh_database.py` support the following options:
+
+- `--fresh` or `-f`: Perform a fresh clone of the Azure repository (removes existing)
+- `--update` or `-u`: Update existing repository clone (default)
+- `--path PATH` or `-p PATH`: Specify which Azure service specifications to include
+  - Examples: `specification/logic`, `specification/keyvault`, `specification/compute`
+  - Default: `specification/logic` (Logic Apps)
+- `--all` or `-a`: Include all Azure service specifications
+- `--branch BRANCH` or `-b BRANCH`: Specify which branch to use (default: main)
+- `--skip-db-build`: Only clone/update the repository without rebuilding the database
+- `--clean`: Clean existing database before rebuild
+- `--help` or `-h`: Show help message
+
+#### Common Workflows
+
+**Initial Setup:**
+```bash
+# Clone Azure specs and build database for Logic Apps
+./refresh-database.sh
+```
+
+**Regular Updates:**
+```bash
+# Update to latest specs and rebuild
+./refresh-database.sh --update
+```
+
+**Analyze Different Azure Services:**
+```bash
+# Build database for Key Vault APIs
+./refresh-database.sh --path specification/keyvault --fresh
+
+# Build database for multiple services
+./refresh-database.sh --path specification/compute --fresh
+```
+
+**Working with Limited Resources:**
+```bash
+# Just update the repository without rebuilding (no CodeQL needed)
+./refresh-database.sh --skip-db-build
+
+# Build database later when CodeQL is available
+./refresh-database.sh
+```
+
+**Comprehensive Analysis:**
+```bash
+# Build database with all Azure specifications (may take significant time/space)
+./refresh-database.sh --all --fresh
+```
+
+#### Database Structure
+
+After running the refresh script, the database structure will be:
+
+```
+database/azure-api-db/
+├── codeql-database.yml    # Database metadata
+├── src.zip                # Zipped source files (for analyze.py)
+├── src/                   # Extracted source files
+├── db-javascript/         # CodeQL database files
+├── log/                   # Build logs
+└── diagnostic/            # Diagnostic information
+```
+
+#### Troubleshooting
+
+**Issue: CodeQL not found**
+- Install CodeQL CLI from [GitHub releases](https://github.com/github/codeql-cli-binaries/releases)
+- Add to PATH: `export PATH="$PATH:/path/to/codeql"`
+- Or use `--skip-db-build` to only update the repository
+
+**Issue: Clone/build takes too long**
+- Use `--path` to target specific services instead of `--all`
+- The default Logic Apps specification is much smaller than all specifications
+
+**Issue: Out of disk space**
+- Use sparse checkout (automatic with `--path`)
+- Clean up old database with `--clean` before rebuild
+- Avoid using `--all` unless necessary
 
 ## Query Details
 
