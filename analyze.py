@@ -329,26 +329,44 @@ def validate_zip_file(zip_path: Path) -> bool:
             # Get list of files in zip
             file_list = zip_ref.namelist()
             
-            # Validate that it contains the expected structure (mnt/... or src/...)
+            # Check what top-level directories exist
+            top_dirs = set()
+            for f in file_list:
+                if '/' in f:
+                    first_dir = f.split('/')[0]
+                    top_dirs.add(first_dir)
+            
+            # Validate that it contains the expected structure (mnt/... or src/... or specification/...)
             has_mnt = any(f.startswith('mnt/') for f in file_list)
             has_src = any(f.startswith('src/') for f in file_list)
+            has_spec = any(f.startswith('specification/') for f in file_list)
             has_json = any(f.endswith('.json') for f in file_list)
             
             if not has_json:
                 print(f"{YELLOW}Warning: {zip_path} contains no JSON files{NC}")
                 return False
             
-            if not (has_mnt or has_src):
-                print(f"{YELLOW}Warning: {zip_path} doesn't match expected structure (missing mnt/ or src/ directory){NC}")
+            # Accept mnt/, src/, or specification/ structure
+            if not (has_mnt or has_src or has_spec):
+                print(f"{YELLOW}Warning: {zip_path} doesn't match expected structure{NC}")
+                print(f"{YELLOW}Expected: mnt/, src/, or specification/ directory{NC}")
+                print(f"{YELLOW}Found top-level directories: {', '.join(sorted(top_dirs)[:5])}{NC}")
                 print(f"{YELLOW}This may not be a database created by refresh_database.py{NC}")
-                return False
+                # Still allow extraction to proceed
             
             # Print diagnostic information
             json_count = sum(1 for f in file_list if f.endswith('.json'))
             print(f"{BLUE}Zip file validation:{NC}")
             print(f"  - Total files: {len(file_list)}")
             print(f"  - JSON files: {json_count}")
-            print(f"  - Structure: {'mnt/' if has_mnt else 'src/'}")
+            if has_mnt:
+                print(f"  - Structure: mnt/")
+            elif has_src:
+                print(f"  - Structure: src/")
+            elif has_spec:
+                print(f"  - Structure: specification/")
+            else:
+                print(f"  - Structure: {', '.join(sorted(top_dirs)[:3])}/")
             
             return True
             
@@ -369,9 +387,10 @@ def main():
     db_path = Path("database/azure-api-db")
     src_zip = db_path / "src.zip"
     
-    # Support both mnt/ and src/ directory structures
+    # Support mnt/, src/, and specification/ directory structures
     mnt_dir = db_path / "mnt"
     src_dir = db_path / "src"
+    spec_dir = db_path / "specification"
     
     # Diagnostic information
     print(f"{BLUE}Diagnostics:{NC}")
@@ -388,16 +407,22 @@ def main():
     if src_dir.exists():
         json_files = list(src_dir.rglob("*.json"))
         print(f"  - JSON files in src: {len(json_files)}")
+    print(f"  - specification directory exists: {spec_dir.exists()}")
+    if spec_dir.exists():
+        json_files = list(spec_dir.rglob("*.json"))
+        print(f"  - JSON files in specification: {len(json_files)}")
     print()
     
-    # Determine which directory to use (prefer mnt, fallback to src)
+    # Determine which directory to use (prefer mnt, then src, then specification)
     extracted_dir = None
     if mnt_dir.exists() and any(mnt_dir.rglob("*.json")):
         extracted_dir = mnt_dir
     elif src_dir.exists() and any(src_dir.rglob("*.json")):
         extracted_dir = src_dir
+    elif spec_dir.exists() and any(spec_dir.rglob("*.json")):
+        extracted_dir = spec_dir
     
-    # Check if extraction is needed (both directories missing or empty)
+    # Check if extraction is needed (all directories missing or empty)
     needs_extraction = extracted_dir is None
     
     if needs_extraction:
@@ -429,6 +454,8 @@ def main():
                 extracted_dir = mnt_dir
             elif src_dir.exists() and any(src_dir.rglob("*.json")):
                 extracted_dir = src_dir
+            elif spec_dir.exists() and any(spec_dir.rglob("*.json")):
+                extracted_dir = spec_dir
                 
         except Exception as e:
             print(f"{RED}Error: Extraction failed: {e}{NC}")
@@ -443,9 +470,10 @@ def main():
         analyzer.analyze_directory(extracted_dir)
     else:
         print(f"{RED}Error: Azure API specifications not found{NC}")
-        print(f"Expected at: {mnt_dir} or {src_dir}")
+        print(f"Expected at: {mnt_dir}, {src_dir}, or {spec_dir}")
         print()
         print(f"{YELLOW}This should not happen after extraction. Please check file permissions.{NC}")
+        sys.exit(1)
         sys.exit(1)
     
     # Print results
