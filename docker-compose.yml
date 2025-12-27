@@ -1,5 +1,21 @@
 version: '3.9'
 
+# Common configuration
+x-common-config: &common-config
+  volumes:
+    # Mount results directory to persist analysis output
+    - ./results:/speql/results
+    # Optional: Mount external Azure specs
+    # - ./azure-rest-api-specs:/speql/azure-rest-api-specs
+  command: python3 analyze.py
+  # For interactive use:
+  # stdin_open: true
+  # tty: true
+  # command: /bin/bash
+
+x-build-args: &build-args
+  CODEQL_VERSION: 2.20.4
+
 services:
   # Standard x86_64/amd64 service (default)
   speql:
@@ -7,20 +23,10 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        CODEQL_VERSION: 2.20.4
+        <<: *build-args
     image: speql:latest
     container_name: speql
-    volumes:
-      # Mount results directory to persist analysis output
-      - ./results:/speql/results
-      # Optional: Mount external Azure specs
-      # - ./azure-rest-api-specs:/speql/azure-rest-api-specs
-    # Override command as needed
-    command: python3 analyze.py
-    # For interactive use:
-    # stdin_open: true
-    # tty: true
-    # command: /bin/bash
+    <<: *common-config
 
   # ARM64 service for Raspberry Pi, Apple Silicon, etc.
   speql-arm64:
@@ -28,18 +34,8 @@ services:
       context: .
       dockerfile: Dockerfile.arm64
       args:
-        CODEQL_VERSION: 2.20.4
+        <<: *build-args
     image: speql:arm64
     container_name: speql-arm64
-    volumes:
-      # Mount results directory to persist analysis output
-      - ./results:/speql/results
-      # Optional: Mount external Azure specs
-      # - ./azure-rest-api-specs:/speql/azure-rest-api-specs
-    # Override command as needed
-    command: python3 analyze.py
-    # For interactive use:
-    # stdin_open: true
-    # tty: true
-    # command: /bin/bash
+    <<: *common-config
 

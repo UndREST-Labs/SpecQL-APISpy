@@ -102,10 +102,19 @@ docker run --rm \
 ```
 
 With specific Azure service:
+
+**x86_64:**
 ```bash
 docker run --rm \
   -v $(pwd)/results:/speql/results \
   speql:latest ./refresh-database.sh --path specification/keyvault
+```
+
+**ARM64:**
+```bash
+docker run --rm \
+  -v $(pwd)/results:/speql/results \
+  speql:arm64 ./refresh-database.sh --path specification/keyvault
 ```
 
 ### Running CodeQL Queries
