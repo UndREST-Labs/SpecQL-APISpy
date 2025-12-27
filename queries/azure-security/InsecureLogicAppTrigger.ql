@@ -16,14 +16,24 @@
 
 import javascript
 
+// Pre-compiled patterns for efficiency
+class TriggerType extends string {
+  TriggerType() {
+    this = "Request" or this = "HttpTrigger" or this = "HTTP"
+  }
+}
+
 /**
  * Holds if a JSON object represents a workflow trigger definition
  */
 predicate isWorkflowTrigger(JsonObject obj) {
-  obj.getPropValue("type").(JsonString).getValue() = "Request" or
-  obj.getPropValue("type").(JsonString).getValue() = "HttpTrigger" or
-  obj.getPropValue("type").(JsonString).getValue() = "HTTP" or
-  obj.getParentContainer*().getPropValue("triggers") = obj.getParentContainer()
+  exists(TriggerType triggerType |
+    obj.getPropValue("type").(JsonString).getValue() = triggerType
+  ) or
+  exists(JsonValue triggers |
+    triggers = obj.getParentContainer*().getPropValue("triggers") and
+    obj.getParentContainer() = triggers
+  )
 }
 
 /**

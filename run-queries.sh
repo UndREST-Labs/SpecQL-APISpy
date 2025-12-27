@@ -3,7 +3,7 @@
 # SpeQL - Security Query Runner for Azure APIs
 # This script runs CodeQL security queries against Azure REST API specifications
 
-set -e
+set -euo pipefail
 
 # Configuration
 DATABASE_PATH="database/azure-api-db"

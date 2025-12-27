@@ -20,12 +20,13 @@ import javascript
  * Holds if a JSON object represents a Key Vault reference or configuration
  */
 predicate isKeyVaultReference(JsonObject obj) {
-  exists(JsonString str |
+  exists(JsonString str, string value |
     str = obj.getPropValue(_) and
+    value = str.getValue() and
     (
-      str.getValue().matches("%keyvault%") or
-      str.getValue().matches("%vault.azure.net%") or
-      str.getValue().matches("%@Microsoft.KeyVault%")
+      value.regexpMatch("(?i).*keyvault.*") or
+      value.matches("%vault.azure.net%") or
+      value.matches("%@Microsoft.KeyVault%")
     )
   )
 }

@@ -19,6 +19,10 @@ YELLOW = '\033[1;33m'
 BLUE = '\033[0;34m'
 NC = '\033[0m'  # No Color
 
+# Pre-compiled regex patterns for efficiency
+CONNECTION_STRING_PATTERN = re.compile(r'.*[Ss]erver=.*|.*[Dd]atabase=.*|.*[Pp]assword=.*|.*[Aa]ccount[Kk]ey=.*|.*[Ss]hared[Aa]ccess[Kk]ey=.*|.*[Cc]onnection[Ss]tring.*')
+CREDENTIAL_PATTERN = re.compile(r'password=.+;|accountkey=.+', re.IGNORECASE)
+
 class SecurityIssue:
     """Represents a security issue found in the analysis"""
     def __init__(self, severity: str, title: str, message: str, file_path: str, location: str = ""):
@@ -105,43 +109,57 @@ class AzureSecurityAnalyzer:
     
     def _check_key_vault_config(self, file_path: str, content: Dict[str, Any]):
         """Check for Key Vault misconfigurations (Azure Vault Recon)"""
-        content_str = json.dumps(content)
         
-        # Check if this file references Key Vault
-        if "keyvault" in content_str.lower() or "vault.azure.net" in content_str.lower():
-            properties = content.get("properties", {})
-            
-            # Check for missing network restrictions
-            if "networkAcls" not in properties and "networkRuleSet" not in properties:
-                if "vault.azure.net" in content_str:
-                    self.issues.append(SecurityIssue(
-                        "error",
-                        "Key Vault Without Network Restrictions",
-                        "Key Vault configuration missing network restrictions, allowing access from any network",
-                        file_path,
-                        "properties"
-                    ))
-            
-            # Check for public network access
-            if properties.get("publicNetworkAccess") == "Enabled":
+        # Helper to recursively check for Key Vault references
+        def has_keyvault_reference(obj: Any) -> bool:
+            """Check if object contains Key Vault references"""
+            if isinstance(obj, str):
+                return ("keyvault" in obj.lower() or 
+                       "vault.azure.net" in obj.lower() or 
+                       "@Microsoft.KeyVault" in obj)
+            elif isinstance(obj, dict):
+                return any(has_keyvault_reference(v) for v in obj.values())
+            elif isinstance(obj, list):
+                return any(has_keyvault_reference(item) for item in obj)
+            return False
+        
+        # Only check files that reference Key Vault
+        if not has_keyvault_reference(content):
+            return
+        
+        properties = content.get("properties", {})
+        
+        # Check for missing network restrictions
+        if "networkAcls" not in properties and "networkRuleSet" not in properties:
+            if has_keyvault_reference(properties):
                 self.issues.append(SecurityIssue(
                     "error",
-                    "Key Vault Public Access Enabled",
-                    "Key Vault allows public network access, potentially exposing secrets to unauthorized enumeration",
+                    "Key Vault Without Network Restrictions",
+                    "Key Vault configuration missing network restrictions, allowing access from any network",
                     file_path,
-                    "properties.publicNetworkAccess"
+                    "properties"
                 ))
-            
-            # Check network ACLs default action
-            network_acls = properties.get("networkAcls", {})
-            if network_acls.get("defaultAction") == "Allow":
-                self.issues.append(SecurityIssue(
-                    "error",
-                    "Permissive Key Vault Network ACL",
-                    "Key Vault network ACL default action is 'Allow', should be 'Deny' with explicit allowlists",
-                    file_path,
-                    "properties.networkAcls.defaultAction"
-                ))
+        
+        # Check for public network access
+        if properties.get("publicNetworkAccess") == "Enabled":
+            self.issues.append(SecurityIssue(
+                "error",
+                "Key Vault Public Access Enabled",
+                "Key Vault allows public network access, potentially exposing secrets to unauthorized enumeration",
+                file_path,
+                "properties.publicNetworkAccess"
+            ))
+        
+        # Check network ACLs default action
+        network_acls = properties.get("networkAcls", {})
+        if network_acls.get("defaultAction") == "Allow":
+            self.issues.append(SecurityIssue(
+                "error",
+                "Permissive Key Vault Network ACL",
+                "Key Vault network ACL default action is 'Allow', should be 'Deny' with explicit allowlists",
+                file_path,
+                "properties.networkAcls.defaultAction"
+            ))
     
     def _check_access_control(self, file_path: str, content: Dict[str, Any]):
         """Check for missing access control in API endpoints"""
@@ -216,9 +234,8 @@ class AzureSecurityAnalyzer:
                     
                     # Check for connection strings
                     if isinstance(value, str):
-                        if any(pattern in value.lower() for pattern in 
-                              ["server=", "database=", "accountkey=", "sharedaccesskey="]):
-                            if re.search(r'password=.+;', value.lower()) or re.search(r'accountkey=.+', value.lower()):
+                        if CONNECTION_STRING_PATTERN.match(value):
+                            if CREDENTIAL_PATTERN.search(value):
                                 if not ("@Microsoft.KeyVault" in value or "${keyvault:" in value):
                                     self.issues.append(SecurityIssue(
                                         "error",
