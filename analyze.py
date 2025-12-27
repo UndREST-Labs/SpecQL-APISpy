@@ -330,8 +330,18 @@ def main():
     src_zip = db_path / "src.zip"
     extracted_dir = db_path / "mnt"
     
-    if not extracted_dir.exists() and src_zip.exists():
+    # Check if extraction is needed (directory missing or empty)
+    needs_extraction = False
+    if not extracted_dir.exists():
+        needs_extraction = True
+    elif not any(extracted_dir.rglob("*.json")):
+        # Directory exists but has no JSON files
+        needs_extraction = True
+    
+    if needs_extraction and src_zip.exists():
         print(f"{BLUE}Extracting Azure API specifications...{NC}")
+        # Create directory if it doesn't exist
+        extracted_dir.mkdir(parents=True, exist_ok=True)
         with ZipFile(src_zip, 'r') as zip_ref:
             zip_ref.extractall(db_path)
         print(f"{GREEN}✓ Extraction complete{NC}\n")
