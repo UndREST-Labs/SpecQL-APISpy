@@ -20,8 +20,11 @@ BLUE = '\033[0;34m'
 NC = '\033[0m'  # No Color
 
 # Pre-compiled regex patterns for efficiency
-CONNECTION_STRING_PATTERN = re.compile(r'.*[Ss]erver=.*|.*[Dd]atabase=.*|.*[Pp]assword=.*|.*[Aa]ccount[Kk]ey=.*|.*[Ss]hared[Aa]ccess[Kk]ey=.*|.*[Cc]onnection[Ss]tring.*')
-CREDENTIAL_PATTERN = re.compile(r'password=.+;|accountkey=.+', re.IGNORECASE)
+CONNECTION_STRING_PATTERN = re.compile(
+    r'(?:server|database|password|accountkey|sharedaccesskey|connectionstring)=',
+    re.IGNORECASE
+)
+CREDENTIAL_PATTERN = re.compile(r'password=.+[;&]|accountkey=.+', re.IGNORECASE)
 
 class SecurityIssue:
     """Represents a security issue found in the analysis"""
@@ -210,8 +213,12 @@ class AzureSecurityAnalyzer:
     def _check_insecure_credentials(self, file_path: str, content: Dict[str, Any]):
         """Check for hardcoded credentials and connection strings"""
         
-        def check_object(obj: Any, path: str = ""):
-            """Recursively check object for credentials"""
+        def check_object(obj: Any, path: str = "", depth: int = 0):
+            """Recursively check object for credentials with depth limit"""
+            # Prevent stack overflow on deeply nested structures
+            if depth > 50:
+                return
+                
             if isinstance(obj, dict):
                 for key, value in obj.items():
                     current_path = f"{path}.{key}" if path else key
@@ -234,7 +241,7 @@ class AzureSecurityAnalyzer:
                     
                     # Check for connection strings
                     if isinstance(value, str):
-                        if CONNECTION_STRING_PATTERN.match(value):
+                        if CONNECTION_STRING_PATTERN.search(value):
                             if CREDENTIAL_PATTERN.search(value):
                                 if not ("@Microsoft.KeyVault" in value or "${keyvault:" in value):
                                     self.issues.append(SecurityIssue(
@@ -259,12 +266,12 @@ class AzureSecurityAnalyzer:
                                     current_path
                                 ))
                     
-                    # Recurse
-                    check_object(value, current_path)
+                    # Recurse with incremented depth
+                    check_object(value, current_path, depth + 1)
                     
             elif isinstance(obj, list):
                 for i, item in enumerate(obj):
-                    check_object(item, f"{path}[{i}]")
+                    check_object(item, f"{path}[{i}]", depth + 1)
         
         check_object(content)
     

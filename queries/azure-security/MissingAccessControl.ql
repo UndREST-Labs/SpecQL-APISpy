@@ -15,20 +15,11 @@
 import javascript
 
 /**
- * Holds if a JSON object represents a Swagger/OpenAPI path definition
- */
-predicate isApiPath(JsonObject pathDef) {
-  exists(JsonObject paths |
-    paths.getPropStringValue("swagger") = "2.0" and
-    pathDef = paths.getPropValue("paths").(JsonObject).getPropValue(_)
-  )
-}
-
-/**
  * Holds if an operation (GET, POST, etc.) is missing security requirements
  */
 predicate hasNoSecurity(JsonObject operation) {
   exists(JsonObject pathDef |
+    pathDef = pathDef.getParentContainer().getPropValue("paths").(JsonObject).getPropValue(_) and
     operation = pathDef.getPropValue(_) and
     operation instanceof JsonObject and
     not exists(JsonValue security | security = operation.getPropValue("security")) and

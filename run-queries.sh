@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # SpeQL - Security Query Runner for Azure APIs
 # This script runs CodeQL security queries against Azure REST API specifications
