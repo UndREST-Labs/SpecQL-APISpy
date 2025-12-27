@@ -340,8 +340,6 @@ def main():
     
     if needs_extraction and src_zip.exists():
         print(f"{BLUE}Extracting Azure API specifications...{NC}")
-        # Create directory if it doesn't exist
-        extracted_dir.mkdir(parents=True, exist_ok=True)
         with ZipFile(src_zip, 'r') as zip_ref:
             zip_ref.extractall(db_path)
         print(f"{GREEN}✓ Extraction complete{NC}\n")
