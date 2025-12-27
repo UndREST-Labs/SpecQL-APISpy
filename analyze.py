@@ -8,8 +8,9 @@ import json
 import sys
 import os
 import re
+import argparse
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from zipfile import ZipFile
 
 # ANSI color codes
@@ -283,10 +284,16 @@ class AzureSecurityAnalyzer:
         
         for json_file in json_files:
             try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    content = json.load(f)
-                    relative_path = json_file.relative_to(directory)
-                    self.analyze_file(str(relative_path), content)
+                # Try utf-8-sig first to handle BOM, fall back to utf-8
+                try:
+                    with open(json_file, 'r', encoding='utf-8-sig') as f:
+                        content = json.load(f)
+                except UnicodeDecodeError:
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        content = json.load(f)
+                
+                relative_path = json_file.relative_to(directory)
+                self.analyze_file(str(relative_path), content)
             except Exception as e:
                 print(f"{YELLOW}Warning: Could not analyze {json_file}: {e}{NC}")
     
@@ -375,32 +382,108 @@ def find_specs_directory(db_path: Path) -> Path:
     return None
 
 
+def parse_arguments():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description="SpeQL - Security analyzer for Azure REST API specifications",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze from database (default)
+  %(prog)s
+  
+  # Analyze from azure-rest-api-specs repository
+  %(prog)s --source azure-rest-api-specs/specification
+  
+  # Analyze a specific path in azure-rest-api-specs
+  %(prog)s --source azure-rest-api-specs/specification/logic
+  
+  # Analyze with verbose output
+  %(prog)s --verbose
+        """
+    )
+    
+    parser.add_argument(
+        '-s', '--source',
+        type=str,
+        default=None,
+        help='Path to Azure specifications directory (default: use database/azure-api-db)'
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Enable verbose output with additional diagnostics'
+    )
+    
+    return parser.parse_args()
+
+
 def main():
     """Main entry point"""
+    args = parse_arguments()
+    
     print("═" * 60)
     print("  SpeQL - Azure Security Analyzer")
     print("  Detecting Azure Silent Reaper & Vault Recon vulnerabilities")
     print("═" * 60)
     print()
     
-    # Check if source is extracted
+    # Determine source directory
+    if args.source:
+        # User specified a custom source directory
+        source_path = Path(args.source)
+        if not source_path.exists():
+            print(f"{RED}Error: Specified source path does not exist: {source_path}{NC}")
+            sys.exit(1)
+        
+        json_count = len(list(source_path.rglob("*.json")))
+        print(f"{BLUE}Diagnostics:{NC}")
+        print(f"  - Source mode: Custom directory")
+        print(f"  - Source path: {source_path.absolute()}")
+        print(f"  - JSON files found: {json_count:,}")
+        print()
+        
+        if json_count == 0:
+            print(f"{RED}Error: No JSON files found in source path{NC}")
+            sys.exit(1)
+        
+        # Analyze the custom source directly
+        analyzer = AzureSecurityAnalyzer()
+        print(f"{BLUE}Analyzing specifications from: {source_path.name}/{NC}")
+        analyzer.analyze_directory(source_path)
+        analyzer.print_results()
+        
+        # Exit with error code if issues found
+        if analyzer.issues:
+            sys.exit(1)
+        sys.exit(0)
+    
+    # Default behavior: use database
     db_path = Path("database/azure-api-db")
     src_zip = db_path / "src.zip"
     
     # Diagnostic information
     print(f"{BLUE}Diagnostics:{NC}")
+    print(f"  - Source mode: Database")
     print(f"  - Database path: {db_path.absolute()}")
     print(f"  - Database exists: {db_path.exists()}")
     print(f"  - src.zip exists: {src_zip.exists()}")
     if src_zip.exists():
         print(f"  - src.zip size: {src_zip.stat().st_size:,} bytes")
     
+    # Check for azure-rest-api-specs repository
+    azure_specs_path = Path("azure-rest-api-specs/specification")
+    if azure_specs_path.exists() and args.verbose:
+        azure_json_count = len(list(azure_specs_path.rglob("*.json")))
+        print(f"  - azure-rest-api-specs found: {azure_json_count:,} JSON files")
+        print(f"    (Use --source azure-rest-api-specs/specification to analyze all)")
+    
     # Find any directory with specs
     extracted_dir = find_specs_directory(db_path)
     if extracted_dir:
         json_count = len(list(extracted_dir.rglob("*.json")))
         print(f"  - Found specifications in: {extracted_dir.name}/")
-        print(f"  - JSON files: {json_count}")
+        print(f"  - JSON files in database: {json_count}")
     else:
         print(f"  - No specification directories found")
     print()
@@ -414,7 +497,17 @@ def main():
         if not src_zip.exists():
             print(f"{RED}Error: Cannot extract - {src_zip} not found{NC}")
             print()
-            print(f"{YELLOW}Please run 'python3 refresh_database.py' first to create the database.{NC}")
+            
+            # Check if azure-rest-api-specs exists
+            azure_specs_path = Path("azure-rest-api-specs/specification")
+            if azure_specs_path.exists():
+                azure_json_count = len(list(azure_specs_path.rglob("*.json")))
+                print(f"{YELLOW}Note: azure-rest-api-specs repository found with {azure_json_count:,} JSON files.{NC}")
+                print(f"{YELLOW}To analyze these files, run:{NC}")
+                print(f"  python3 analyze.py --source azure-rest-api-specs/specification")
+                print()
+            
+            print(f"{YELLOW}To create a database, run 'python3 refresh_database.py' first.{NC}")
             sys.exit(1)
         
         # Validate the zip file before extraction  

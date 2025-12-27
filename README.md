@@ -249,6 +249,46 @@ This will:
 
 **No additional dependencies required!** The Python analyzer works out of the box.
 
+### Analyzing Different Scopes
+
+The analyzer supports multiple modes for different use cases:
+
+#### Default Mode: Database Analysis
+```bash
+# Analyze from pre-built database (fastest, ~309 files for Logic Apps)
+python3 analyze.py
+
+# Verbose mode shows file counts and available alternatives
+python3 analyze.py --verbose
+```
+
+#### Direct Repository Analysis
+```bash
+# Analyze from full azure-rest-api-specs repository (~253,543 files)
+python3 analyze.py --source azure-rest-api-specs/specification
+
+# Analyze specific Azure service
+python3 analyze.py --source azure-rest-api-specs/specification/keyvault
+python3 analyze.py --source azure-rest-api-specs/specification/compute
+
+# Analyze custom directory
+python3 analyze.py --source /path/to/custom/specs
+```
+
+**Note**: To analyze the full repository, first clone it:
+```bash
+python3 refresh_database.py --all --skip-db-build
+```
+
+#### When to Use Each Mode
+
+- **Database Mode** (default): Fast analysis of specific service (Logic Apps by default)
+- **Full Repository**: Comprehensive security audit of all Azure services
+- **Specific Service**: Focused analysis of one Azure service (Key Vault, Compute, etc.)
+- **Custom Directory**: Analyze your own API specifications
+
+See `ANALYSIS_JSON_FILE_COUNT.md` for detailed information about file counts and performance considerations.
+
 ### Advanced: Using CodeQL Queries
 
 For more advanced analysis with CodeQL (requires CodeQL CLI):
