@@ -317,6 +317,73 @@ class AzureSecurityAnalyzer:
         print(f"{'═' * 60}\n")
 
 
+def validate_zip_file(zip_path: Path) -> bool:
+    """Validate that the zip file is correct and contains expected content"""
+    try:
+        with ZipFile(zip_path, 'r') as zip_ref:
+            # Check if zip is valid
+            if zip_ref.testzip() is not None:
+                print(f"{RED}Error: {zip_path} is corrupted{NC}")
+                return False
+            
+            # Get list of files in zip
+            file_list = zip_ref.namelist()
+            
+            # Validate that it contains the expected structure (mnt/... or src/...)
+            has_mnt = any(f.startswith('mnt/') for f in file_list)
+            has_src = any(f.startswith('src/') for f in file_list)
+            has_json = any(f.endswith('.json') for f in file_list)
+            
+            if not has_json:
+                print(f"{YELLOW}Warning: {zip_path} contains no JSON files{NC}")
+                return False
+            
+            if not (has_mnt or has_src):
+                print(f"{YELLOW}Warning: {zip_path} doesn't match expected structure (missing mnt/ or src/ directory){NC}")
+                print(f"{YELLOW}This may not be a database created by refresh_database.py{NC}")
+                return False
+            
+            # Print diagnostic information
+            json_count = sum(1 for f in file_list if f.endswith('.json'))
+            print(f"{BLUE}Zip file validation:{NC}")
+            print(f"  - Total files: {len(file_list)}")
+            print(f"  - JSON files: {json_count}")
+            print(f"  - Structure: {'mnt/' if has_mnt else 'src/'}")
+            
+            return True
+            
+    except Exception as e:
+        print(f"{RED}Error: Cannot read {zip_path}: {e}{NC}")
+        return False
+
+
+def check_dependencies() -> bool:
+    """Check if required Python modules are available"""
+    missing_deps = []
+    
+    try:
+        import zipfile
+    except ImportError:
+        missing_deps.append("zipfile")
+    
+    try:
+        import json
+    except ImportError:
+        missing_deps.append("json")
+    
+    try:
+        from pathlib import Path
+    except ImportError:
+        missing_deps.append("pathlib")
+    
+    if missing_deps:
+        print(f"{RED}Error: Missing required Python modules: {', '.join(missing_deps)}{NC}")
+        print(f"{YELLOW}Please ensure you're using Python 3.6 or later{NC}")
+        return False
+    
+    return True
+
+
 def main():
     """Main entry point"""
     print("═" * 60)
@@ -325,24 +392,63 @@ def main():
     print("═" * 60)
     print()
     
+    # Check dependencies first
+    if not check_dependencies():
+        sys.exit(1)
+    
     # Check if source is extracted
     db_path = Path("database/azure-api-db")
     src_zip = db_path / "src.zip"
     extracted_dir = db_path / "mnt"
     
+    # Diagnostic information
+    print(f"{BLUE}Diagnostics:{NC}")
+    print(f"  - Database path: {db_path.absolute()}")
+    print(f"  - Database exists: {db_path.exists()}")
+    print(f"  - src.zip exists: {src_zip.exists()}")
+    if src_zip.exists():
+        print(f"  - src.zip size: {src_zip.stat().st_size:,} bytes")
+    print(f"  - mnt directory exists: {extracted_dir.exists()}")
+    if extracted_dir.exists():
+        json_files = list(extracted_dir.rglob("*.json"))
+        print(f"  - JSON files in mnt: {len(json_files)}")
+    print()
+    
     # Check if extraction is needed (directory missing or empty)
     needs_extraction = False
     if not extracted_dir.exists():
+        print(f"{YELLOW}mnt directory does not exist, extraction needed{NC}")
         needs_extraction = True
     elif not any(extracted_dir.rglob("*.json")):
         # Directory exists but has no JSON files
+        print(f"{YELLOW}mnt directory is empty, extraction needed{NC}")
         needs_extraction = True
     
-    if needs_extraction and src_zip.exists():
+    if needs_extraction:
+        if not src_zip.exists():
+            print(f"{RED}Error: Cannot extract - {src_zip} not found{NC}")
+            print()
+            print(f"{YELLOW}Please run 'python3 refresh_database.py' first to create the database.{NC}")
+            sys.exit(1)
+        
+        # Validate the zip file before extraction
+        print(f"{BLUE}Validating {src_zip}...{NC}")
+        if not validate_zip_file(src_zip):
+            print()
+            print(f"{RED}Error: Invalid or corrupted zip file{NC}")
+            print(f"{YELLOW}Please run 'python3 refresh_database.py' to recreate the database.{NC}")
+            sys.exit(1)
+        
+        print()
         print(f"{BLUE}Extracting Azure API specifications...{NC}")
-        with ZipFile(src_zip, 'r') as zip_ref:
-            zip_ref.extractall(db_path)
-        print(f"{GREEN}✓ Extraction complete{NC}\n")
+        try:
+            with ZipFile(src_zip, 'r') as zip_ref:
+                zip_ref.extractall(db_path)
+            print(f"{GREEN}✓ Extraction complete{NC}\n")
+        except Exception as e:
+            print(f"{RED}Error: Extraction failed: {e}{NC}")
+            print(f"{YELLOW}Please check file permissions and disk space.{NC}")
+            sys.exit(1)
     
     # Analyze the specifications
     analyzer = AzureSecurityAnalyzer()
@@ -353,12 +459,7 @@ def main():
         print(f"{RED}Error: Azure API specifications not found{NC}")
         print(f"Expected at: {extracted_dir}")
         print()
-        if not src_zip.exists():
-            print(f"{YELLOW}Note: {src_zip} not found.{NC}")
-            print("Please run 'python3 refresh_database.py' first to download and prepare the database.")
-        else:
-            print(f"{YELLOW}Note: {src_zip} exists but extraction failed.{NC}")
-            print("Please check file permissions and disk space.")
+        print(f"{YELLOW}This should not happen after extraction. Please check file permissions.{NC}")
         sys.exit(1)
     
     # Print results
