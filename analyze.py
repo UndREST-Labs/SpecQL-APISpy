@@ -352,6 +352,13 @@ def main():
     else:
         print(f"{RED}Error: Azure API specifications not found{NC}")
         print(f"Expected at: {extracted_dir}")
+        print()
+        if not src_zip.exists():
+            print(f"{YELLOW}Note: {src_zip} not found.{NC}")
+            print("Please run 'python3 refresh_database.py' first to download and prepare the database.")
+        else:
+            print(f"{YELLOW}Note: {src_zip} exists but extraction failed.{NC}")
+            print("Please check file permissions and disk space.")
         sys.exit(1)
     
     # Print results
