@@ -1,23 +1,33 @@
-# Docker Setup Guide for SpeQL on ARM64
+# Docker Setup Guide for SpeQL
 
-This guide provides detailed instructions for running SpeQL in Docker containers on ARM64 architecture devices such as Raspberry Pi, Apple Silicon Macs, AWS Graviton instances, and other ARM-based systems.
+This guide provides detailed instructions for running SpeQL in Docker containers on both x86_64 (standard Intel/AMD) and ARM64 architectures.
 
 ## Overview
 
-The SpeQL ARM64 Docker image includes:
+SpeQL provides two Docker images:
+
+### Standard x86_64/amd64 Image (`Dockerfile`)
 - Debian Bookworm (slim) as the base OS
 - OpenJDK 17 for CodeQL runtime
-- CodeQL CLI v2.20.4 (ARM64 binary)
+- CodeQL CLI v2.20.4 (x86_64 binary)
 - Python 3 for SpeQL scripts
 - All SpeQL tools and queries
+
+### ARM64 Image (`Dockerfile.arm64`)
+- Debian Bookworm (slim) as the base OS
+- OpenJDK 17 for CodeQL runtime
+- CodeQL CLI v2.20.4 (ARM64 binary with auto-detection)
+- Python 3 for SpeQL scripts
+- All SpeQL tools and queries
+- Supports: Raspberry Pi, Apple Silicon Macs, AWS Graviton, Azure ARM VMs
 
 ## Prerequisites
 
 - **Docker** installed on your system
+  - Linux (x86_64/ARM64): [Docker Engine](https://docs.docker.com/engine/install/)
+  - macOS (Intel/Apple Silicon): [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+  - Windows (WSL2): [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
   - Raspberry Pi: Install Docker following [official instructions](https://docs.docker.com/engine/install/debian/)
-  - macOS (Apple Silicon): [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
-  - Linux ARM64: Install Docker Engine from your distribution's repository
-- **Architecture**: ARM64/aarch64 processor
 - **Memory**: Minimum 2GB RAM recommended
 - **Storage**: At least 2GB free disk space for the image and database
 
@@ -25,12 +35,17 @@ The SpeQL ARM64 Docker image includes:
 
 ### 1. Build the Image
 
-On an ARM64 system:
+**For x86_64/amd64 systems (standard Intel/AMD):**
+```bash
+docker build -t speql:latest .
+```
+
+**For ARM64 systems (Raspberry Pi, Apple Silicon, etc.):**
 ```bash
 docker build -f Dockerfile.arm64 -t speql:arm64 .
 ```
 
-On an x86_64 system with buildx (cross-compilation):
+**Cross-platform build from x86_64 to ARM64:**
 ```bash
 docker buildx create --use
 docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --load .
@@ -38,6 +53,12 @@ docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --
 
 ### 2. Run the Analyzer
 
+**x86_64 version:**
+```bash
+docker run --rm -v $(pwd)/results:/speql/results speql:latest python3 analyze.py
+```
+
+**ARM64 version:**
 ```bash
 docker run --rm -v $(pwd)/results:/speql/results speql:arm64 python3 analyze.py
 ```
@@ -48,6 +69,14 @@ docker run --rm -v $(pwd)/results:/speql/results speql:arm64 python3 analyze.py
 
 The Python analyzer is the simplest way to detect security issues:
 
+**x86_64:**
+```bash
+docker run --rm \
+  -v $(pwd)/results:/speql/results \
+  speql:latest python3 analyze.py
+```
+
+**ARM64:**
 ```bash
 docker run --rm \
   -v $(pwd)/results:/speql/results \
@@ -58,6 +87,14 @@ docker run --rm \
 
 Update the Azure API specifications database:
 
+**x86_64:**
+```bash
+docker run --rm \
+  -v $(pwd)/results:/speql/results \
+  speql:latest ./refresh-database.sh
+```
+
+**ARM64:**
 ```bash
 docker run --rm \
   -v $(pwd)/results:/speql/results \
@@ -68,13 +105,21 @@ With specific Azure service:
 ```bash
 docker run --rm \
   -v $(pwd)/results:/speql/results \
-  speql:arm64 ./refresh-database.sh --path specification/keyvault
+  speql:latest ./refresh-database.sh --path specification/keyvault
 ```
 
 ### Running CodeQL Queries
 
 Execute all security queries:
 
+**x86_64:**
+```bash
+docker run --rm \
+  -v $(pwd)/results:/speql/results \
+  speql:latest ./run-queries.sh
+```
+
+**ARM64:**
 ```bash
 docker run --rm \
   -v $(pwd)/results:/speql/results \
@@ -85,6 +130,12 @@ docker run --rm \
 
 Open an interactive shell for manual operations:
 
+**x86_64:**
+```bash
+docker run --rm -it speql:latest /bin/bash
+```
+
+**ARM64:**
 ```bash
 docker run --rm -it speql:arm64 /bin/bash
 ```
@@ -98,10 +149,21 @@ codeql version
 
 ## Using Docker Compose
 
-The repository includes a `docker-compose.yml` file for easier container management.
+The repository includes a `docker-compose.yml` file for easier container management with both x86_64 and ARM64 services.
 
 ### Build and Run
 
+**Standard x86_64 service:**
+```bash
+docker-compose up speql
+```
+
+**ARM64 service:**
+```bash
+docker-compose up speql-arm64
+```
+
+**Both services:**
 ```bash
 docker-compose up
 ```
@@ -109,12 +171,23 @@ docker-compose up
 ### Run in Background
 
 ```bash
-docker-compose up -d
+# x86_64 in background
+docker-compose up -d speql
+
+# ARM64 in background
+docker-compose up -d speql-arm64
 ```
 
 ### View Logs
 
 ```bash
+# View logs for x86_64 service
+docker-compose logs -f speql
+
+# View logs for ARM64 service
+docker-compose logs -f speql-arm64
+
+# View all logs
 docker-compose logs -f
 ```
 
@@ -127,6 +200,7 @@ docker-compose down
 ### Customize Docker Compose
 
 Edit `docker-compose.yml` to change:
+- Which service to use (speql for x86_64, speql-arm64 for ARM64)
 - Command to execute
 - Volume mounts
 - Environment variables
@@ -242,6 +316,16 @@ docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --
 
 ## Performance Considerations
 
+### x86_64/amd64 (Intel/AMD processors)
+
+- **Desktop/Server**: Excellent performance on modern CPUs
+- **Cloud Instances**: 
+  - AWS: t3.medium or larger recommended
+  - Azure: Standard B2s or larger
+  - GCP: e2-medium or larger
+- **Best for**: Production deployments, CI/CD pipelines, full database analysis
+- Native execution with no emulation overhead
+
 ### Raspberry Pi
 
 - **Raspberry Pi 4 (4GB+)**: Good performance for small to medium databases
@@ -274,12 +358,42 @@ docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --
 
 ### GitHub Actions
 
+**Standard x86_64 build (recommended for CI/CD):**
+
 ```yaml
 name: SpeQL Analysis
 on: [push, pull_request]
 
 jobs:
   security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build SpeQL Image
+        run: |
+          docker build -t speql:latest .
+      
+      - name: Run Analysis
+        run: |
+          docker run --rm -v $(pwd)/results:/speql/results \
+            speql:latest python3 analyze.py
+      
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: speql-results
+          path: results/
+```
+
+**ARM64 build (for ARM-based CI runners):**
+
+```yaml
+name: SpeQL Analysis ARM64
+on: [push, pull_request]
+
+jobs:
+  security-scan-arm64:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

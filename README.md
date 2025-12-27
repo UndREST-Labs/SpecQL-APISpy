@@ -85,21 +85,27 @@ SpeQL/
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
 
-### Docker Installation (ARM64 Support)
+### Docker Installation
 
-SpeQL provides a Docker image optimized for ARM64 architecture, making it easy to run on devices like Raspberry Pi, Apple Silicon Macs, and other ARM-based systems.
+SpeQL provides Docker images for both x86_64 (standard Intel/AMD) and ARM64 architectures, making it easy to run on various platforms including standard servers, Raspberry Pi, Apple Silicon Macs, and other ARM-based systems.
 
 **For detailed Docker instructions, see [DOCKER.md](./DOCKER.md)**
 
 #### Building the Docker Image
 
-**On ARM64 systems (Raspberry Pi, Apple Silicon, etc.):**
+**Standard x86_64/amd64 (Intel/AMD processors):**
+```bash
+# Build the standard Docker image
+docker build -t speql:latest .
+```
+
+**ARM64 (Raspberry Pi, Apple Silicon, etc.):**
 ```bash
 # Build the ARM64 Docker image
 docker build -f Dockerfile.arm64 -t speql:arm64 .
 ```
 
-**On x86_64 systems with Docker Buildx (cross-platform build):**
+**Cross-platform build from x86_64 to ARM64:**
 ```bash
 # Enable buildx for multi-platform builds
 docker buildx create --use
@@ -108,15 +114,18 @@ docker buildx create --use
 docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --load .
 ```
 
-**Note**: Cross-platform builds on x86_64 systems may take significantly longer due to emulation.
+**Note**: Cross-platform builds may take significantly longer due to emulation.
 
 **Using Docker Compose:**
 ```bash
-# Build and run with docker-compose
-docker-compose up
+# Build and run the standard x86_64 service
+docker-compose up speql
+
+# Build and run the ARM64 service
+docker-compose up speql-arm64
 
 # Run in detached mode
-docker-compose up -d
+docker-compose up -d speql
 
 # View logs
 docker-compose logs -f
@@ -129,25 +138,37 @@ docker-compose down
 
 **Quick Start - Run the Python Analyzer:**
 ```bash
-# Run the analyzer with results saved to a local directory
+# x86_64 version
+docker run --rm -v $(pwd)/results:/speql/results speql:latest python3 analyze.py
+
+# ARM64 version
 docker run --rm -v $(pwd)/results:/speql/results speql:arm64 python3 analyze.py
 ```
 
 **Refresh the Database:**
 ```bash
-# Update and rebuild the database inside the container
+# x86_64 version
+docker run --rm -v $(pwd)/results:/speql/results speql:latest ./refresh-database.sh
+
+# ARM64 version
 docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./refresh-database.sh
 ```
 
 **Run CodeQL Queries:**
 ```bash
-# Execute all CodeQL security queries
+# x86_64 version
+docker run --rm -v $(pwd)/results:/speql/results speql:latest ./run-queries.sh
+
+# ARM64 version
 docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./run-queries.sh
 ```
 
 **Interactive Shell:**
 ```bash
-# Open a shell in the container for manual operations
+# x86_64 version
+docker run --rm -it speql:latest /bin/bash
+
+# ARM64 version
 docker run --rm -it speql:arm64 /bin/bash
 ```
 
