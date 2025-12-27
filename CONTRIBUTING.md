@@ -23,8 +23,25 @@ Thank you for your interest in contributing to SpeQL! This guide will help you a
 git clone https://github.com/SpeQLSec/SpeQL.git
 cd SpeQL
 
+# (Optional) Refresh database with latest Azure specs
+./refresh-database.sh --update
+
 # Run the analyzer to ensure everything works
 python3 analyze.py
+```
+
+### Database Management
+
+To work with the latest Azure API specifications:
+
+```bash
+# Update database with latest specs
+./refresh-database.sh --update
+
+# Build database for a specific service
+./refresh-database.sh --path specification/keyvault --fresh
+
+# See DATABASE_REFRESH.md for comprehensive documentation
 ```
 
 ## 📝 Adding a New Security Query

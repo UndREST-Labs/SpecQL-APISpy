@@ -29,5 +29,8 @@ Thumbs.db
 # Logs
 *.log
 
+# Azure REST API specs clone (managed by refresh scripts)
+azure-rest-api-specs/
+
 # Extracted source files (keep zipped)
 database/azure-api-db/mnt/
