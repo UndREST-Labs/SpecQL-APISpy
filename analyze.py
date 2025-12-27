@@ -317,6 +317,64 @@ class AzureSecurityAnalyzer:
         print(f"{'═' * 60}\n")
 
 
+def validate_zip_file(zip_path: Path) -> bool:
+    """Validate that the zip file is correct and contains expected content"""
+    try:
+        with ZipFile(zip_path, 'r') as zip_ref:
+            # Check if zip is valid
+            if zip_ref.testzip() is not None:
+                print(f"{RED}Error: {zip_path} is corrupted{NC}")
+                return False
+            
+            # Get list of files in zip
+            file_list = zip_ref.namelist()
+            
+            # Must contain JSON files
+            has_json = any(f.endswith('.json') for f in file_list)
+            
+            if not has_json:
+                print(f"{YELLOW}Warning: {zip_path} contains no JSON files{NC}")
+                return False
+            
+            # Print diagnostic information
+            json_count = sum(1 for f in file_list if f.endswith('.json'))
+            print(f"{BLUE}Zip file validation:{NC}")
+            print(f"  - Total files: {len(file_list)}")
+            print(f"  - JSON files: {json_count}")
+            
+            # Show top-level directories
+            top_dirs = set()
+            for f in file_list:
+                if '/' in f:
+                    first_dir = f.split('/')[0]
+                    top_dirs.add(first_dir)
+            if top_dirs:
+                print(f"  - Top-level directories: {', '.join(sorted(top_dirs)[:5])}")
+            
+            return True
+            
+    except Exception as e:
+        print(f"{RED}Error: Cannot read {zip_path}: {e}{NC}")
+        return False
+
+
+def find_specs_directory(db_path: Path) -> Path:
+    """Find directory containing JSON specification files"""
+    # Check known directories first
+    for dir_name in ['mnt', 'src', 'specification']:
+        dir_path = db_path / dir_name
+        if dir_path.exists() and any(dir_path.rglob("*.json")):
+            return dir_path
+    
+    # Search for any subdirectory with JSON files
+    for item in db_path.iterdir():
+        if item.is_dir() and item.name not in ['db-javascript', 'diagnostic', 'log', 'temp']:
+            if any(item.rglob("*.json")):
+                return item
+    
+    return None
+
+
 def main():
     """Main entry point"""
     print("═" * 60)
@@ -328,22 +386,72 @@ def main():
     # Check if source is extracted
     db_path = Path("database/azure-api-db")
     src_zip = db_path / "src.zip"
-    extracted_dir = db_path / "mnt"
     
-    if not extracted_dir.exists() and src_zip.exists():
+    # Diagnostic information
+    print(f"{BLUE}Diagnostics:{NC}")
+    print(f"  - Database path: {db_path.absolute()}")
+    print(f"  - Database exists: {db_path.exists()}")
+    print(f"  - src.zip exists: {src_zip.exists()}")
+    if src_zip.exists():
+        print(f"  - src.zip size: {src_zip.stat().st_size:,} bytes")
+    
+    # Find any directory with specs
+    extracted_dir = find_specs_directory(db_path)
+    if extracted_dir:
+        json_count = len(list(extracted_dir.rglob("*.json")))
+        print(f"  - Found specifications in: {extracted_dir.name}/")
+        print(f"  - JSON files: {json_count}")
+    else:
+        print(f"  - No specification directories found")
+    print()
+    
+    # Check if extraction is needed
+    needs_extraction = extracted_dir is None
+    
+    if needs_extraction:
+        print(f"{YELLOW}Specification directory not found, extraction needed{NC}")
+        
+        if not src_zip.exists():
+            print(f"{RED}Error: Cannot extract - {src_zip} not found{NC}")
+            print()
+            print(f"{YELLOW}Please run 'python3 refresh_database.py' first to create the database.{NC}")
+            sys.exit(1)
+        
+        # Validate the zip file before extraction  
+        print(f"{BLUE}Validating {src_zip}...{NC}")
+        if not validate_zip_file(src_zip):
+            print()
+            print(f"{RED}Error: Invalid or corrupted zip file{NC}")
+            print(f"{YELLOW}Please run 'python3 refresh_database.py' to recreate the database.{NC}")
+            sys.exit(1)
+        
+        print()
         print(f"{BLUE}Extracting Azure API specifications...{NC}")
-        with ZipFile(src_zip, 'r') as zip_ref:
-            zip_ref.extractall(db_path)
-        print(f"{GREEN}✓ Extraction complete{NC}\n")
+        try:
+            with ZipFile(src_zip, 'r') as zip_ref:
+                zip_ref.extractall(db_path)
+            print(f"{GREEN}✓ Extraction complete{NC}\n")
+            
+            # Find the extracted directory
+            extracted_dir = find_specs_directory(db_path)
+                
+        except Exception as e:
+            print(f"{RED}Error: Extraction failed: {e}{NC}")
+            print(f"{YELLOW}Please check file permissions and disk space.{NC}")
+            sys.exit(1)
     
     # Analyze the specifications
     analyzer = AzureSecurityAnalyzer()
     
-    if extracted_dir.exists():
+    if extracted_dir and extracted_dir.exists():
+        print(f"{BLUE}Analyzing specifications from: {extracted_dir.name}/{NC}")
         analyzer.analyze_directory(extracted_dir)
     else:
-        print(f"{RED}Error: Azure API specifications not found{NC}")
-        print(f"Expected at: {extracted_dir}")
+        print(f"{RED}Error: Azure API specifications not found after extraction{NC}")
+        print(f"Searched in: {db_path}")
+        print()
+        print(f"{YELLOW}The zip file may not contain JSON specification files.{NC}")
+        print(f"{YELLOW}Please run 'python3 refresh_database.py' to recreate the database.{NC}")
         sys.exit(1)
     
     # Print results
