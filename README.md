@@ -85,6 +85,63 @@ SpeQL/
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
 
+### Docker Installation (ARM64 Support)
+
+SpeQL provides a Docker image optimized for ARM64 architecture, making it easy to run on devices like Raspberry Pi, Apple Silicon Macs, and other ARM-based systems.
+
+#### Building the Docker Image
+
+```bash
+# Build the ARM64 Docker image
+docker build -f Dockerfile.arm64 -t speql:arm64 .
+```
+
+#### Running SpeQL in Docker
+
+**Quick Start - Run the Python Analyzer:**
+```bash
+# Run the analyzer with results saved to a local directory
+docker run --rm -v $(pwd)/results:/speql/results speql:arm64 python3 analyze.py
+```
+
+**Refresh the Database:**
+```bash
+# Update and rebuild the database inside the container
+docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./refresh-database.sh
+```
+
+**Run CodeQL Queries:**
+```bash
+# Execute all CodeQL security queries
+docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./run-queries.sh
+```
+
+**Interactive Shell:**
+```bash
+# Open a shell in the container for manual operations
+docker run --rm -it speql:arm64 /bin/bash
+```
+
+#### Docker Volume Mounts
+
+- `/speql/results` - Mount this to save analysis results to your host system
+- `/speql/azure-rest-api-specs` - Mount this if you want to use external Azure specs
+
+**Example with external specs:**
+```bash
+docker run --rm \
+  -v $(pwd)/results:/speql/results \
+  -v $(pwd)/azure-rest-api-specs:/speql/azure-rest-api-specs \
+  speql:arm64 python3 analyze.py
+```
+
+#### System Requirements
+
+- **Docker** installed and running
+- **Architecture**: ARM64/aarch64 (Raspberry Pi 3+, Apple Silicon, AWS Graviton, etc.)
+- **Memory**: Minimum 2GB RAM recommended
+- **Storage**: At least 2GB free disk space
+
 ### Refreshing the Database
 
 The repository includes scripts to build and refresh the database directly from the Azure REST API specifications:
