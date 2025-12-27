@@ -282,15 +282,22 @@ class AzureSecurityAnalyzer:
         
         print(f"Analyzing {len(json_files)} JSON files...")
         
+        # List of encodings to try in order
+        encodings = ['utf-8-sig', 'utf-8', 'latin-1']
+        
         for json_file in json_files:
             try:
-                # Try utf-8-sig first to handle BOM, fall back to utf-8
-                try:
-                    with open(json_file, 'r', encoding='utf-8-sig') as f:
-                        content = json.load(f)
-                except UnicodeDecodeError:
-                    with open(json_file, 'r', encoding='utf-8') as f:
-                        content = json.load(f)
+                content = None
+                for encoding in encodings:
+                    try:
+                        with open(json_file, 'r', encoding=encoding) as f:
+                            content = json.load(f)
+                        break  # Success, exit encoding loop
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        continue  # Try next encoding
+                
+                if content is None:
+                    raise ValueError(f"Could not decode file with any supported encoding")
                 
                 relative_path = json_file.relative_to(directory)
                 self.analyze_file(str(relative_path), content)
@@ -436,7 +443,7 @@ def main():
             print(f"{RED}Error: Specified source path does not exist: {source_path}{NC}")
             sys.exit(1)
         
-        json_count = len(list(source_path.rglob("*.json")))
+        json_count = sum(1 for _ in source_path.rglob("*.json"))
         print(f"{BLUE}Diagnostics:{NC}")
         print(f"  - Source mode: Custom directory")
         print(f"  - Source path: {source_path.absolute()}")
@@ -474,14 +481,14 @@ def main():
     # Check for azure-rest-api-specs repository
     azure_specs_path = Path("azure-rest-api-specs/specification")
     if azure_specs_path.exists() and args.verbose:
-        azure_json_count = len(list(azure_specs_path.rglob("*.json")))
+        azure_json_count = sum(1 for _ in azure_specs_path.rglob("*.json"))
         print(f"  - azure-rest-api-specs found: {azure_json_count:,} JSON files")
         print(f"    (Use --source azure-rest-api-specs/specification to analyze all)")
     
     # Find any directory with specs
     extracted_dir = find_specs_directory(db_path)
     if extracted_dir:
-        json_count = len(list(extracted_dir.rglob("*.json")))
+        json_count = sum(1 for _ in extracted_dir.rglob("*.json"))
         print(f"  - Found specifications in: {extracted_dir.name}/")
         print(f"  - JSON files in database: {json_count}")
     else:
@@ -501,7 +508,7 @@ def main():
             # Check if azure-rest-api-specs exists
             azure_specs_path = Path("azure-rest-api-specs/specification")
             if azure_specs_path.exists():
-                azure_json_count = len(list(azure_specs_path.rglob("*.json")))
+                azure_json_count = sum(1 for _ in azure_specs_path.rglob("*.json"))
                 print(f"{YELLOW}Note: azure-rest-api-specs repository found with {azure_json_count:,} JSON files.{NC}")
                 print(f"{YELLOW}To analyze these files, run:{NC}")
                 print(f"  python3 analyze.py --source azure-rest-api-specs/specification")
