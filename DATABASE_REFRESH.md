@@ -256,8 +256,9 @@ done
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
    - Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns
-   - Uses a no-op build script to prevent autobuild from running
-   - Indexes all JSON files for query execution without attempting to compile them
+   - Allows autobuild to run naturally (which indexes the JSON files)
+   - A warning "Only found JavaScript or TypeScript files that were empty..." is expected but harmless
+   - Indexes all JSON files for query execution
 
 3. **Compatibility Setup**
    - Creates `src.zip` for `analyze.py` compatibility
@@ -323,13 +324,13 @@ export PATH="$PATH:$(pwd)/codeql"
 
 ### Note: CodeQL Database Creation Process
 
-**The scripts use a no-op build script with codescanning config**:
+**The scripts use codescanning config to index JSON files**:
 - Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns (`**/*.json`)
-- A temporary build script (`database/build.sh`) is created that simply exits successfully
-- This prevents CodeQL's autobuild from running and trying to compile JSON files
-- JSON files are indexed directly without JavaScript compilation attempts
+- Autobuild runs naturally and indexes the JSON files specified in the config
+- A warning "Only found JavaScript or TypeScript files that were empty or contained syntax errors" is **expected and harmless**
+- This warning appears because JSON files are not executable JavaScript, but they are still indexed correctly
 - The codescanning config is essential for JSON file indexing in JavaScript language databases
-- The database creation should complete cleanly without warnings
+- The database creation completes successfully and can be queried normally
 
 ### Problem: "analyze.py can't find files"
 

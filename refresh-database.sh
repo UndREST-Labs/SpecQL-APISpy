@@ -184,28 +184,14 @@ build_codeql_database() {
         rm -rf "$DATABASE_DIR"
     fi
     
-    # Create a simple build script for CodeQL to execute
-    # This prevents autobuild from running and trying to compile JSON files
-    local build_script="database/build.sh"
-    mkdir -p database
-    cat > "$build_script" << 'BUILDSCRIPT'
-#!/bin/bash
-# No-op build script for JSON-only analysis
-exit 0
-BUILDSCRIPT
-    chmod +x "$build_script"
-    
-    # Set up trap to always clean up build script
-    trap 'rm -f "$build_script"' EXIT
-    
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
-    # Use a no-op build script to prevent autobuild from running
-    # The --codescanning-config parameter is crucial for JSON file indexing
+    # Use --codescanning-config to specify which files to index (JSON files)
+    # The warning "Only found JavaScript or TypeScript files that were empty..." is expected
+    # but harmless - the JSON files are still indexed correctly
     codeql database create "$DATABASE_DIR" \
         --language=javascript \
         --source-root="$source_path" \
         --codescanning-config="$CONFIG_FILE" \
-        --command="$(pwd)/$build_script" \
         --overwrite \
         2>&1 | tee /tmp/codeql-build.log || {
             print_error "Failed to create CodeQL database"
