@@ -26,11 +26,11 @@ class TriggerType extends string {
 /**
  * Holds if a JSON object represents a workflow trigger definition
  */
-predicate isWorkflowTrigger(JSONObject obj) {
+predicate isWorkflowTrigger(JsonObject obj) {
   exists(TriggerType triggerType |
-    obj.getPropValue("type").(JSONString).getValue() = triggerType
+    obj.getPropValue("type").(JsonString).getValue() = triggerType
   ) or
-  exists(JSONValue triggers |
+  exists(JsonValue triggers |
     triggers = obj.getParentContainer*().getPropValue("triggers") and
     obj.getParentContainer() = triggers
   )
@@ -39,13 +39,13 @@ predicate isWorkflowTrigger(JSONObject obj) {
 /**
  * Holds if a trigger has no authentication configuration
  */
-predicate hasNoAuthentication(JSONObject trigger) {
+predicate hasNoAuthentication(JsonObject trigger) {
   isWorkflowTrigger(trigger) and
-  not exists(JSONObject inputs |
+  not exists(JsonObject inputs |
     inputs = trigger.getPropValue("inputs") and
     inputs.getPropStringValue("authentication") != ""
   ) and
-  not exists(JSONObject operationOptions |
+  not exists(JsonObject operationOptions |
     operationOptions = trigger.getPropValue("operationOptions")
   )
 }
@@ -53,14 +53,14 @@ predicate hasNoAuthentication(JSONObject trigger) {
 /**
  * Holds if authentication is set to "None" or uses anonymous access
  */
-predicate hasWeakAuthentication(JSONObject trigger) {
+predicate hasWeakAuthentication(JsonObject trigger) {
   isWorkflowTrigger(trigger) and
-  exists(JSONObject inputs |
+  exists(JsonObject inputs |
     inputs = trigger.getPropValue("inputs") and
     (
       inputs.getPropStringValue("authentication") = "None" or
-      inputs.getPropValue("authentication").(JSONObject).getPropStringValue("type") = "None" or
-      inputs.getPropValue("authentication").(JSONObject).getPropStringValue("type") = "Anonymous"
+      inputs.getPropValue("authentication").(JsonObject).getPropStringValue("type") = "None" or
+      inputs.getPropValue("authentication").(JsonObject).getPropStringValue("type") = "Anonymous"
     )
   )
 }
@@ -68,19 +68,19 @@ predicate hasWeakAuthentication(JSONObject trigger) {
 /**
  * Holds if the trigger allows public/anonymous access
  */
-predicate allowsAnonymousAccess(JSONObject trigger) {
+predicate allowsAnonymousAccess(JsonObject trigger) {
   isWorkflowTrigger(trigger) and
-  exists(JSONObject inputs |
+  exists(JsonObject inputs |
     inputs = trigger.getPropValue("inputs") and
     (
-      inputs.getPropValue("method").(JSONString).getValue().toLowerCase() = "get" or
-      inputs.getPropValue("method").(JSONString).getValue().toLowerCase() = "post"
+      inputs.getPropValue("method").(JsonString).getValue().toLowerCase() = "get" or
+      inputs.getPropValue("method").(JsonString).getValue().toLowerCase() = "post"
     ) and
-    not exists(JSONValue auth | auth = inputs.getPropValue("authentication"))
+    not exists(JsonValue auth | auth = inputs.getPropValue("authentication"))
   )
 }
 
-from JSONObject trigger, string message
+from JsonObject trigger, string message
 where
   (
     hasNoAuthentication(trigger) and

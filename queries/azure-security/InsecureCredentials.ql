@@ -17,7 +17,7 @@ import javascript
 /**
  * Holds if a string value looks like a connection string
  */
-predicate isConnectionString(JSONString str) {
+predicate isConnectionString(JsonString str) {
   str.getValue().regexpMatch(".*[Ss]erver=.*") or
   str.getValue().regexpMatch(".*[Dd]atabase=.*") or
   str.getValue().regexpMatch(".*[Pp]assword=.*") or
@@ -43,7 +43,7 @@ predicate isSensitiveProperty(string propName) {
 /**
  * Holds if a value is a Key Vault reference (secure)
  */
-predicate isKeyVaultReference(JSONString str) {
+predicate isKeyVaultReference(JsonString str) {
   str.getValue().matches("%@Microsoft.KeyVault%") or
   str.getValue().matches("%${keyvault:%")
 }
@@ -51,8 +51,8 @@ predicate isKeyVaultReference(JSONString str) {
 /**
  * Holds if credential is hardcoded (not from Key Vault)
  */
-predicate hasHardcodedCredential(JSONObject obj, string propName) {
-  exists(JSONString value |
+predicate hasHardcodedCredential(JsonObject obj, string propName) {
+  exists(JsonString value |
     value = obj.getPropValue(propName) and
     isSensitiveProperty(propName) and
     not isKeyVaultReference(value) and
@@ -64,8 +64,8 @@ predicate hasHardcodedCredential(JSONObject obj, string propName) {
 /**
  * Holds if connection string is not secured
  */
-predicate hasInsecureConnectionString(JSONObject obj, string propName) {
-  exists(JSONString value |
+predicate hasInsecureConnectionString(JsonObject obj, string propName) {
+  exists(JsonString value |
     value = obj.getPropValue(propName) and
     isConnectionString(value) and
     not isKeyVaultReference(value) and
@@ -79,11 +79,11 @@ predicate hasInsecureConnectionString(JSONObject obj, string propName) {
 /**
  * Holds if securestring is used but value is still visible
  */
-predicate hasVisibleSecureString(JSONObject obj) {
-  exists(JSONObject param |
+predicate hasVisibleSecureString(JsonObject obj) {
+  exists(JsonObject param |
     param = obj.getPropValue(_) and
     param.getPropStringValue("type") = "securestring" and
-    exists(JSONString defaultValue |
+    exists(JsonString defaultValue |
       defaultValue = param.getPropValue("defaultValue") and
       defaultValue.getValue().length() > 0 and
       not isKeyVaultReference(defaultValue)
@@ -94,16 +94,16 @@ predicate hasVisibleSecureString(JSONObject obj) {
 /**
  * Holds if authentication type uses basic auth without secure storage
  */
-predicate usesInsecureBasicAuth(JSONObject auth) {
+predicate usesInsecureBasicAuth(JsonObject auth) {
   auth.getPropStringValue("type") = "Basic" and
-  exists(JSONString password |
+  exists(JsonString password |
     password = auth.getPropValue("password") and
     not isKeyVaultReference(password) and
     password.getValue().length() > 0
   )
 }
 
-from JSONObject config, string message, string location
+from JsonObject config, string message, string location
 where
   (
     hasHardcodedCredential(config, location) and

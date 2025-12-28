@@ -30,6 +30,21 @@ if ! command -v codeql &> /dev/null; then
     exit 1
 fi
 
+# Determine CodeQL search path for library resolution
+# For CodeQL 2.20.x, we need to provide the path to CodeQL libraries
+CODEQL_PATH=$(dirname "$(dirname "$(which codeql)")")
+if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
+    SEARCH_PATH="--search-path=$CODEQL_PATH"
+elif [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
+    SEARCH_PATH="--search-path=$CODEQL_DIST"
+elif [ -d "codeql" ] && [ -d "codeql/javascript" ]; then
+    # Check for local codeql directory
+    SEARCH_PATH="--search-path=$(pwd)/codeql"
+else
+    # Try without search path (may work if CODEQL_DIST is set as env var)
+    SEARCH_PATH=""
+fi
+
 # Check if database exists
 if [ ! -d "$DATABASE_PATH" ]; then
     echo -e "${RED}Error: Database not found at $DATABASE_PATH${NC}"
@@ -64,6 +79,7 @@ for query in "${QUERIES[@]}"; do
         "$QUERIES_PATH/$query" \
         --format=sarif-latest \
         --output="$output_file" \
+        $SEARCH_PATH \
         --rerun 2>"$error_log"; then
         
         # Count issues found

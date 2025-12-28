@@ -16,7 +16,7 @@
 
 import javascript
 
-from JSONString sasUri
+from JsonString sasUri
 where 
   sasUri.getValue().matches("%sig=%") and
   sasUri.getValue().matches("https://%") and
