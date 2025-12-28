@@ -6,6 +6,7 @@ Refreshes the CodeQL database from Azure REST API specifications
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -101,7 +102,6 @@ def check_prerequisites(skip_codeql: bool = False) -> bool:
             print_success(f"CodeQL CLI found: {version}")
             
             # Extract version number and check
-            import re
             version_match = re.search(r'(\d+)\.(\d+)\.(\d+)', version)
             if version_match:
                 major, minor, patch = map(int, version_match.groups())
