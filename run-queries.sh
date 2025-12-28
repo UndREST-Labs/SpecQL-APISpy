@@ -45,6 +45,7 @@ QUERIES=(
     "InsecureKeyVaultConfig.ql"
     "MissingAccessControl.ql"
     "InsecureCredentials.ql"
+    "SasUriInResponse.ql"
 )
 
 echo -e "${GREEN}Running security queries...${NC}\n"
@@ -58,11 +59,12 @@ for query in "${QUERIES[@]}"; do
     output_file="$RESULTS_PATH/${query_name}-results.sarif"
     
     # Run the query
+    error_log="$RESULTS_PATH/${query_name}-errors.log"
     if codeql database analyze "$DATABASE_PATH" \
         "$QUERIES_PATH/$query" \
         --format=sarif-latest \
         --output="$output_file" \
-        --rerun 2>/dev/null; then
+        --rerun 2>"$error_log"; then
         
         # Count issues found
         if [ -f "$output_file" ]; then
@@ -76,7 +78,11 @@ for query in "${QUERIES[@]}"; do
             fi
         fi
     else
-        echo -e "  ${YELLOW}⚠ Query completed with warnings${NC}"
+        echo -e "  ${YELLOW}⚠ Query completed with warnings/errors${NC}"
+        if [ -f "$error_log" ] && [ -s "$error_log" ]; then
+            echo -e "  ${YELLOW}Error details:${NC}"
+            cat "$error_log" | head -20
+        fi
     fi
     
     echo ""
