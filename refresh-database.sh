@@ -195,6 +195,9 @@ exit 0
 BUILDSCRIPT
     chmod +x "$build_script"
     
+    # Set up trap to always clean up build script
+    trap 'rm -f "$build_script"' EXIT
+    
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
     # Use a no-op build script to prevent autobuild from running
     codeql database create "$DATABASE_DIR" \
@@ -205,12 +208,8 @@ BUILDSCRIPT
         2>&1 | tee /tmp/codeql-build.log || {
             print_error "Failed to create CodeQL database"
             print_info "Check /tmp/codeql-build.log for details"
-            rm -f "$build_script"
             exit 1
         }
-    
-    # Clean up build script
-    rm -f "$build_script"
     
     print_success "CodeQL database created successfully"
     

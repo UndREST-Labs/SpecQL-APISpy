@@ -195,32 +195,34 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
     # This prevents autobuild from running and trying to compile JSON files
     build_script = Path("database") / "build.sh"
     build_script.parent.mkdir(parents=True, exist_ok=True)
-    with open(build_script, 'w') as f:
-        f.write("#!/bin/bash\n")
-        f.write("# No-op build script for JSON-only analysis\n")
-        f.write("exit 0\n")
-    build_script.chmod(0o755)
     
-    # Create database
-    print_info(f"Creating CodeQL database from {source_path}...")
-    # Use a no-op build script to prevent autobuild from running
-    # JSON files will be indexed without attempting JavaScript compilation
-    success, output = run_command([
-        "codeql", "database", "create", DATABASE_DIR,
-        "--language=javascript",
-        f"--source-root={source_path}",
-        f"--command={build_script.absolute()}",
-        "--overwrite"
-    ])
-    
-    # Clean up build script
-    if build_script.exists():
-        build_script.unlink()
-    
-    if not success:
-        print_error("Failed to create CodeQL database")
-        print_info("Check output for details")
-        return False
+    try:
+        with open(build_script, 'w') as f:
+            f.write("#!/bin/bash\n")
+            f.write("# No-op build script for JSON-only analysis\n")
+            f.write("exit 0\n")
+        build_script.chmod(0o755)
+        
+        # Create database
+        print_info(f"Creating CodeQL database from {source_path}...")
+        # Use a no-op build script to prevent autobuild from running
+        # JSON files will be indexed without attempting JavaScript compilation
+        success, output = run_command([
+            "codeql", "database", "create", DATABASE_DIR,
+            "--language=javascript",
+            f"--source-root={source_path}",
+            f"--command={build_script.absolute()}",
+            "--overwrite"
+        ])
+        
+        if not success:
+            print_error("Failed to create CodeQL database")
+            print_info("Check output for details")
+            return False
+    finally:
+        # Always clean up build script
+        if build_script.exists():
+            build_script.unlink()
     
     print_success("CodeQL database created successfully")
     
