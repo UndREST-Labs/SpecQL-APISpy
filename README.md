@@ -89,29 +89,44 @@ SpeQL/
 
 ### Prerequisites
 
-1. **CodeQL Bundle with Libraries** (Version 2.20.x required): Download the **complete bundle** (not just CLI) from [GitHub CodeQL releases](https://github.com/github/codeql-cli-binaries/releases)
+1. **CodeQL Bundle with Libraries** (Version 2.20.x required): Download the **complete CodeQL bundle** from GitHub releases.
    
    **Important**: 
    - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
-   - You need the **full bundle with libraries**, not just the CLI binaries. The bundle includes the QL libraries needed for queries.
+   - You need the **full bundle with libraries**, not just the CLI binaries or source code.
    
+   **Download Options:**
+   
+   **Option A: Pre-built Bundle (Recommended)**
    ```bash
-   # Example installation (CodeQL 2.20.2 - FULL BUNDLE)
+   # Download the CLI bundle (includes extractors but may lack QL libraries)
    wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
-   export PATH="$PATH:/path/to/codeql"
    
+   # Download the QL libraries separately
+   wget https://github.com/github/codeql/releases/download/codeql-cli%2Fv2.20.2/codeql-repo-javascript-v2.20.2.zip
+   unzip codeql-repo-javascript-v2.20.2.zip -d codeql/javascript/
+   
+   export PATH="$PATH:/path/to/codeql"
+   ```
+   
+   **Option B: Use Docker (Easiest)**
+   See [Docker Installation](#docker-installation) section below for a pre-configured environment.
+   
+   **Verification:**
+   ```bash
    # Verify version
    codeql version
    
-   # Verify libraries are present (should show ql/lib directory)
-   ls codeql/javascript/ql/lib/
+   # Verify libraries are present (should show .qll files)
+   ls codeql/javascript/ql/lib/*.qll | head -5
    ```
    
-   **Note**: The `codeql/javascript/` directory should contain:
-   - `ql/lib/` - QL library files (.qll) needed for queries
+   **Note**: The `codeql/javascript/` directory must contain:
+   - `ql/lib/` - QL library files (.qll) with JsonObject, JsonString, etc. definitions
    - `codeql-extractor.yml` - Extractor configuration
-   - Other extractor files
+   
+   If `ql/lib/` is empty or missing, queries will fail with "could not resolve module javascript" errors.
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
 
