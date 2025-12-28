@@ -255,6 +255,7 @@ done
 2. **Database Creation**
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
+   - Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns
    - Uses a no-op build script to prevent autobuild from running
    - Indexes all JSON files for query execution without attempting to compile them
 
@@ -322,12 +323,13 @@ export PATH="$PATH:$(pwd)/codeql"
 
 ### Note: CodeQL Database Creation Process
 
-**The scripts use a no-op build script approach**:
+**The scripts use a no-op build script with codescanning config**:
+- Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns (`**/*.json`)
 - A temporary build script (`database/build.sh`) is created that simply exits successfully
 - This prevents CodeQL's autobuild from running and trying to compile JSON files
 - JSON files are indexed directly without JavaScript compilation attempts
+- The codescanning config is essential for JSON file indexing in JavaScript language databases
 - The database creation should complete cleanly without warnings
-- If you see "Only found JavaScript or TypeScript files that were empty or contained syntax errors", it means autobuild ran (this should not happen with the fix)
 
 ### Problem: "analyze.py can't find files"
 

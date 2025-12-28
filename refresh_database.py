@@ -23,6 +23,7 @@ NC = '\033[0m'  # No Color
 AZURE_REPO_URL = "https://github.com/Azure/azure-rest-api-specs.git"
 SPECS_DIR = "azure-rest-api-specs"
 DATABASE_DIR = "database/azure-api-db"
+CONFIG_FILE = "config/SpeQL.yml"
 DEFAULT_SPEC_PATH = "specification/logic"
 
 
@@ -207,10 +208,12 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
         print_info(f"Creating CodeQL database from {source_path}...")
         # Use a no-op build script to prevent autobuild from running
         # JSON files will be indexed without attempting JavaScript compilation
+        # The --codescanning-config parameter is crucial for JSON file indexing
         success, output = run_command([
             "codeql", "database", "create", DATABASE_DIR,
             "--language=javascript",
             f"--source-root={source_path}",
+            f"--codescanning-config={CONFIG_FILE}",
             f"--command={build_script.absolute()}",
             "--overwrite"
         ])

@@ -200,9 +200,11 @@ BUILDSCRIPT
     
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
     # Use a no-op build script to prevent autobuild from running
+    # The --codescanning-config parameter is crucial for JSON file indexing
     codeql database create "$DATABASE_DIR" \
         --language=javascript \
         --source-root="$source_path" \
+        --codescanning-config="$CONFIG_FILE" \
         --command="$(pwd)/$build_script" \
         --overwrite \
         2>&1 | tee /tmp/codeql-build.log || {
