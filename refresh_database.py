@@ -177,19 +177,17 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
     db_path = Path(DATABASE_DIR)
     source_path = Path(SPECS_DIR) / spec_path
     
-    # Clean existing database
-    if clean and db_path.exists():
-        print_warning("Cleaning existing database...")
-        shutil.rmtree(db_path)
-    
     # Check source path
     if not source_path.exists():
         print_error(f"Source path does not exist: {source_path}")
         return False
     
-    # Remove old database
+    # Remove old database (either for clean rebuild or normal overwrite)
     if db_path.exists():
-        print_info("Removing old database...")
+        if clean:
+            print_warning("Cleaning existing database...")
+        else:
+            print_info("Removing old database...")
         shutil.rmtree(db_path)
     
     # Create database
