@@ -89,46 +89,76 @@ SpeQL/
 
 ### Prerequisites
 
-1. **CodeQL Bundle with Libraries** (Version 2.20.x required): Download the **complete CodeQL bundle** from GitHub releases.
+1. **Java Development Kit (JDK)**: CodeQL requires a Java Runtime Environment (JRE) or Java Development Kit (JDK) to run.
+   
+   ```bash
+   # Install OpenJDK (Ubuntu/Debian)
+   sudo apt-get update
+   sudo apt-get install openjdk-11-jdk
+   
+   # Or use a newer version
+   sudo apt-get install openjdk-17-jdk
+   
+   # Verify installation
+   java -version
+   ```
+   
+   **Note**: CodeQL 2.20.x works with JDK 11 or newer. Most systems will work with OpenJDK 11, 17, or 21.
+
+2. **CodeQL CLI with JavaScript Libraries** (Version 2.20.x required): Install CodeQL and download the JavaScript query pack.
    
    **Important**: 
    - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
-   - You need the **full bundle with libraries**, not just the CLI binaries or source code.
+   - You need the **CodeQL libraries**, which can be obtained using `codeql pack download`.
    
-   **Download Options:**
+   **Installation Options:**
    
-   **Option A: Pre-built Bundle (Recommended)**
+   **Option A: Using codeql pack download (Recommended for local setup)**
    ```bash
-   # Download the CLI bundle (includes extractors but may lack QL libraries)
+   # 1. Install CodeQL CLI 2.20.2
    wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
+   export PATH="$PATH:$(pwd)/codeql"
    
-   # Download the QL libraries separately
-   wget https://github.com/github/codeql/releases/download/codeql-cli%2Fv2.20.2/codeql-repo-javascript-v2.20.2.zip
-   unzip codeql-repo-javascript-v2.20.2.zip -d codeql/javascript/
+   # 2. Download JavaScript query pack with all dependencies
+   codeql pack download codeql/javascript-queries --dir codeql/javascript/
    
-   export PATH="$PATH:/path/to/codeql"
+   # 3. Set the search path to the downloaded pack location
+   export CODEQL_DIST=$(pwd)/codeql/javascript/codeql
+   
+   # 4. Verify installation
+   codeql version
+   ls codeql/javascript/codeql/javascript-queries/*/
    ```
    
-   **Option B: Use Docker (Easiest)**
-   See [Docker Installation](#docker-installation) section below for a pre-configured environment.
+   The `codeql pack download` command will download:
+   - The JavaScript query pack with proper qlpack.yml configuration
+   - All dependent libraries including `codeql/javascript-all`
+   - Pre-compiled query suites
+   
+   **Option B: Use Docker (Easiest - No Manual Setup Required)**
+   See [Docker Installation](#docker-installation) section below for a pre-configured environment with everything included.
    
    **Verification:**
    ```bash
    # Verify version
    codeql version
    
-   # Verify libraries are present (should show .qll files)
-   ls codeql/javascript/ql/lib/*.qll | head -5
+   # Verify libraries are present
+   ls codeql/javascript/codeql/javascript-queries/*/
+   
+   # Check that the downloaded pack structure exists
+   find codeql/javascript/codeql -name "*.qll" | head -5
    ```
    
-   **Note**: The `codeql/javascript/` directory must contain:
-   - `ql/lib/` - QL library files (.qll) with JsonObject, JsonString, etc. definitions
-   - `codeql-extractor.yml` - Extractor configuration
+   **Note**: The downloaded pack will be in a nested structure like:
+   ```
+   codeql/javascript/codeql/javascript-queries/<version>/.codeql/libraries/codeql/javascript-all/<version>/
+   ```
    
-   If `ql/lib/` is empty or missing, queries will fail with "could not resolve module javascript" errors.
+   The `run-queries.sh` script automatically detects this location.
 
-2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
+2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository. This is automatically handled by the database refresh scripts.
 
 ### Docker Installation
 

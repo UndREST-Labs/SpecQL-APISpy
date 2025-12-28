@@ -39,6 +39,10 @@ if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
 elif [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
     SEARCH_PATH="--search-path=$CODEQL_DIST"
     echo -e "${GREEN}Using CodeQL libraries from CODEQL_DIST: $CODEQL_DIST${NC}"
+elif [ -d "codeql/javascript/codeql" ]; then
+    # Check for downloaded pack location (from codeql pack download)
+    SEARCH_PATH="--search-path=$(pwd)/codeql/javascript/codeql"
+    echo -e "${GREEN}Using CodeQL libraries from downloaded packs: $(pwd)/codeql/javascript/codeql${NC}"
 elif [ -d "codeql" ] && [ -d "codeql/javascript" ]; then
     # Check for local codeql directory
     SEARCH_PATH="--search-path=$(pwd)/codeql"
