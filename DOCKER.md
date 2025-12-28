@@ -9,14 +9,16 @@ SpeQL provides two Docker images:
 ### Standard x86_64/amd64 Image (`Dockerfile`)
 - Debian Bookworm (slim) as the base OS
 - OpenJDK 17 for CodeQL runtime
-- CodeQL CLI v2.20.4 (x86_64 binary)
+- CodeQL CLI v2.20.2 (x86_64 binary) - **Version 2.20.x required**
 - Python 3 for SpeQL scripts
 - All SpeQL tools and queries
+
+**Note**: CodeQL v2.23.x and newer have compatibility issues with JSON-only database creation. Version 2.20.2 is used for stability.
 
 ### ARM64 Image (`Dockerfile.arm64`)
 - Debian Bookworm (slim) as the base OS
 - OpenJDK 17 for CodeQL runtime
-- CodeQL CLI v2.20.4 (ARM64 binary with auto-detection)
+- CodeQL CLI v2.20.2 (ARM64 binary with auto-detection) - **Version 2.20.x required**
 - Python 3 for SpeQL scripts
 - All SpeQL tools and queries
 - Supports: Raspberry Pi, Apple Silicon Macs, AWS Graviton, Azure ARM VMs

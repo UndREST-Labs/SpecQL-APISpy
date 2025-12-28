@@ -35,8 +35,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install CodeQL CLI for x86_64
-# Using a specific version for reproducibility
-ARG CODEQL_VERSION=2.20.4
+# Version 2.20.2 is required - newer versions (2.23.x+) have compatibility issues with JSON-only databases
+ARG CODEQL_VERSION=2.20.2
 RUN echo "Installing CodeQL ${CODEQL_VERSION} for x86_64..." && \
     wget -q "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-linux64.zip" -O /tmp/codeql.zip && \
     mkdir -p /opt && \

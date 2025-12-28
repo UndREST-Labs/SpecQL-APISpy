@@ -21,14 +21,17 @@ SpeQL analyzes Azure REST API specifications from Microsoft's [azure-rest-api-sp
    git --version
    ```
 
-2. **CodeQL CLI**: Required for building the database (optional for repository updates)
+2. **CodeQL CLI** (Version 2.20.x required): Required for building the database (optional for repository updates)
+   
+   **Important**: CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
+   
    ```bash
-   # Download CodeQL
-   wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip
+   # Download CodeQL 2.20.2
+   wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
    export PATH="$PATH:$(pwd)/codeql"
    
-   # Verify installation
+   # Verify installation (should show 2.20.x)
    codeql version
    ```
 

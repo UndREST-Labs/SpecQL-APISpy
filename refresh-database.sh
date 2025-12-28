@@ -90,20 +90,34 @@ check_prerequisites() {
         if ! command -v codeql &> /dev/null; then
             print_error "CodeQL CLI is not installed."
             echo ""
-            echo "To install CodeQL:"
-            echo "1. Download from: https://github.com/github/codeql-cli-binaries/releases"
+            echo "To install CodeQL 2.20.2 (required version):"
+            echo "1. Download from: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2"
             echo "2. Extract and add to PATH"
             echo ""
             echo "Example:"
-            echo "  wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip"
+            echo "  wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip"
             echo "  unzip codeql-linux64.zip"
             echo "  export PATH=\"\$PATH:\$(pwd)/codeql\""
+            echo ""
+            echo "Note: CodeQL 2.23.x and newer have compatibility issues with JSON-only databases."
+            echo "      Version 2.20.1 or 2.20.2 is required."
             echo ""
             echo "Alternatively, run with --skip-db-build to only update the repository."
             exit 1
         fi
         
-        print_success "CodeQL CLI found: $(codeql version | head -n1)"
+        # Get and check CodeQL version
+        codeql_version=$(codeql version | head -n1)
+        print_success "CodeQL CLI found: $codeql_version"
+        
+        # Extract version number and check if 2.23 or newer
+        if echo "$codeql_version" | grep -qE "2\.(2[3-9]|[3-9][0-9])\."; then
+            print_warning "WARNING: CodeQL 2.23.x or newer detected."
+            print_warning "CodeQL 2.23.x and newer have known compatibility issues with JSON-only databases."
+            print_warning "If database creation fails, please downgrade to CodeQL 2.20.1 or 2.20.2."
+            print_warning "Download: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2"
+            echo ""
+        fi
     fi
     
     print_success "Prerequisites check complete"

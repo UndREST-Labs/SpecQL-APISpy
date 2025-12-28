@@ -79,14 +79,17 @@ def check_prerequisites(skip_codeql: bool = False) -> bool:
         if not check_command("codeql"):
             print_error("CodeQL CLI is not installed.")
             print("")
-            print("To install CodeQL:")
-            print("1. Download from: https://github.com/github/codeql-cli-binaries/releases")
+            print("To install CodeQL 2.20.2 (required version):")
+            print("1. Download from: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2")
             print("2. Extract and add to PATH")
             print("")
             print("Example:")
-            print("  wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip")
+            print("  wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip")
             print("  unzip codeql-linux64.zip")
             print("  export PATH=\"$PATH:$(pwd)/codeql\"")
+            print("")
+            print("Note: CodeQL 2.23.x and newer have compatibility issues with JSON-only databases.")
+            print("      Version 2.20.1 or 2.20.2 is required.")
             print("")
             print("Alternatively, run with --skip-db-build to only update the repository.")
             return False
@@ -96,6 +99,18 @@ def check_prerequisites(skip_codeql: bool = False) -> bool:
         if success:
             version = output.strip().split('\n')[0]
             print_success(f"CodeQL CLI found: {version}")
+            
+            # Extract version number and check
+            import re
+            version_match = re.search(r'(\d+)\.(\d+)\.(\d+)', version)
+            if version_match:
+                major, minor, patch = map(int, version_match.groups())
+                if major == 2 and minor >= 23:
+                    print_warning(f"WARNING: CodeQL {major}.{minor}.{patch} detected.")
+                    print_warning("CodeQL 2.23.x and newer have known compatibility issues with JSON-only databases.")
+                    print_warning("If database creation fails, please downgrade to CodeQL 2.20.1 or 2.20.2.")
+                    print_warning("Download: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2")
+                    print("")
     
     print_success("Prerequisites check complete")
     return True

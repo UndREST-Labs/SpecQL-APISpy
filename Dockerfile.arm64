@@ -36,8 +36,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install CodeQL CLI for ARM64
-# Using a specific version for reproducibility
-ARG CODEQL_VERSION=2.20.4
+# Version 2.20.2 is required - newer versions (2.23.x+) have compatibility issues with JSON-only databases
+ARG CODEQL_VERSION=2.20.2
 RUN echo "Installing CodeQL ${CODEQL_VERSION} for ARM64..." && \
     # Detect architecture and set appropriate binary name
     ARCH=$(dpkg --print-architecture) && \
