@@ -44,6 +44,8 @@ predicate isSasUri(JsonString str) {
 
 /**
  * Holds if a JSON object is within an API response definition
+ * Note: Uses transitive closure to handle various nesting levels in API specs.
+ * This ensures detection even in deeply nested response structures.
  */
 predicate isInApiResponse(JsonObject obj) {
   exists(JsonObject responses |
@@ -85,8 +87,11 @@ predicate hasSasUriInResponse(JsonObject obj, string propName) {
 
 /**
  * Holds if an object in response body contains SAS URI (nested)
- * Note: Checks one level of nesting, which is sufficient for typical
- * Azure API response structures like inputsLink.uri, outputsLink.uri
+ * Note: Checks one level of nesting for any nested object property.
+ * This is sufficient for typical Azure API response structures like 
+ * inputsLink.uri, outputsLink.uri, contentLink.uri, etc.
+ * Using a generic check allows detection of SAS URIs in any nested structure,
+ * even those with non-standard property names.
  */
 predicate hasNestedSasUri(JsonObject obj, string propName) {
   exists(JsonString uri, JsonObject nestedObj |
