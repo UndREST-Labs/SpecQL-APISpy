@@ -17,13 +17,13 @@ import javascript
 /**
  * Holds if an operation (GET, POST, etc.) is missing security requirements
  */
-predicate hasNoSecurity(JsonObject operation) {
-  exists(JsonObject pathDef |
-    pathDef = pathDef.getParentContainer().getPropValue("paths").(JsonObject).getPropValue(_) and
+predicate hasNoSecurity(JSONObject operation) {
+  exists(JSONObject pathDef |
+    pathDef = pathDef.getParentContainer().getPropValue("paths").(JSONObject).getPropValue(_) and
     operation = pathDef.getPropValue(_) and
-    operation instanceof JsonObject and
-    not exists(JsonValue security | security = operation.getPropValue("security")) and
-    not exists(JsonValue security | 
+    operation instanceof JSONObject and
+    not exists(JSONValue security | security = operation.getPropValue("security")) and
+    not exists(JSONValue security | 
       security = operation.getParentContainer*().getPropValue("security") and
       security.getParentContainer() != operation
     )
@@ -33,8 +33,8 @@ predicate hasNoSecurity(JsonObject operation) {
 /**
  * Holds if security is explicitly set to an empty array (no authentication)
  */
-predicate hasEmptySecurity(JsonObject operation) {
-  exists(JsonArray security |
+predicate hasEmptySecurity(JSONObject operation) {
+  exists(JSONArray security |
     security = operation.getPropValue("security") and
     security.getNumElement() = 0
   )
@@ -43,7 +43,7 @@ predicate hasEmptySecurity(JsonObject operation) {
 /**
  * Holds if the endpoint performs sensitive operations without authentication
  */
-predicate isSensitiveOperation(JsonObject operation) {
+predicate isSensitiveOperation(JSONObject operation) {
   exists(string opType |
     opType = operation.getPropStringValue("operationId") and
     (
@@ -59,11 +59,11 @@ predicate isSensitiveOperation(JsonObject operation) {
 /**
  * Holds if access endpoint is exposed without restrictions
  */
-predicate hasUnrestrictedAccessEndpoint(JsonObject obj) {
-  exists(JsonString endpoint |
+predicate hasUnrestrictedAccessEndpoint(JSONObject obj) {
+  exists(JSONString endpoint |
     endpoint = obj.getPropValue("accessEndpoint") and
     exists(endpoint.getValue()) and
-    not exists(JsonObject accessControl |
+    not exists(JSONObject accessControl |
       accessControl = obj.getPropValue("accessControl")
     )
   )
@@ -72,19 +72,19 @@ predicate hasUnrestrictedAccessEndpoint(JsonObject obj) {
 /**
  * Holds if workflow has public access without authentication
  */
-predicate hasPublicWorkflowAccess(JsonObject workflow) {
-  exists(JsonString state |
+predicate hasPublicWorkflowAccess(JSONObject workflow) {
+  exists(JSONString state |
     state = workflow.getPropValue("state") and
     state.getValue() = "Enabled"
   ) and
   (
-    workflow.getPropValue("accessControl").(JsonObject).getNumProperty() = 0 or
-    not exists(JsonValue ac | ac = workflow.getPropValue("accessControl"))
+    workflow.getPropValue("accessControl").(JSONObject).getNumProperty() = 0 or
+    not exists(JSONValue ac | ac = workflow.getPropValue("accessControl"))
   ) and
-  exists(JsonString endpoint | endpoint = workflow.getPropValue("accessEndpoint"))
+  exists(JSONString endpoint | endpoint = workflow.getPropValue("accessEndpoint"))
 }
 
-from JsonObject endpoint, string message
+from JSONObject endpoint, string message
 where
   (
     hasNoSecurity(endpoint) and

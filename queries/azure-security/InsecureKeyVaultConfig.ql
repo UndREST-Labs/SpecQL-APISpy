@@ -19,8 +19,8 @@ import javascript
 /**
  * Holds if a JSON object represents a Key Vault reference or configuration
  */
-predicate isKeyVaultReference(JsonObject obj) {
-  exists(JsonString str, string value |
+predicate isKeyVaultReference(JSONObject obj) {
+  exists(JSONString str, string value |
     str = obj.getPropValue(_) and
     value = str.getValue() and
     (
@@ -34,11 +34,11 @@ predicate isKeyVaultReference(JsonObject obj) {
 /**
  * Holds if Key Vault access is configured without network restrictions
  */
-predicate hasNoNetworkRestrictions(JsonObject config) {
-  exists(JsonString uri |
+predicate hasNoNetworkRestrictions(JSONObject config) {
+  exists(JSONString uri |
     uri = config.getPropValue(_) and
     uri.getValue().matches("%vault.azure.net%") and
-    not exists(JsonObject networkAcls |
+    not exists(JSONObject networkAcls |
       networkAcls = config.getParentContainer*().getPropValue("networkAcls") or
       networkAcls = config.getParentContainer*().getPropValue("networkRuleSet")
     )
@@ -48,22 +48,22 @@ predicate hasNoNetworkRestrictions(JsonObject config) {
 /**
  * Holds if Key Vault allows public network access
  */
-predicate allowsPublicNetworkAccess(JsonObject config) {
-  exists(JsonValue publicAccess |
+predicate allowsPublicNetworkAccess(JSONObject config) {
+  exists(JSONValue publicAccess |
     publicAccess = config.getParentContainer*().getPropValue("publicNetworkAccess") and
-    publicAccess.(JsonString).getValue() = "Enabled"
+    publicAccess.(JSONString).getValue() = "Enabled"
   ) or
-  exists(JsonValue defaultAction |
-    defaultAction = config.getParentContainer*().getPropValue("networkAcls").(JsonObject).getPropValue("defaultAction") and
-    defaultAction.(JsonString).getValue() = "Allow"
+  exists(JSONValue defaultAction |
+    defaultAction = config.getParentContainer*().getPropValue("networkAcls").(JSONObject).getPropValue("defaultAction") and
+    defaultAction.(JSONString).getValue() = "Allow"
   )
 }
 
 /**
  * Holds if Key Vault secret is embedded or exposed in configuration
  */
-predicate hasEmbeddedSecret(JsonObject config) {
-  exists(JsonString secret |
+predicate hasEmbeddedSecret(JSONObject config) {
+  exists(JSONString secret |
     secret = config.getPropValue(_) and
     (
       config.getPropStringValue(_).matches("%password%") or
@@ -79,21 +79,21 @@ predicate hasEmbeddedSecret(JsonObject config) {
 /**
  * Holds if Key Vault access policy allows overly permissive operations
  */
-predicate hasOverlyPermissiveAccess(JsonObject policy) {
-  exists(JsonArray permissions |
-    permissions = policy.getParentContainer*().getPropValue("permissions").(JsonObject).getPropValue("secrets") and
+predicate hasOverlyPermissiveAccess(JSONObject policy) {
+  exists(JSONArray permissions |
+    permissions = policy.getParentContainer*().getPropValue("permissions").(JSONObject).getPropValue("secrets") and
     (
-      permissions.getElementValue(_).(JsonString).getValue() = "all" or
+      permissions.getElementValue(_).(JSONString).getValue() = "all" or
       (
-        permissions.getElementValue(_).(JsonString).getValue() = "get" and
-        permissions.getElementValue(_).(JsonString).getValue() = "list" and
-        permissions.getElementValue(_).(JsonString).getValue() = "delete"
+        permissions.getElementValue(_).(JSONString).getValue() = "get" and
+        permissions.getElementValue(_).(JSONString).getValue() = "list" and
+        permissions.getElementValue(_).(JSONString).getValue() = "delete"
       )
     )
   )
 }
 
-from JsonObject config, string message
+from JSONObject config, string message
 where
   (
     hasNoNetworkRestrictions(config) and
