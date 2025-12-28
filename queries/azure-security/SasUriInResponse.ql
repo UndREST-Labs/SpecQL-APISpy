@@ -16,32 +16,14 @@
 
 import javascript
 
-/**
- * Holds if a string value looks like a SAS URI
- * SAS URIs contain query parameters like:
- * - sig: signature (required)
- * - se: expiry time
- * - sp: permissions
- * - sv: storage version
- * - sr: resource (for storage)
- */
-predicate isSasUri(JsonString str) {
-  exists(string value |
-    value = str.getValue() and
-    // Must be a URI (http/https)
-    value.regexpMatch("https?://.*") and
-    // Must contain signature parameter (sig=)
-    value.regexpMatch(".*[?&]sig=.*") and
-    // Must contain at least one other SAS parameter
-    (
-      value.regexpMatch(".*[?&]se=.*") or  // expiry
-      value.regexpMatch(".*[?&]sp=.*") or  // permissions
-      value.regexpMatch(".*[?&]sv=.*") or  // storage version
-      value.regexpMatch(".*[?&]sr=.*")     // resource
-    )
-  )
-}
-
 from JsonString sasUri
-where isSasUri(sasUri)
+where 
+  sasUri.getValue().matches("%sig=%") and
+  sasUri.getValue().matches("https://%") and
+  (
+    sasUri.getValue().matches("%&sp=%") or
+    sasUri.getValue().matches("%&se=%") or
+    sasUri.getValue().matches("%&sv=%") or
+    sasUri.getValue().matches("%&sr=%")
+  )
 select sasUri, "Found Azure SAS URI with signature token, which may lead to data exfiltration or unauthorized access"
