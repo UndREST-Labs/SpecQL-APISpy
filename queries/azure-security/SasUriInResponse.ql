@@ -42,34 +42,6 @@ predicate isSasUri(JsonString str) {
   )
 }
 
-/**
- * Holds if a JSON string is within an API response context
- * Checks if the string has a "responses" ancestor in the JSON tree
- */
-predicate isInApiResponse(JsonString str) {
-  exists(JsonObject responsesObj |
-    responsesObj.getParentContainer().getPropValue("responses") = responsesObj and
-    str.getParentContainer*() = responsesObj
-  )
-}
-
-/**
- * Holds if a property name suggests it contains a URI or link
- */
-predicate isUriProperty(string propName) {
-  propName.toLowerCase().matches("%uri%") or
-  propName.toLowerCase().matches("%url%") or
-  propName.toLowerCase().matches("%link%") or
-  propName.toLowerCase().matches("%href%") or
-  propName.toLowerCase().matches("%endpoint%")
-}
-
-from JsonString sasUri, string propName
-where
-  isSasUri(sasUri) and
-  isInApiResponse(sasUri) and
-  exists(JsonObject parent |
-    parent.getPropValue(propName) = sasUri and
-    isUriProperty(propName)
-  )
-select sasUri, "API response exposes Azure SAS URI in property '" + propName + "', which may lead to data exfiltration or unauthorized access"
+from JsonString sasUri
+where isSasUri(sasUri)
+select sasUri, "Found Azure SAS URI with signature token, which may lead to data exfiltration or unauthorized access"
