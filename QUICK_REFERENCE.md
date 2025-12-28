@@ -98,6 +98,11 @@ The database path matters for CodeQL! Build it with the specifications you want 
 **Risk**: Credential exposure and theft
 **Example**: Connection strings with embedded passwords
 
+### 5. SAS URI Exposure
+**Issue**: Azure SAS tokens exposed in API responses
+**Risk**: Unauthorized data-plane access and data exfiltration
+**Example**: Response URIs containing signature parameters (sig, se, sp)
+
 ## 📊 Understanding the Output
 
 ### Error Severity Levels
@@ -191,6 +196,11 @@ chmod +x analyze.py run-queries.sh
 - **Why it matters**: Credentials may be exposed in source control
 - **Fix**: Use Key Vault references instead
 
+### SAS URI Exposure
+- **What**: Azure Shared Access Signature tokens in API responses
+- **Why it matters**: Grants time-limited access to Azure resources, enabling data exfiltration
+- **Fix**: Avoid exposing SAS tokens in control-plane API responses
+
 ## 📚 Related CWE Standards
 
 - **CWE-306**: Missing Authentication for Critical Function
@@ -198,6 +208,8 @@ chmod +x analyze.py run-queries.sh
 - **CWE-284**: Improper Access Control
 - **CWE-522**: Insufficiently Protected Credentials
 - **CWE-798**: Use of Hard-coded Credentials
+- **CWE-200**: Exposure of Sensitive Information to an Unauthorized Actor
+- **CWE-359**: Exposure of Private Personal Information to an Unauthorized Actor
 
 ## 🔗 Additional Resources
 

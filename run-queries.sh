@@ -45,6 +45,7 @@ QUERIES=(
     "InsecureKeyVaultConfig.ql"
     "MissingAccessControl.ql"
     "InsecureCredentials.ql"
+    "SasUriInResponse.ql"
 )
 
 echo -e "${GREEN}Running security queries...${NC}\n"

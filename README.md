@@ -10,6 +10,7 @@ This tool analyzes Azure REST API specification files (Swagger/OpenAPI) to detec
 - **Azure Vault Recon**: Key Vault misconfigurations enabling unauthorized secret enumeration or access
 - **Missing Access Control**: API endpoints lacking proper authentication/authorization
 - **Insecure Credentials**: Hardcoded secrets and connection strings that should use Key Vault
+- **SAS URI Exposure**: Azure Shared Access Signature tokens exposed in API responses
 
 ## Vulnerabilities Detected
 
@@ -51,6 +52,18 @@ Locates hardcoded credentials and secrets:
 
 **CWE References**: CWE-798 (Hardcoded Credentials), CWE-259 (Hard-coded Password)
 
+### 5. SAS URI Exposure in API Responses
+
+Detects Azure Shared Access Signature (SAS) URIs exposed in API responses:
+- SAS tokens in response bodies (inputsLink, outputsLink, etc.)
+- URIs containing signature parameters (sig, se, sp, sv)
+- Control-plane APIs exposing data-plane access credentials
+- Data exfiltration risks through exposed SAS tokens
+
+**Security Impact**: SAS URIs grant time-limited access to Azure resources. When exposed in control-plane API responses, they can enable unauthorized data-plane access and data exfiltration.
+
+**CWE References**: CWE-200 (Exposure of Sensitive Information), CWE-359 (Exposure of Private Personal Information)
+
 ## Repository Structure
 
 ```
@@ -67,7 +80,8 @@ SpeQL/
 │       ├── InsecureLogicAppTrigger.ql
 │       ├── InsecureKeyVaultConfig.ql
 │       ├── MissingAccessControl.ql
-│       └── InsecureCredentials.ql
+│       ├── InsecureCredentials.ql
+│       └── SasUriInResponse.ql
 └── results/                    # Analysis results (generated)
 ```
 
@@ -474,6 +488,25 @@ Locates hardcoded credentials, connection strings, and API keys that should be s
 - Connection strings with embedded credentials
 - Secure string parameters with visible default values
 - Basic authentication with hardcoded passwords
+
+### SasUriInResponse.ql
+Detects Azure Shared Access Signature (SAS) URIs exposed in API responses, which can lead to data exfiltration or unauthorized data-plane access.
+
+**What it detects:**
+- SAS URIs in API response bodies containing signature tokens
+- URIs with SAS parameters (sig, se, sp, sv) in response properties
+- Control-plane APIs exposing data-plane access tokens
+- Potential data exfiltration risks through exposed SAS tokens
+
+**Security Impact:**
+SAS tokens grant time-limited access to Azure resources. When control-plane APIs expose these tokens in responses, attackers can:
+- Access storage accounts or other data-plane resources
+- Exfiltrate sensitive data
+- Bypass intended access controls
+
+**References:**
+- [Azure SAS Overview](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
+- [Azure Silent Reaper Disclosure](https://cirriustech.co.uk/blog/azure-silent-reaper/)
 
 ## References
 

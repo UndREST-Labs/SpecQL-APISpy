@@ -68,6 +68,7 @@ This runs:
 - InsecureKeyVaultConfig.ql
 - MissingAccessControl.ql
 - InsecureCredentials.ql
+- SasUriInResponse.ql
 
 #### Run Custom Query
 ```bash
