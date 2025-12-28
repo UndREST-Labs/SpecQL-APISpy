@@ -19,12 +19,11 @@ import javascript
 /**
  * Holds if a string value looks like a SAS URI
  * SAS URIs contain query parameters like:
- * - sig: signature
+ * - sig: signature (required)
  * - se: expiry time
  * - sp: permissions
  * - sv: storage version
  * - sr: resource (for storage)
- * - api-version: API version (for Logic Apps)
  */
 predicate isSasUri(JsonString str) {
   exists(string value |
@@ -86,6 +85,8 @@ predicate hasSasUriInResponse(JsonObject obj, string propName) {
 
 /**
  * Holds if an object in response body contains SAS URI (nested)
+ * Note: Checks one level of nesting, which is sufficient for typical
+ * Azure API response structures like inputsLink.uri, outputsLink.uri
  */
 predicate hasNestedSasUri(JsonObject obj, string propName) {
   exists(JsonString uri, JsonObject nestedObj |
