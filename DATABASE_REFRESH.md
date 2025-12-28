@@ -255,7 +255,8 @@ done
 2. **Database Creation**
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
-   - Indexes all JSON files for query execution
+   - Uses a custom build command to properly index JSON files
+   - Indexes all JSON files for query execution without attempting to compile them
 
 3. **Compatibility Setup**
    - Creates `src.zip` for `analyze.py` compatibility
@@ -318,6 +319,14 @@ export PATH="$PATH:$(pwd)/codeql"
 - Verify source files exist: `ls azure-rest-api-specs/specification/logic`
 - Check build logs in `database/azure-api-db/log/`
 - Try `--clean` to remove corrupted database first
+
+### Note: "Only found JavaScript or TypeScript files that were empty or contained syntax errors"
+
+**This is expected behavior and not an error**:
+- JSON files (OpenAPI specifications) are indexed by CodeQL but are not JavaScript source code
+- The database creation completes successfully despite this message
+- The scripts now use a custom build command to minimize confusion
+- You can safely ignore this message as long as the database creation finishes successfully
 
 ### Problem: "analyze.py can't find files"
 

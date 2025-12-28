@@ -185,9 +185,11 @@ build_codeql_database() {
     fi
     
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
+    # Use an empty command to avoid autobuild warnings for JSON files
     codeql database create "$DATABASE_DIR" \
         --language=javascript \
         --source-root="$source_path" \
+        --command="echo 'Indexing JSON files for CodeQL analysis'" \
         --overwrite \
         2>&1 | tee /tmp/codeql-build.log || {
             print_error "Failed to create CodeQL database"

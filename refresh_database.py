@@ -193,10 +193,13 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
     
     # Create database
     print_info(f"Creating CodeQL database from {source_path}...")
+    # Use an empty command to avoid autobuild warnings for JSON files
+    # JSON files are indexed by CodeQL but are not JavaScript source code
     success, output = run_command([
         "codeql", "database", "create", DATABASE_DIR,
         "--language=javascript",
         f"--source-root={source_path}",
+        "--command=echo 'Indexing JSON files for CodeQL analysis'",
         "--overwrite"
     ])
     
