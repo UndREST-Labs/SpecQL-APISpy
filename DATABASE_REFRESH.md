@@ -255,7 +255,7 @@ done
 2. **Database Creation**
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
-   - Uses a custom build command to properly index JSON files
+   - Uses a no-op build script to prevent autobuild from running
    - Indexes all JSON files for query execution without attempting to compile them
 
 3. **Compatibility Setup**
@@ -320,13 +320,14 @@ export PATH="$PATH:$(pwd)/codeql"
 - Check build logs in `database/azure-api-db/log/`
 - Try `--clean` to remove corrupted database first
 
-### Note: "Only found JavaScript or TypeScript files that were empty or contained syntax errors"
+### Note: CodeQL Database Creation Process
 
-**This is expected behavior and not an error**:
-- JSON files (OpenAPI specifications) are indexed by CodeQL but are not JavaScript source code
-- The database creation completes successfully despite this message
-- The scripts now use a custom build command to minimize confusion
-- You can safely ignore this message as long as the database creation finishes successfully
+**The scripts use a no-op build script approach**:
+- A temporary build script (`database/build.sh`) is created that simply exits successfully
+- This prevents CodeQL's autobuild from running and trying to compile JSON files
+- JSON files are indexed directly without JavaScript compilation attempts
+- The database creation should complete cleanly without warnings
+- If you see "Only found JavaScript or TypeScript files that were empty or contained syntax errors", it means autobuild ran (this should not happen with the fix)
 
 ### Problem: "analyze.py can't find files"
 

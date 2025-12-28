@@ -184,18 +184,33 @@ build_codeql_database() {
         rm -rf "$DATABASE_DIR"
     fi
     
+    # Create a simple build script for CodeQL to execute
+    # This prevents autobuild from running and trying to compile JSON files
+    local build_script="database/build.sh"
+    mkdir -p database
+    cat > "$build_script" << 'BUILDSCRIPT'
+#!/bin/bash
+# No-op build script for JSON-only analysis
+exit 0
+BUILDSCRIPT
+    chmod +x "$build_script"
+    
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
-    # Use an empty command to avoid autobuild warnings for JSON files
+    # Use a no-op build script to prevent autobuild from running
     codeql database create "$DATABASE_DIR" \
         --language=javascript \
         --source-root="$source_path" \
-        --command="echo 'Indexing JSON files for CodeQL analysis'" \
+        --command="$(pwd)/$build_script" \
         --overwrite \
         2>&1 | tee /tmp/codeql-build.log || {
             print_error "Failed to create CodeQL database"
             print_info "Check /tmp/codeql-build.log for details"
+            rm -f "$build_script"
             exit 1
         }
+    
+    # Clean up build script
+    rm -f "$build_script"
     
     print_success "CodeQL database created successfully"
     

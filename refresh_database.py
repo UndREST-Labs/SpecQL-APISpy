@@ -191,17 +191,31 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
         print_info("Removing old database...")
         shutil.rmtree(db_path)
     
+    # Create a simple build script for CodeQL to execute
+    # This prevents autobuild from running and trying to compile JSON files
+    build_script = Path("database") / "build.sh"
+    build_script.parent.mkdir(parents=True, exist_ok=True)
+    with open(build_script, 'w') as f:
+        f.write("#!/bin/bash\n")
+        f.write("# No-op build script for JSON-only analysis\n")
+        f.write("exit 0\n")
+    build_script.chmod(0o755)
+    
     # Create database
     print_info(f"Creating CodeQL database from {source_path}...")
-    # Use an empty command to avoid autobuild warnings for JSON files
-    # JSON files are indexed by CodeQL but are not JavaScript source code
+    # Use a no-op build script to prevent autobuild from running
+    # JSON files will be indexed without attempting JavaScript compilation
     success, output = run_command([
         "codeql", "database", "create", DATABASE_DIR,
         "--language=javascript",
         f"--source-root={source_path}",
-        "--command=echo 'Indexing JSON files for CodeQL analysis'",
+        f"--command={build_script.absolute()}",
         "--overwrite"
     ])
+    
+    # Clean up build script
+    if build_script.exists():
+        build_script.unlink()
     
     if not success:
         print_error("Failed to create CodeQL database")
