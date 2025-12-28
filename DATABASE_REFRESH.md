@@ -256,6 +256,7 @@ done
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
    - Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns
+   - Uses `--no-check-for-project-errors` to bypass checks for missing JavaScript code
    - Allows autobuild to run naturally (which indexes the JSON files)
    - A warning "Only found JavaScript or TypeScript files that were empty..." is expected but harmless
    - Indexes all JSON files for query execution
