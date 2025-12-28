@@ -188,12 +188,10 @@ build_codeql_database() {
     # Use --codescanning-config to specify which files to index (JSON files)
     # The warning "Only found JavaScript or TypeScript files that were empty..." is expected
     # but harmless - the JSON files are still indexed correctly
-    # Add --no-check-for-project-errors to allow finalization even without traditional JS files
     codeql database create "$DATABASE_DIR" \
         --language=javascript \
         --source-root="$source_path" \
         --codescanning-config="$CONFIG_FILE" \
-        --no-check-for-project-errors \
         --overwrite \
         2>&1 | tee /tmp/codeql-build.log || {
             print_error "Failed to create CodeQL database"

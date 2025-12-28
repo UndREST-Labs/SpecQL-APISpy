@@ -195,13 +195,11 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
     # Use --codescanning-config to specify which files to index (JSON files)
     # The warning "Only found JavaScript or TypeScript files that were empty..." is expected
     # but harmless - the JSON files are still indexed correctly
-    # Add --no-check-for-project-errors to allow finalization even without traditional JS files
     success, output = run_command([
         "codeql", "database", "create", DATABASE_DIR,
         "--language=javascript",
         f"--source-root={source_path}",
         f"--codescanning-config={CONFIG_FILE}",
-        "--no-check-for-project-errors",
         "--overwrite"
     ])
     
