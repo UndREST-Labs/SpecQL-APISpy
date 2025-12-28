@@ -47,9 +47,9 @@ predicate isSasUri(JsonString str) {
  * Checks if the string has a "responses" ancestor in the JSON tree
  */
 predicate isInApiResponse(JsonString str) {
-  exists(JsonValue ancestor |
-    ancestor = str.getParentContainer*() and
-    ancestor.getParentContainer().getPropValue("responses") = ancestor
+  exists(JsonObject responsesObj |
+    responsesObj.getParentContainer().getPropValue("responses") = responsesObj and
+    str.getParentContainer*() = responsesObj
   )
 }
 
