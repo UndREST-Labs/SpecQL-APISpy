@@ -32,25 +32,44 @@ fi
 
 # Determine CodeQL search path for library resolution
 # For CodeQL 2.20.x, we need to provide the path to CodeQL libraries
-CODEQL_PATH=$(dirname "$(dirname "$(which codeql)")")
-if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
-    SEARCH_PATH="--search-path=$CODEQL_PATH"
-    echo -e "${GREEN}Using CodeQL libraries from: $CODEQL_PATH${NC}"
-elif [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
+SEARCH_PATH=""
+
+# Priority 1: CODEQL_DIST environment variable (user override)
+if [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
     SEARCH_PATH="--search-path=$CODEQL_DIST"
     echo -e "${GREEN}Using CodeQL libraries from CODEQL_DIST: $CODEQL_DIST${NC}"
+# Priority 2: Check for downloaded pack location (from codeql pack download)
+# The structure is: codeql/javascript/codeql/javascript-queries/VERSION/.codeql/libraries/
 elif [ -d "codeql/javascript/codeql" ]; then
-    # Check for downloaded pack location (from codeql pack download)
-    SEARCH_PATH="--search-path=$(pwd)/codeql/javascript/codeql"
-    echo -e "${GREEN}Using CodeQL libraries from downloaded packs: $(pwd)/codeql/javascript/codeql${NC}"
+    # Find the downloaded javascript-queries pack and use its .codeql/libraries directory
+    PACK_DIR=$(find codeql/javascript/codeql/javascript-queries -maxdepth 1 -type d -name "[0-9]*" 2>/dev/null | head -1)
+    if [ -n "$PACK_DIR" ] && [ -d "$PACK_DIR/.codeql/libraries" ]; then
+        # Use the libraries directory within the downloaded pack
+        SEARCH_PATH="--search-path=$(pwd)/$PACK_DIR/.codeql/libraries"
+        echo -e "${GREEN}Using CodeQL libraries from downloaded pack: $(pwd)/$PACK_DIR/.codeql/libraries${NC}"
+    else
+        # Fallback to the codeql directory itself
+        SEARCH_PATH="--search-path=$(pwd)/codeql/javascript/codeql"
+        echo -e "${YELLOW}Using CodeQL pack directory (libraries may not be found): $(pwd)/codeql/javascript/codeql${NC}"
+    fi
+# Priority 3: CodeQL binary installation location
+elif command -v codeql &> /dev/null; then
+    CODEQL_PATH=$(dirname "$(dirname "$(which codeql)")")
+    if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
+        SEARCH_PATH="--search-path=$CODEQL_PATH"
+        echo -e "${GREEN}Using CodeQL libraries from: $CODEQL_PATH${NC}"
+    fi
+# Priority 4: Local codeql directory
 elif [ -d "codeql" ] && [ -d "codeql/javascript" ]; then
-    # Check for local codeql directory
     SEARCH_PATH="--search-path=$(pwd)/codeql"
     echo -e "${GREEN}Using CodeQL libraries from local directory: $(pwd)/codeql${NC}"
-else
-    # Try without search path (may work if CODEQL_DIST is set as env var)
-    SEARCH_PATH=""
-    echo -e "${YELLOW}Warning: Could not detect CodeQL library location. Trying without search path...${NC}"
+fi
+
+# If still no search path found, warn user
+if [ -z "$SEARCH_PATH" ]; then
+    echo -e "${YELLOW}Warning: Could not detect CodeQL library location.${NC}"
+    echo -e "${YELLOW}Please set CODEQL_DIST environment variable or ensure libraries are installed.${NC}"
+    echo -e "${YELLOW}See README.md for installation instructions.${NC}"
 fi
 
 # Check if database exists
