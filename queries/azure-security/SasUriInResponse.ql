@@ -88,8 +88,9 @@ predicate hasSasUriInResponse(JsonObject obj, string propName) {
  * Holds if an object in response body contains SAS URI (nested)
  */
 predicate hasNestedSasUri(JsonObject obj, string propName) {
-  exists(JsonString uri |
-    uri = obj.getPropValue(_).(JsonObject).getPropValue(propName) and
+  exists(JsonString uri, JsonObject nestedObj |
+    nestedObj = obj.getPropValue(_) and
+    uri = nestedObj.getPropValue(propName) and
     isSasUri(uri) and
     isInApiResponse(obj) and
     isUriProperty(propName)
@@ -100,10 +101,10 @@ from JsonObject response, string message, string propName
 where
   (
     hasSasUriInResponse(response, propName) and
-    message = "API response exposes Azure SAS URI in property '" + propName + "', which may lead to data exfiltration or unauthorized access"
+    message = "API response exposes Azure SAS URI, which may lead to data exfiltration or unauthorized access"
   ) or
   (
     hasNestedSasUri(response, propName) and
-    message = "API response contains Azure SAS URI in nested object property '" + propName + "', which may lead to data exfiltration or unauthorized access"
+    message = "API response contains Azure SAS URI in nested object, which may lead to data exfiltration or unauthorized access"
   )
-select response, message + " [" + propName + "]"
+select response, message + " [property: " + propName + "]"
