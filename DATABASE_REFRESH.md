@@ -21,14 +21,17 @@ SpeQL analyzes Azure REST API specifications from Microsoft's [azure-rest-api-sp
    git --version
    ```
 
-2. **CodeQL CLI**: Required for building the database (optional for repository updates)
+2. **CodeQL CLI** (Version 2.20.x required): Required for building the database (optional for repository updates)
+   
+   **Important**: CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
+   
    ```bash
-   # Download CodeQL
-   wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip
+   # Download CodeQL 2.20.2
+   wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
    export PATH="$PATH:$(pwd)/codeql"
    
-   # Verify installation
+   # Verify installation (should show 2.20.x)
    codeql version
    ```
 
@@ -255,6 +258,10 @@ done
 2. **Database Creation**
    - Extracts JSON files from the specified path
    - Creates CodeQL database with JavaScript language extractor
+   - Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns
+   - Allows autobuild to run naturally (which indexes the JSON files)
+   - A warning "Only found JavaScript or TypeScript files that were empty..." is expected but harmless
+   - The database should finalize successfully despite the warning
    - Indexes all JSON files for query execution
 
 3. **Compatibility Setup**
@@ -318,6 +325,16 @@ export PATH="$PATH:$(pwd)/codeql"
 - Verify source files exist: `ls azure-rest-api-specs/specification/logic`
 - Check build logs in `database/azure-api-db/log/`
 - Try `--clean` to remove corrupted database first
+
+### Note: CodeQL Database Creation Process
+
+**The scripts use codescanning config to index JSON files**:
+- Uses `--codescanning-config=config/SpeQL.yml` to specify JSON file patterns (`**/*.json`)
+- Autobuild runs naturally and indexes the JSON files specified in the config
+- A warning "Only found JavaScript or TypeScript files that were empty or contained syntax errors" is **expected and harmless**
+- This warning appears because JSON files are not executable JavaScript, but they are still indexed correctly
+- The codescanning config is essential for JSON file indexing in JavaScript language databases
+- The database creation completes successfully and can be queried normally
 
 ### Problem: "analyze.py can't find files"
 

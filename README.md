@@ -89,12 +89,18 @@ SpeQL/
 
 ### Prerequisites
 
-1. **CodeQL CLI**: Download from [GitHub CodeQL releases](https://github.com/github/codeql-cli-binaries/releases)
+1. **CodeQL CLI** (Version 2.20.x required): Download from [GitHub CodeQL releases](https://github.com/github/codeql-cli-binaries/releases)
+   
+   **Important**: CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
+   
    ```bash
-   # Example installation
-   wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip
+   # Example installation (CodeQL 2.20.2)
+   wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
    export PATH="$PATH:/path/to/codeql"
+   
+   # Verify version
+   codeql version
    ```
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.

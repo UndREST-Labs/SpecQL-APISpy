@@ -6,6 +6,7 @@ Refreshes the CodeQL database from Azure REST API specifications
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,7 @@ NC = '\033[0m'  # No Color
 AZURE_REPO_URL = "https://github.com/Azure/azure-rest-api-specs.git"
 SPECS_DIR = "azure-rest-api-specs"
 DATABASE_DIR = "database/azure-api-db"
+CONFIG_FILE = "config/SpeQL.yml"
 DEFAULT_SPEC_PATH = "specification/logic"
 
 
@@ -78,14 +80,17 @@ def check_prerequisites(skip_codeql: bool = False) -> bool:
         if not check_command("codeql"):
             print_error("CodeQL CLI is not installed.")
             print("")
-            print("To install CodeQL:")
-            print("1. Download from: https://github.com/github/codeql-cli-binaries/releases")
+            print("To install CodeQL 2.20.2 (required version):")
+            print("1. Download from: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2")
             print("2. Extract and add to PATH")
             print("")
             print("Example:")
-            print("  wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip")
+            print("  wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip")
             print("  unzip codeql-linux64.zip")
             print("  export PATH=\"$PATH:$(pwd)/codeql\"")
+            print("")
+            print("Note: CodeQL 2.23.x and newer have compatibility issues with JSON-only databases.")
+            print("      Version 2.20.1 or 2.20.2 is required.")
             print("")
             print("Alternatively, run with --skip-db-build to only update the repository.")
             return False
@@ -95,6 +100,17 @@ def check_prerequisites(skip_codeql: bool = False) -> bool:
         if success:
             version = output.strip().split('\n')[0]
             print_success(f"CodeQL CLI found: {version}")
+            
+            # Extract version number and check
+            version_match = re.search(r'(\d+)\.(\d+)\.(\d+)', version)
+            if version_match:
+                major, minor, patch = map(int, version_match.groups())
+                if major == 2 and minor >= 23:
+                    print_warning(f"WARNING: CodeQL {major}.{minor}.{patch} detected.")
+                    print_warning("CodeQL 2.23.x and newer have known compatibility issues with JSON-only databases.")
+                    print_warning("If database creation fails, please downgrade to CodeQL 2.20.1 or 2.20.2.")
+                    print_warning("Download: https://github.com/github/codeql-cli-binaries/releases/tag/v2.20.2")
+                    print("")
     
     print_success("Prerequisites check complete")
     return True
@@ -176,27 +192,29 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
     db_path = Path(DATABASE_DIR)
     source_path = Path(SPECS_DIR) / spec_path
     
-    # Clean existing database
-    if clean and db_path.exists():
-        print_warning("Cleaning existing database...")
-        shutil.rmtree(db_path)
-    
     # Check source path
     if not source_path.exists():
         print_error(f"Source path does not exist: {source_path}")
         return False
     
-    # Remove old database
+    # Remove old database (either for clean rebuild or normal overwrite)
     if db_path.exists():
-        print_info("Removing old database...")
+        if clean:
+            print_warning("Cleaning existing database...")
+        else:
+            print_info("Removing old database...")
         shutil.rmtree(db_path)
     
     # Create database
     print_info(f"Creating CodeQL database from {source_path}...")
+    # Use --codescanning-config to specify which files to index (JSON files)
+    # The warning "Only found JavaScript or TypeScript files that were empty..." is expected
+    # but harmless - the JSON files are still indexed correctly
     success, output = run_command([
         "codeql", "database", "create", DATABASE_DIR,
         "--language=javascript",
         f"--source-root={source_path}",
+        f"--codescanning-config={CONFIG_FILE}",
         "--overwrite"
     ])
     

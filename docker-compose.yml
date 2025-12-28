@@ -14,7 +14,8 @@ x-common-config: &common-config
   # command: /bin/bash
 
 x-build-args: &build-args
-  CODEQL_VERSION: 2.20.4
+  # Version 2.20.2 is required - newer versions (2.23.x+) have compatibility issues with JSON-only databases
+  CODEQL_VERSION: 2.20.2
 
 services:
   # Standard x86_64/amd64 service (default)
