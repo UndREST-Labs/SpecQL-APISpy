@@ -35,14 +35,18 @@ fi
 CODEQL_PATH=$(dirname "$(dirname "$(which codeql)")")
 if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
     SEARCH_PATH="--search-path=$CODEQL_PATH"
+    echo -e "${GREEN}Using CodeQL libraries from: $CODEQL_PATH${NC}"
 elif [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
     SEARCH_PATH="--search-path=$CODEQL_DIST"
+    echo -e "${GREEN}Using CodeQL libraries from CODEQL_DIST: $CODEQL_DIST${NC}"
 elif [ -d "codeql" ] && [ -d "codeql/javascript" ]; then
     # Check for local codeql directory
     SEARCH_PATH="--search-path=$(pwd)/codeql"
+    echo -e "${GREEN}Using CodeQL libraries from local directory: $(pwd)/codeql${NC}"
 else
     # Try without search path (may work if CODEQL_DIST is set as env var)
     SEARCH_PATH=""
+    echo -e "${YELLOW}Warning: Could not detect CodeQL library location. Trying without search path...${NC}"
 fi
 
 # Check if database exists
