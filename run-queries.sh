@@ -40,13 +40,13 @@ if [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
     echo -e "${GREEN}Using CodeQL libraries from CODEQL_DIST: $CODEQL_DIST${NC}"
 # Priority 2: Check for downloaded pack location (from codeql pack download)
 # The structure is: codeql/javascript/codeql/javascript-queries/VERSION/.codeql/libraries/
-elif [ -d "codeql/javascript/codeql" ]; then
-    # Find the downloaded javascript-queries pack and use its .codeql/libraries directory
-    PACK_DIR=$(find codeql/javascript/codeql/javascript-queries -maxdepth 1 -type d -name "[0-9]*" 2>/dev/null | head -1)
-    if [ -n "$PACK_DIR" ] && [ -d "$PACK_DIR/.codeql/libraries" ]; then
+elif [ -d "codeql/javascript/codeql/javascript-queries" ]; then
+    # Find the downloaded javascript-queries pack version directory and use its .codeql/libraries subdirectory
+    PACK_VERSION=$(find codeql/javascript/codeql/javascript-queries -maxdepth 1 -type d -name "*.*.*" 2>/dev/null | head -n 1)
+    if [ -n "$PACK_VERSION" ] && [ -d "$PACK_VERSION/.codeql/libraries" ]; then
         # Use the libraries directory within the downloaded pack
-        SEARCH_PATH="--search-path=$(pwd)/$PACK_DIR/.codeql/libraries"
-        echo -e "${GREEN}Using CodeQL libraries from downloaded pack: $(pwd)/$PACK_DIR/.codeql/libraries${NC}"
+        SEARCH_PATH="--search-path=$(pwd)/$PACK_VERSION/.codeql/libraries"
+        echo -e "${GREEN}Using CodeQL libraries from downloaded pack: $(pwd)/$PACK_VERSION/.codeql/libraries${NC}"
     else
         # Fallback to the codeql directory itself
         SEARCH_PATH="--search-path=$(pwd)/codeql/javascript/codeql"
