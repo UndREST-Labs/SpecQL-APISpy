@@ -199,11 +199,7 @@ build_codeql_database() {
     fi
     
     # Ensure parent directory exists (Git doesn't track empty directories)
-    local parent_dir=$(dirname "$DATABASE_DIR")
-    if [ ! -d "$parent_dir" ]; then
-        print_info "Creating database parent directory: $parent_dir"
-        mkdir -p "$parent_dir"
-    fi
+    mkdir -p "$(dirname "$DATABASE_DIR")"
     
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
     # Use --codescanning-config to specify which files to index (JSON files)
