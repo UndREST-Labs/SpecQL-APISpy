@@ -9,12 +9,20 @@ set -e  # Exit on error
 CODEQL_VERSION="2.20.2"
 JAVASCRIPT_ALL_VERSION="2.6.18"
 CODEQL_REPO_TAG="codeql-cli/v2.20.2"  # Use specific tag for stability
+SHARED_PACKS="concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml"
 
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Helper function for download failure
+handle_download_failure() {
+    echo -e "${RED}✗ Failed to download CodeQL libraries${NC}"
+    echo -e "${YELLOW}  Please check your internet connection and try again${NC}"
+    echo -e "${YELLOW}  Or manually download from: https://github.com/github/codeql${NC}"
+}
 
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║         SpeQL - Security Query Language Setup             ║${NC}"
@@ -121,6 +129,7 @@ if [ -d "queries/azure-security" ]; then
             
             # Create a temporary directory for manual download
             TEMP_DIR=$(mktemp -d)
+            REPO_ROOT=$(pwd)
             cd "$TEMP_DIR"
             
             echo -e "${YELLOW}Downloading CodeQL libraries manually (using ${CODEQL_REPO_TAG})...${NC}"
@@ -134,23 +143,22 @@ if [ -d "queries/azure-security" ]; then
                 unzip -q main.zip
                 CODEQL_DIR="codeql-main"
             else
-                echo -e "${RED}✗ Failed to download CodeQL libraries${NC}"
-                echo -e "${YELLOW}  Please check your internet connection and try again${NC}"
-                echo -e "${YELLOW}  Or manually download from: https://github.com/github/codeql${NC}"
-                cd ../..
+                handle_download_failure
+                cd "$REPO_ROOT"
+                rm -rf "$TEMP_DIR"
                 exit 1
             fi
             
             # Verify download was successful
             if [ ! -d "$CODEQL_DIR" ]; then
                 echo -e "${RED}✗ CodeQL directory not found after extraction${NC}"
-                cd ../..
+                cd "$REPO_ROOT"
+                rm -rf "$TEMP_DIR"
                 exit 1
             fi
             
             # Create package directories
             mkdir -p ~/.codeql/packages/codeql/javascript-all/${JAVASCRIPT_ALL_VERSION}
-            mkdir -p ~/.codeql/packages/codeql/{concepts,dataflow,controlflow,mad,regex,ssa,threat-models,tutorial,typetracking,util,xml,yaml}
             
             # Copy JavaScript libraries
             echo -e "${YELLOW}  Installing javascript-all ${JAVASCRIPT_ALL_VERSION}...${NC}"
@@ -158,13 +166,14 @@ if [ -d "queries/azure-security" ]; then
                 cp -r "$CODEQL_DIR/javascript/ql/lib"/* ~/.codeql/packages/codeql/javascript-all/${JAVASCRIPT_ALL_VERSION}/
             else
                 echo -e "${RED}✗ JavaScript libraries not found in downloaded archive${NC}"
-                cd ../..
+                cd "$REPO_ROOT"
+                rm -rf "$TEMP_DIR"
                 exit 1
             fi
             
             # Copy shared libraries
             echo -e "${YELLOW}  Installing shared libraries...${NC}"
-            for pack in concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml; do
+            for pack in $SHARED_PACKS; do
                 if [ -d "$CODEQL_DIR/shared/$pack" ]; then
                     VERSION=$(grep "^version:" "$CODEQL_DIR/shared/$pack/qlpack.yml" 2>/dev/null | awk '{print $2}' | sed 's/-dev$//')
                     if [ -n "$VERSION" ]; then
@@ -178,24 +187,18 @@ if [ -d "queries/azure-security" ]; then
                     echo -e "${YELLOW}    ⚠ $pack not found, skipping${NC}"
                 fi
             done
-                
-                cd -
-                rm -rf "$TEMP_DIR"
-                
-                echo -e "${GREEN}✓ CodeQL libraries installed manually${NC}"
-                echo -e "${GREEN}  Alternative installation completed successfully${NC}"
-            else
-                echo -e "${RED}✗ Failed to download CodeQL libraries${NC}"
-                echo -e "${YELLOW}  Please check your internet connection and try again${NC}"
-                echo -e "${YELLOW}  Or manually download from: https://github.com/github/codeql${NC}"
-                cd ../..
-                exit 1
+            
+            cd "$REPO_ROOT"
+            rm -rf "$TEMP_DIR"
+            
+            echo -e "${GREEN}✓ CodeQL libraries installed manually${NC}"
+            echo -e "${GREEN}  Alternative installation completed successfully${NC}"
             fi
-            cd ../..
+            cd ../../
         else
             echo -e "${RED}✗ Pack installation failed with unexpected error${NC}"
             cat /tmp/pack_install.log
-            cd ../..
+            cd ../../
             exit 1
         fi
     fi
