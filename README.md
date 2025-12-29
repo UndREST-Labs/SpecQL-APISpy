@@ -2,6 +2,50 @@
 
 SpeQL is a security analysis tool that uses CodeQL to detect vulnerabilities and misconfigurations in Azure REST API specifications. It is specifically designed to identify issues similar to those described in the Azure Silent Reaper and Azure Vault Recon vulnerabilities.
 
+## Quick Start with CLI Menu
+
+SpeQL now includes an interactive command-line menu system for easy navigation and execution of all available actions:
+
+```bash
+# Install dependencies (only pyfiglet needed for the CLI)
+pip3 install -r requirements.txt
+
+# Launch the interactive CLI menu
+python3 SpeQL.py
+```
+
+The CLI menu provides:
+- **Intuitive navigation** - Browse all actions organized by category
+- **Interactive prompts** - Step-by-step guidance for complex operations
+- **ASCII art logo** - Beautiful SpeQL branding using figlet
+- **Comprehensive coverage** - Access to all documented scripts and tools
+- **User-friendly** - Input validation and helpful error messages
+
+### CLI Menu Structure
+
+- 📊 **Security Analysis** - Run security scans on Azure API specifications
+- 🗄️ **Database Management** - Clone, update, and rebuild the CodeQL database
+- 🔍 **CodeQL Security Queries** - Execute CodeQL queries and view results
+- 📈 **SARIF Analysis Tools** - Analyze SARIF output for threat hunting
+- ⚙️ **Setup and Installation** - Automated setup and dependency management
+- 📚 **Documentation and Help** - Access guides and documentation
+- ℹ️ **About SpeQL** - Learn about the tool and its capabilities
+
+### Alternative: Command-Line Usage
+
+For automation or scripting, you can still use the individual scripts directly:
+
+```bash
+# Run security analysis
+python3 analyze.py
+
+# Update database
+python3 refresh_database.py
+
+# Run CodeQL queries
+./run-queries.sh
+```
+
 ## Overview
 
 This tool analyzes Azure REST API specification files (Swagger/OpenAPI) to detect:
