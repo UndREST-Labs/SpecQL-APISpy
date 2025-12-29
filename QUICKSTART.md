@@ -1,0 +1,197 @@
+# Quick Start Guide for SpeQL CodeQL Queries
+
+## Prerequisites
+
+- Java Development Kit (JDK) 11 or newer
+- CodeQL CLI 2.20.2
+- Internet connection for downloading dependencies
+
+## Installation (3 Steps)
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/SpeQLSec/SpeQL.git
+cd SpeQL
+```
+
+### Step 2: Run Setup Script
+```bash
+./setup.sh
+```
+
+The script will:
+- Install CodeQL CLI if not present
+- Download all required query pack dependencies
+- Automatically handle SSL certificate errors if they occur
+- Verify the installation
+
+**Note**: If you encounter SSL certificate errors, the script will automatically fall back to manual library installation.
+
+### Step 3: Verify Installation
+```bash
+# Check CodeQL is installed
+codeql version
+
+# Check JavaScript libraries are installed
+ls ~/.codeql/packages/codeql/javascript-all/
+```
+
+## Running Queries
+
+### Option 1: Run All Queries (using CodeQL)
+```bash
+./run-queries.sh
+```
+
+### Option 2: Run Python Analyzer (no CodeQL needed)
+```bash
+python3 analyze.py
+```
+
+## Understanding the Queries
+
+### What Do These Queries Detect?
+
+1. **SasUriInResponse.ql** - Detects Azure SAS URIs exposed in API responses
+2. **InsecureKeyVaultConfig.ql** - Finds Key Vault misconfigurations (Azure Vault Recon)
+3. **InsecureLogicAppTrigger.ql** - Identifies Logic App triggers without authentication (Azure Silent Reaper)
+4. **MissingAccessControl.ql** - Finds API endpoints without proper access control
+5. **InsecureCredentials.ql** - Locates hardcoded credentials and secrets
+
+### Query Output
+
+Queries produce SARIF format output in the `results/` directory:
+```bash
+results/
+  ├── SasUriInResponse-results.sarif
+  ├── InsecureKeyVaultConfig-results.sarif
+  ├── InsecureLogicAppTrigger-results.sarif
+  ├── MissingAccessControl-results.sarif
+  └── InsecureCredentials-results.sarif
+```
+
+## Troubleshooting
+
+### Issue: "Could not create access credentials" (SSL Error)
+
+**Solution 1**: The setup script will automatically handle this. Just let it run.
+
+**Solution 2**: If manual intervention is needed:
+```bash
+cd /tmp
+wget https://github.com/github/codeql/archive/refs/heads/main.zip
+unzip main.zip
+mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
+cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
+```
+
+### Issue: "token recognition error at: '?'"
+
+This typically indicates a database issue. Ensure:
+- Database was created with CodeQL 2.20.x (not 2.23.x or newer)
+- JSON files are well-formed
+- You've run `./setup.sh` successfully
+
+### Issue: "Could not resolve library path"
+
+Run:
+```bash
+cd queries/azure-security
+codeql pack install .
+```
+
+If SSL errors occur, the setup script handles this automatically.
+
+### Issue: Database not found
+
+Create a database first:
+```bash
+./refresh-database.sh --path specification/logic
+```
+
+Or use the Python analyzer which doesn't require a database:
+```bash
+python3 analyze.py
+```
+
+## Advanced Usage
+
+### Running Individual Queries
+
+```bash
+cd queries/azure-security
+codeql query run SasUriInResponse.ql
+```
+
+### Analyzing Specific Azure Services
+
+```bash
+# Analyze Logic Apps only
+./refresh-database.sh --path specification/logic
+
+# Analyze Key Vault only
+./refresh-database.sh --path specification/keyvault
+
+# Analyze all services (takes longer)
+./refresh-database.sh --all
+```
+
+### Customizing Queries
+
+Queries are located in `queries/azure-security/`. You can:
+- Modify existing queries to adjust detection patterns
+- Add new predicates for additional checks
+- Change severity levels in query metadata
+
+## Getting Help
+
+1. Check the main [README.md](README.md) for detailed information
+2. Review [QUERY_FIXES_SUMMARY.md](QUERY_FIXES_SUMMARY.md) for recent changes
+3. See troubleshooting section in [README.md](README.md#troubleshooting)
+4. Open an issue on GitHub for bugs or questions
+
+## Common Workflows
+
+### Workflow 1: Quick Analysis with Python
+```bash
+python3 analyze.py
+```
+No setup required! Works with existing `src.zip` database.
+
+### Workflow 2: Full CodeQL Analysis
+```bash
+./setup.sh                    # One-time setup
+./refresh-database.sh         # Build database (if needed)
+./run-queries.sh             # Run all queries
+```
+
+### Workflow 3: Continuous Integration
+```bash
+# In CI pipeline
+./setup.sh
+./refresh-database.sh --path specification/logic
+./run-queries.sh
+# Exit code 1 if issues found
+```
+
+## What's Next?
+
+- Review the detected issues in `results/` directory
+- Examine false positives and adjust queries if needed
+- Integrate into your security scanning pipeline
+- Contribute improvements back to the project
+
+## Important Notes
+
+- CodeQL 2.20.x is recommended (2.23.x+ has compatibility issues with JSON-only databases)
+- Internet connection required for initial setup
+- Approximately 500MB disk space needed for CodeQL and libraries
+- Setup script handles most common issues automatically
+
+## Version Information
+
+- **CodeQL CLI**: 2.20.2 (recommended)
+- **JavaScript Library**: 2.6.18
+- **Query Pack Version**: 1.0.0
+
+For more details, see the full documentation in [README.md](README.md).
