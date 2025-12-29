@@ -443,13 +443,13 @@ A: The bash script requires WSL or Git Bash on Windows. The Python script (`refr
 
 - [Azure REST API Specs Repository](https://github.com/Azure/azure-rest-api-specs)
 - [CodeQL CLI Documentation](https://codeql.github.com/docs/codeql-cli/)
-- [SpeQL Main Documentation](README.md)
-- [Contributing Guide](CONTRIBUTING.md)
+- [SpeQL Main Documentation](../README.md)
+- [Contributing Guide](../CONTRIBUTING.md)
 
 ## Support
 
 For issues or questions:
 1. Check this guide's troubleshooting section
-2. Review the main [README.md](README.md)
+2. Review the main [README.md](../README.md)
 3. Open an issue on GitHub
 4. Check existing issues for similar problems

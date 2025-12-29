@@ -1,6 +1,6 @@
 # SARIF Analysis Scripts - Quick Reference
 
-This is a quick reference guide for the SARIF analysis scripts. For detailed documentation, see [scripts/sarif-analysis/README.md](scripts/sarif-analysis/README.md).
+This is a quick reference guide for the SARIF analysis scripts. For detailed documentation, see [scripts/sarif-analysis/README.md](../scripts/sarif-analysis/README.md).
 
 ## Prerequisites
 
@@ -169,8 +169,8 @@ Microsoft.Storage,blob,2021-09-01,stable,specification/storage/.../blob.json
 ## Getting Help
 
 - View script help: `./scripts/sarif-analysis/<script-name>.sh --help`
-- Detailed documentation: [scripts/sarif-analysis/README.md](scripts/sarif-analysis/README.md)
-- Main repository README: [README.md](README.md)
+- Detailed documentation: [scripts/sarif-analysis/README.md](../scripts/sarif-analysis/README.md)
+- Main repository README: [README.md](../README.md)
 
 ## Related Resources
 
