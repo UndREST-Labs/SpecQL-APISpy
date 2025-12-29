@@ -19,17 +19,16 @@ import javascript
  */
 predicate hasNoSecurity(JsonObject operation) {
   exists(JsonObject pathDef, JsonValue paths |
-    paths = pathDef.getParentContainer().getPropValue("paths") and
+    paths = pathDef.getParent().getPropValue("paths") and
     exists(JsonObject pathsObj |
       pathsObj = paths and
       pathDef = pathsObj.getPropValue(_) and
       operation = pathDef.getPropValue(_) and
-      operation instanceof JsonObject and
       not exists(JsonValue security | security = operation.getPropValue("security")) and
       not exists(JsonValue security, JsonValue parent |
-        parent = operation.getParentContainer+() and
+        parent = operation.getParent+() and
         security = parent.(JsonObject).getPropValue("security") and
-        security.getParentContainer() != operation
+        security.getParent() != operation
       )
     )
   )
@@ -41,7 +40,7 @@ predicate hasNoSecurity(JsonObject operation) {
 predicate hasEmptySecurity(JsonObject operation) {
   exists(JsonArray security |
     security = operation.getPropValue("security") and
-    security.getNumChild() = 0
+    not exists(security.getChild(0))
   )
 }
 

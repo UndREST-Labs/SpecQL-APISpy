@@ -6,6 +6,11 @@ results/
 .codeql/
 *.qls
 
+# CodeQL libraries (downloaded/extracted)
+codeql-javascript/
+codeql-shared/
+codeql/
+
 # Python cache
 __pycache__/
 *.py[cod]

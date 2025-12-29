@@ -32,9 +32,9 @@ predicate isWorkflowTrigger(JsonObject obj) {
     typeValue.(JsonString).getValue() = triggerType
   ) or
   exists(JsonValue triggers, JsonValue parent |
-    parent = obj.getParentContainer+() and
+    parent = obj.getParent+() and
     triggers = parent.(JsonObject).getPropValue("triggers") and
-    obj.getParentContainer() = triggers
+    obj.getParent() = triggers
   )
 }
 

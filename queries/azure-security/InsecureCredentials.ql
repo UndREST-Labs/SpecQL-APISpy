@@ -27,20 +27,6 @@ predicate isConnectionString(JsonString str) {
 }
 
 /**
- * Holds if a property name suggests it contains sensitive information
- */
-predicate isSensitiveProperty(string propName) {
-  propName.toLowerCase().matches("%password%") or
-  propName.toLowerCase().matches("%secret%") or
-  propName.toLowerCase().matches("%apikey%") or
-  propName.toLowerCase().matches("%api_key%") or
-  propName.toLowerCase().matches("%connectionstring%") or
-  propName.toLowerCase().matches("%accountkey%") or
-  propName.toLowerCase().matches("%sharedkey%") or
-  propName.toLowerCase().matches("%accesskey%")
-}
-
-/**
  * Holds if a value is a Key Vault reference (secure)
  */
 predicate isKeyVaultReference(JsonString str) {
@@ -52,9 +38,19 @@ predicate isKeyVaultReference(JsonString str) {
  * Holds if credential is hardcoded (not from Key Vault)
  */
 predicate hasHardcodedCredential(JsonObject obj, string propName) {
-  exists(JsonString value |
+  exists(JsonString value, string lower |
     value = obj.getPropValue(propName) and
-    isSensitiveProperty(propName) and
+    lower = propName.toLowerCase() and
+    (
+      lower.matches("%password%") or
+      lower.matches("%secret%") or
+      lower.matches("%apikey%") or
+      lower.matches("%api_key%") or
+      lower.matches("%connectionstring%") or
+      lower.matches("%accountkey%") or
+      lower.matches("%sharedkey%") or
+      lower.matches("%accesskey%")
+    ) and
     not isKeyVaultReference(value) and
     value.getValue().length() > 10 and
     not value.getValue() = ""
