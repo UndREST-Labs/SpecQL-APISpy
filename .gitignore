@@ -32,5 +32,6 @@ Thumbs.db
 # Azure REST API specs clone (managed by refresh scripts)
 azure-rest-api-specs/
 
-# Extracted source files (keep zipped)
-database/azure-api-db/mnt/
+# Database directory (created by refresh scripts, not tracked in git)
+# Empty directories can't be committed to Git
+database/

@@ -41,7 +41,7 @@ To work with the latest Azure API specifications:
 # Build database for a specific service
 ./refresh-database.sh --path specification/keyvault --fresh
 
-# See DATABASE_REFRESH.md for comprehensive documentation
+# See docs/DATABASE_REFRESH.md for comprehensive documentation
 ```
 
 ## 📝 Adding a New Security Query
@@ -125,8 +125,8 @@ python3 analyze.py
 
 Add documentation to:
 - **README.md**: Add your query to the "Vulnerabilities Detected" section
-- **QUICK_REFERENCE.md**: Add usage examples
-- **EXAMPLE_OUTPUT.md**: Add sample output if applicable
+- **docs/QUICK_REFERENCE.md**: Add usage examples
+- **docs/EXAMPLE_OUTPUT.md**: Add sample output if applicable
 
 ## 🧪 Testing Guidelines
 

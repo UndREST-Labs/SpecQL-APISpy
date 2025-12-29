@@ -39,8 +39,6 @@ python3 analyze.py --source /path/to/specs
 python3 refresh_database.py --all --skip-db-build
 ```
 
-See `ANALYSIS_JSON_FILE_COUNT.md` for detailed comparison and performance info.
-
 ## 🔄 Database Refresh
 
 ```bash

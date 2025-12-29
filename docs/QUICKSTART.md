@@ -173,10 +173,9 @@ Queries are located in `queries/azure-security/`. You can:
 
 ## Getting Help
 
-1. Check the main [README.md](README.md) for detailed information
-2. Review [QUERY_FIXES_SUMMARY.md](QUERY_FIXES_SUMMARY.md) for recent changes
-3. See troubleshooting section in [README.md](README.md#troubleshooting)
-4. Open an issue on GitHub for bugs or questions
+1. Check the main [README.md](../README.md) for detailed information
+2. See troubleshooting section in [README.md](../README.md#troubleshooting)
+3. Open an issue on GitHub for bugs or questions
 
 ## Common Workflows
 
@@ -222,4 +221,4 @@ No setup required! Works with existing `src.zip` database.
 - **JavaScript Library**: 0.9.4 (compatible with CodeQL 2.20.2)
 - **Query Pack Version**: 1.0.0
 
-For more details, see the full documentation in [README.md](README.md).
+For more details, see the full documentation in [README.md](../README.md).

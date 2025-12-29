@@ -69,13 +69,25 @@ Detects Azure Shared Access Signature (SAS) URIs exposed in API responses:
 ```
 SpeQL/
 ├── README.md                    # This file
+├── CONTRIBUTING.md              # Contributing guidelines
+├── LICENSE                      # License information
 ├── setup.sh                     # Automated setup script
+├── refresh-database.sh          # Bash script to refresh database
+├── refresh_database.py          # Python script to refresh database
 ├── analyze.py                   # Python-based security analyzer (no dependencies!)
 ├── run-queries.sh              # CodeQL query execution script
 ├── config/
 │   └── SpeQL.yml               # CodeQL database configuration
-├── database/
+├── database/                   # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/           # CodeQL database of Azure API specs
+├── docs/                       # Documentation
+│   ├── CODEQL_WORKFLOW.md
+│   ├── DATABASE_REFRESH.md
+│   ├── EXAMPLE_OUTPUT.md
+│   ├── QUICKSTART.md
+│   ├── QUICK_REFERENCE.md
+│   ├── REPOSITORY_STRUCTURE.md
+│   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/
 │   └── azure-security/         # Security query suite (CodeQL)
 │       ├── InsecureLogicAppTrigger.ql
@@ -85,13 +97,17 @@ SpeQL/
 │       ├── SasUriInResponse.ql
 │       └── qlpack.yml          # Query pack dependencies
 ├── results/                    # Analysis results (generated)
-└── scripts/
-    └── sarif-analysis/         # SARIF analysis and threat hunting tools
-        ├── deduplicate-by-product-operation.sh
-        ├── parse-sarif-endpoints.sh
-        ├── prioritize-threats.sh
-        └── README.md           # Detailed script documentation
+├── scripts/
+│   └── sarif-analysis/         # SARIF analysis and threat hunting tools
+│       ├── deduplicate-by-product-operation.sh
+│       ├── parse-sarif-endpoints.sh
+│       ├── prioritize-threats.sh
+│       └── README.md           # Detailed script documentation
+└── tests/                      # Test scripts
+    └── test_json_file_count_fix.sh
 ```
+
+For a detailed explanation of the repository organization and recent changes, see [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md).
 
 ## Installation
 
@@ -282,8 +298,6 @@ python3 refresh_database.py --all --skip-db-build
 - **Full Repository**: Comprehensive security audit of all Azure services
 - **Specific Service**: Focused analysis of one Azure service (Key Vault, Compute, etc.)
 - **Custom Directory**: Analyze your own API specifications
-
-See `ANALYSIS_JSON_FILE_COUNT.md` for detailed information about file counts and performance considerations.
 
 ### Advanced: Using CodeQL Queries
 

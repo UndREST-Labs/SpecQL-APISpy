@@ -198,6 +198,9 @@ build_codeql_database() {
         rm -rf "$DATABASE_DIR"
     fi
     
+    # Ensure parent directory exists (Git doesn't track empty directories)
+    mkdir -p "$(dirname "$DATABASE_DIR")"
+    
     # Create database with JavaScript extractor (JSON is analyzed as JavaScript)
     # Use --codescanning-config to specify which files to index (JSON files)
     # The warning "Only found JavaScript or TypeScript files that were empty..." is expected
