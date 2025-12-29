@@ -113,7 +113,7 @@ for query in "${QUERIES[@]}"; do
         
         # Count issues found
         if [ -f "$output_file" ]; then
-            issues=$(grep -o '"level":' "$output_file" | wc -l 2>/dev/null || echo "0")
+            issues=$(grep -o '"ruleId":' "$output_file" | wc -l 2>/dev/null || echo "0")
             total_issues=$((total_issues + issues))
             
             if [ "$issues" -gt 0 ]; then
