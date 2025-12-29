@@ -35,7 +35,7 @@ def clear_screen():
 def print_logo():
     """Print the SpeQL logo"""
     if HAS_FIGLET:
-        logo = pyfiglet.figlet_format("SpeQL", font="slant")
+        logo = pyfiglet.figlet_format("SpeQL", font="larry3d")
         print(f"{CYAN}{logo}{NC}")
     else:
         # Fallback ASCII art
@@ -85,10 +85,54 @@ def get_choice(max_option):
             return 0
 
 
+def select_file_from_list(directory, pattern="*.sarif"):
+    """
+    Display files in a directory and allow selection with cursor navigation
+    Returns the selected file path or None if cancelled
+    """
+    import glob
+    
+    files = sorted(glob.glob(str(Path(directory) / pattern)))
+    
+    if not files:
+        print(f"{YELLOW}No files found matching pattern {pattern} in {directory}{NC}")
+        return None
+    
+    # Display files as numbered list
+    print(f"\n{BOLD}{YELLOW}Select a file:{NC}")
+    print(f"{BLUE}{'─' * 60}{NC}")
+    
+    for i, file_path in enumerate(files, 1):
+        file_name = Path(file_path).name
+        file_size = Path(file_path).stat().st_size
+        size_str = f"{file_size:,} bytes"
+        print(f"{GREEN}{i}.{NC} {file_name:<40s} {size_str}")
+    
+    print(f"{GREEN}0.{NC} Cancel")
+    print(f"{BLUE}{'─' * 60}{NC}")
+    
+    # Get user choice
+    while True:
+        try:
+            choice = input(f"\n{CYAN}Enter file number (0-{len(files)}) or use arrow keys: {NC}").strip()
+            choice_num = int(choice)
+            if choice_num == 0:
+                return None
+            if 1 <= choice_num <= len(files):
+                return files[choice_num - 1]
+            else:
+                print(f"{RED}Invalid choice. Please enter a number between 0 and {len(files)}.{NC}")
+        except ValueError:
+            print(f"{RED}Invalid input. Please enter a number.{NC}")
+        except KeyboardInterrupt:
+            print(f"\n{YELLOW}Selection cancelled.{NC}")
+            return None
+
+
 def run_command(cmd, description=""):
     """Run a shell command and display output"""
     if description:
-        print(f"\n{YELLOW}► {description}{NC}")
+        print(f"\n{YELLOW}> {description}{NC}")
         print(f"{BLUE}Command: {' '.join(cmd)}{NC}\n")
     
     try:
@@ -122,7 +166,7 @@ def analyze_menu():
             "Show Available Analysis Options"
         ]
         
-        print_menu("📊 Security Analysis Options", options)
+        print_menu("Security Analysis Options", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -147,11 +191,11 @@ def analyze_menu():
             clear_screen()
             print_logo()
             print(f"{YELLOW}Common Azure Services:{NC}")
-            print(f"  • specification/logic (Logic Apps)")
-            print(f"  • specification/keyvault (Key Vault)")
-            print(f"  • specification/compute (Compute)")
-            print(f"  • specification/storage (Storage)")
-            print(f"  • specification/network (Network)")
+            print(f"  - specification/logic (Logic Apps)")
+            print(f"  - specification/keyvault (Key Vault)")
+            print(f"  - specification/compute (Compute)")
+            print(f"  - specification/storage (Storage)")
+            print(f"  - specification/network (Network)")
             service = input(f"\n{CYAN}Enter service path (e.g., specification/keyvault): {NC}").strip()
             if service:
                 clear_screen()
@@ -199,7 +243,7 @@ def database_menu():
             "Show Database Management Options"
         ]
         
-        print_menu("🗄️  Database Management", options)
+        print_menu("Database Management", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -220,10 +264,10 @@ def database_menu():
             clear_screen()
             print_logo()
             print(f"{YELLOW}Common Azure Services:{NC}")
-            print(f"  • specification/logic (Logic Apps) - default")
-            print(f"  • specification/keyvault (Key Vault)")
-            print(f"  • specification/compute (Compute)")
-            print(f"  • specification/storage (Storage)")
+            print(f"  - specification/logic (Logic Apps) - default")
+            print(f"  - specification/keyvault (Key Vault)")
+            print(f"  - specification/compute (Compute)")
+            print(f"  - specification/storage (Storage)")
             service = input(f"\n{CYAN}Enter service path (e.g., specification/keyvault): {NC}").strip()
             if service:
                 clear_screen()
@@ -269,7 +313,7 @@ def codeql_menu():
             "Show Query Documentation"
         ]
         
-        print_menu("🔍 CodeQL Security Queries", options)
+        print_menu("CodeQL Security Queries", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -319,7 +363,7 @@ def codeql_menu():
                 if sarif_files:
                     print(f"{GREEN}Found {len(sarif_files)} result file(s):{NC}\n")
                     for sarif_file in sarif_files:
-                        print(f"  • {sarif_file.name}")
+                        print(f"  - {sarif_file.name}")
                 else:
                     print(f"{YELLOW}No SARIF result files found.{NC}")
             else:
@@ -369,7 +413,7 @@ def sarif_menu():
             "Show SARIF Tools Documentation"
         ]
         
-        print_menu("📈 SARIF Analysis Tools", options)
+        print_menu("SARIF Analysis Tools", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -377,43 +421,34 @@ def sarif_menu():
         elif choice == 1:
             clear_screen()
             print_logo()
-            sarif_file = input(f"{CYAN}Enter SARIF file path (e.g., results/SasUriInResponse-results.sarif): {NC}").strip()
-            if sarif_file and Path(sarif_file).exists():
+            sarif_file = select_file_from_list("results", "*.sarif")
+            if sarif_file:
                 clear_screen()
                 print_logo()
                 run_command(["./scripts/sarif-analysis/deduplicate-by-product-operation.sh", sarif_file],
                           "Deduplicating SARIF results")
                 pause()
-            elif sarif_file:
-                print(f"{RED}File not found: {sarif_file}{NC}")
-                pause()
         elif choice == 2:
             clear_screen()
             print_logo()
-            sarif_file = input(f"{CYAN}Enter SARIF file path: {NC}").strip()
-            if sarif_file and Path(sarif_file).exists():
+            sarif_file = select_file_from_list("results", "*.sarif")
+            if sarif_file:
                 format_choice = input(f"{CYAN}Output format (csv/json/grouped) [csv]: {NC}").strip() or "csv"
                 clear_screen()
                 print_logo()
                 run_command(["./scripts/sarif-analysis/parse-sarif-endpoints.sh", "-f", format_choice, sarif_file],
                           f"Parsing SARIF endpoints as {format_choice}")
                 pause()
-            elif sarif_file:
-                print(f"{RED}File not found: {sarif_file}{NC}")
-                pause()
         elif choice == 3:
             clear_screen()
             print_logo()
-            sarif_file = input(f"{CYAN}Enter SARIF file path: {NC}").strip()
-            if sarif_file and Path(sarif_file).exists():
+            sarif_file = select_file_from_list("results", "*.sarif")
+            if sarif_file:
                 threshold = input(f"{CYAN}Threat threshold (critical/high/medium) [high]: {NC}").strip() or "high"
                 clear_screen()
                 print_logo()
                 run_command(["./scripts/sarif-analysis/prioritize-threats.sh", "--threshold", threshold, sarif_file],
                           f"Prioritizing threats (threshold: {threshold})")
-                pause()
-            elif sarif_file:
-                print(f"{RED}File not found: {sarif_file}{NC}")
                 pause()
         elif choice == 4:
             clear_screen()
@@ -440,7 +475,7 @@ def setup_menu():
             "Show Setup Documentation"
         ]
         
-        print_menu("⚙️  Setup and Installation", options)
+        print_menu("Setup and Installation", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -489,10 +524,10 @@ def setup_menu():
             java_ok = run_command(["java", "-version"], "Checking Java")
             
             print(f"\n{BOLD}Summary:{NC}")
-            print(f"  Python 3: {GREEN + '✓' if python_ok else RED + '✗'}{NC}")
-            print(f"  Git: {GREEN + '✓' if git_ok else RED + '✗'}{NC}")
-            print(f"  CodeQL: {GREEN + '✓' if codeql_ok else RED + '✗'}{NC}")
-            print(f"  Java: {GREEN + '✓' if java_ok else RED + '✗'}{NC}")
+            print(f"  Python 3: {GREEN + 'OK' if python_ok else RED + 'FAIL'}{NC}")
+            print(f"  Git: {GREEN + 'OK' if git_ok else RED + 'FAIL'}{NC}")
+            print(f"  CodeQL: {GREEN + 'OK' if codeql_ok else RED + 'FAIL'}{NC}")
+            print(f"  Java: {GREEN + 'OK' if java_ok else RED + 'FAIL'}{NC}")
             pause()
         elif choice == 5:
             clear_screen()
@@ -521,7 +556,7 @@ def documentation_menu():
             "Show Example Workflows"
         ]
         
-        print_menu("📚 Documentation and Help", options)
+        print_menu("Documentation and Help", options)
         choice = get_choice(len(options))
         
         if choice == 0:
@@ -559,16 +594,16 @@ def documentation_menu():
             print_logo()
             print(f"{BOLD}Available Scripts:{NC}\n")
             print(f"{GREEN}Main Scripts:{NC}")
-            print("  • analyze.py - Security analyzer (no dependencies)")
-            print("  • refresh_database.py - Database refresh utility")
-            print("  • run-queries.sh - CodeQL query runner")
-            print("  • setup.sh - Automated setup script")
+            print("  - analyze.py - Security analyzer (no dependencies)")
+            print("  - refresh_database.py - Database refresh utility")
+            print("  - run-queries.sh - CodeQL query runner")
+            print("  - setup.sh - Automated setup script")
             print(f"\n{GREEN}SARIF Analysis Scripts:{NC}")
-            print("  • scripts/sarif-analysis/deduplicate-by-product-operation.sh")
-            print("  • scripts/sarif-analysis/parse-sarif-endpoints.sh")
-            print("  • scripts/sarif-analysis/prioritize-threats.sh")
+            print("  - scripts/sarif-analysis/deduplicate-by-product-operation.sh")
+            print("  - scripts/sarif-analysis/parse-sarif-endpoints.sh")
+            print("  - scripts/sarif-analysis/prioritize-threats.sh")
             print(f"\n{GREEN}Configuration:{NC}")
-            print("  • config/SpeQL.yml - CodeQL database configuration")
+            print("  - config/SpeQL.yml - CodeQL database configuration")
             pause()
         elif choice == 6:
             clear_screen()
@@ -601,13 +636,13 @@ def main_menu():
         print_logo()
         
         options = [
-            "📊 Security Analysis",
-            "🗄️  Database Management",
-            "🔍 CodeQL Security Queries",
-            "📈 SARIF Analysis Tools",
-            "⚙️  Setup and Installation",
-            "📚 Documentation and Help",
-            "ℹ️  About SpeQL"
+            "Security Analysis",
+            "Database Management",
+            "CodeQL Security Queries",
+            "SARIF Analysis Tools",
+            "Setup and Installation",
+            "Documentation and Help",
+            "About SpeQL"
         ]
         
         print_menu("Main Menu", options, back_option=False)
@@ -637,11 +672,11 @@ def main_menu():
             print("SpeQL is a security analysis tool that uses CodeQL to detect")
             print("vulnerabilities and misconfigurations in Azure REST API specifications.")
             print("\nIt specifically targets:")
-            print("  • Azure Silent Reaper - Insecure Logic App triggers")
-            print("  • Azure Vault Recon - Key Vault misconfigurations")
-            print("  • Missing Access Control - API endpoints without authentication")
-            print("  • Insecure Credentials - Hardcoded secrets and connection strings")
-            print("  • SAS URI Exposure - Azure SAS tokens in API responses")
+            print("  - Azure Silent Reaper - Insecure Logic App triggers")
+            print("  - Azure Vault Recon - Key Vault misconfigurations")
+            print("  - Missing Access Control - API endpoints without authentication")
+            print("  - Insecure Credentials - Hardcoded secrets and connection strings")
+            print("  - SAS URI Exposure - Azure SAS tokens in API responses")
             print("\n" + "─" * 60)
             print("Repository: https://github.com/SpeQLSec/SpeQL")
             print("License: See LICENSE file")
