@@ -105,6 +105,7 @@ SpeQL/
         └── README.md           # Detailed script documentation
 ```
 
+For a detailed explanation of the repository organization and recent changes, see [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md).
 
 ## Installation
 
