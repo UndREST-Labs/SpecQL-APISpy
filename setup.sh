@@ -5,6 +5,11 @@
 
 set -e  # Exit on error
 
+# Configuration
+CODEQL_VERSION="2.20.2"
+JAVASCRIPT_ALL_VERSION="2.6.18"
+CODEQL_REPO_TAG="codeql-cli/v2.20.2"  # Use specific tag for stability
+
 # Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -40,20 +45,20 @@ else
 fi
 echo
 
-# Step 2: Download and install CodeQL CLI 2.20.2
-echo -e "${YELLOW}Step 2: Installing CodeQL CLI 2.20.2...${NC}"
+# Step 2: Download and install CodeQL CLI
+echo -e "${YELLOW}Step 2: Installing CodeQL CLI ${CODEQL_VERSION}...${NC}"
 if command_exists codeql; then
-    CODEQL_VERSION=$(codeql version 2>&1 | head -n 1)
-    echo -e "${GREEN}✓ CodeQL is already installed: ${CODEQL_VERSION}${NC}"
+    INSTALLED_VERSION=$(codeql version 2>&1 | head -n 1)
+    echo -e "${GREEN}✓ CodeQL is already installed: ${INSTALLED_VERSION}${NC}"
 else
-    echo -e "${YELLOW}Downloading CodeQL CLI 2.20.2...${NC}"
+    echo -e "${YELLOW}Downloading CodeQL CLI ${CODEQL_VERSION}...${NC}"
     
     # Create a temporary directory for download
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
     
     # Download CodeQL
-    wget -q https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
+    wget -q "https://github.com/github/codeql-cli-binaries/releases/download/v${CODEQL_VERSION}/codeql-linux64.zip"
     
     # Extract to user's home directory
     unzip -q codeql-linux64.zip
@@ -91,7 +96,7 @@ else
     cd - > /dev/null
     rm -rf "$TEMP_DIR"
     
-    echo -e "${GREEN}✓ CodeQL CLI 2.20.2 installed successfully${NC}"
+    echo -e "${GREEN}✓ CodeQL CLI ${CODEQL_VERSION} installed successfully${NC}"
     echo -e "${YELLOW}  Note: You may need to restart your shell or run: source ${SHELL_PROFILE}${NC}"
 fi
 echo
@@ -118,25 +123,61 @@ if [ -d "queries/azure-security" ]; then
             TEMP_DIR=$(mktemp -d)
             cd "$TEMP_DIR"
             
-            echo -e "${YELLOW}Downloading CodeQL libraries manually...${NC}"
-            if wget -q https://github.com/github/codeql/archive/refs/heads/main.zip 2>/dev/null; then
+            echo -e "${YELLOW}Downloading CodeQL libraries manually (using ${CODEQL_REPO_TAG})...${NC}"
+            # Use a specific tag instead of main for stability
+            if wget -q "https://github.com/github/codeql/archive/refs/tags/${CODEQL_REPO_TAG}.zip" 2>/dev/null; then
+                unzip -q "${CODEQL_REPO_TAG}.zip"
+                CODEQL_DIR="codeql-${CODEQL_REPO_TAG}"
+            elif wget -q https://github.com/github/codeql/archive/refs/heads/main.zip 2>/dev/null; then
+                # Fallback to main branch if tag not found
+                echo -e "${YELLOW}  Tag not found, using main branch as fallback${NC}"
                 unzip -q main.zip
-                
-                # Create package directories
-                mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
-                mkdir -p ~/.codeql/packages/codeql/{concepts,dataflow,controlflow,mad,regex,ssa,threat-models,tutorial,typetracking,util,xml,yaml}
-                
-                # Copy JavaScript libraries
-                cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
-                
-                # Copy shared libraries
-                for pack in concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml; do
-                    if [ -d "codeql-main/shared/$pack" ]; then
-                        VERSION=$(grep "^version:" "codeql-main/shared/$pack/qlpack.yml" | awk '{print $2}' | sed 's/-dev$//')
+                CODEQL_DIR="codeql-main"
+            else
+                echo -e "${RED}✗ Failed to download CodeQL libraries${NC}"
+                echo -e "${YELLOW}  Please check your internet connection and try again${NC}"
+                echo -e "${YELLOW}  Or manually download from: https://github.com/github/codeql${NC}"
+                cd ../..
+                exit 1
+            fi
+            
+            # Verify download was successful
+            if [ ! -d "$CODEQL_DIR" ]; then
+                echo -e "${RED}✗ CodeQL directory not found after extraction${NC}"
+                cd ../..
+                exit 1
+            fi
+            
+            # Create package directories
+            mkdir -p ~/.codeql/packages/codeql/javascript-all/${JAVASCRIPT_ALL_VERSION}
+            mkdir -p ~/.codeql/packages/codeql/{concepts,dataflow,controlflow,mad,regex,ssa,threat-models,tutorial,typetracking,util,xml,yaml}
+            
+            # Copy JavaScript libraries
+            echo -e "${YELLOW}  Installing javascript-all ${JAVASCRIPT_ALL_VERSION}...${NC}"
+            if [ -d "$CODEQL_DIR/javascript/ql/lib" ]; then
+                cp -r "$CODEQL_DIR/javascript/ql/lib"/* ~/.codeql/packages/codeql/javascript-all/${JAVASCRIPT_ALL_VERSION}/
+            else
+                echo -e "${RED}✗ JavaScript libraries not found in downloaded archive${NC}"
+                cd ../..
+                exit 1
+            fi
+            
+            # Copy shared libraries
+            echo -e "${YELLOW}  Installing shared libraries...${NC}"
+            for pack in concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml; do
+                if [ -d "$CODEQL_DIR/shared/$pack" ]; then
+                    VERSION=$(grep "^version:" "$CODEQL_DIR/shared/$pack/qlpack.yml" 2>/dev/null | awk '{print $2}' | sed 's/-dev$//')
+                    if [ -n "$VERSION" ]; then
                         mkdir -p ~/.codeql/packages/codeql/$pack/$VERSION
-                        cp -r codeql-main/shared/$pack/* ~/.codeql/packages/codeql/$pack/$VERSION/
+                        cp -r "$CODEQL_DIR/shared/$pack"/* ~/.codeql/packages/codeql/$pack/$VERSION/
+                        echo -e "${GREEN}    ✓ $pack $VERSION${NC}"
+                    else
+                        echo -e "${YELLOW}    ⚠ Could not determine version for $pack, skipping${NC}"
                     fi
-                done
+                else
+                    echo -e "${YELLOW}    ⚠ $pack not found, skipping${NC}"
+                fi
+            done
                 
                 cd -
                 rm -rf "$TEMP_DIR"
