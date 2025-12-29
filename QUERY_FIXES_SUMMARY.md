@@ -29,10 +29,12 @@ dependencies:
 To:
 ```yaml
 dependencies:
-  codeql/javascript-all: '*'
+  codeql/javascript-all: ~0.9.0
 ```
 
-**Reason**: `codeql/javascript-all` is the correct library pack that contains all JavaScript/JSON analysis capabilities. The `codeql/javascript-queries` pack is for query suites, not library dependencies.
+**Reason**: 
+- `codeql/javascript-all` is the correct library pack that contains all JavaScript/JSON analysis capabilities. The `codeql/javascript-queries` pack is for query suites, not library dependencies.
+- **CRITICAL**: Changed from wildcard `*` to `~0.9.0` to pin to version 0.9.x. Using `*` causes CodeQL to install the latest version (2.6.18), which is incompatible with CodeQL 2.20.2.
 
 ### 3. Recreated Lock File
 **File: `queries/azure-security/codeql-pack.lock.yml`**
@@ -41,7 +43,7 @@ Recreated the lock file with correct library versions compatible with CodeQL 2.2
 - **javascript-all**: Changed from 2.6.18 (incompatible) to 0.9.4 (compatible)
 - All transitive dependencies updated to versions from the CodeQL 2.20.2 era
 
-**Critical**: The original lock file specified javascript-all@2.6.18, which contains newer QL syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse. This caused "token recognition error at: '?'" when compiling queries.
+**Critical**: The original lock file specified javascript-all@2.6.18, which contains newer QL syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse. Additionally, using `*` in qlpack.yml caused CodeQL to ignore the lock file and install the latest version. This caused "token recognition error at: '?'" when compiling queries.
 
 ### 4. Enhanced Documentation
 **File: `README.md`**

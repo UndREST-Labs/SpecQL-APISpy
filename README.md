@@ -132,7 +132,8 @@ java -version
 **Important**: 
 - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
 - You need the **CodeQL libraries**, which can be obtained using `codeql pack install`.
-- **CRITICAL**: The lock file specifies javascript-all@0.9.4, which is compatible with CodeQL 2.20.2. Newer versions (2.x+) contain syntax that CodeQL 2.20.2 cannot parse.
+- **CRITICAL**: The qlpack.yml specifies javascript-all@~0.9.0 (version 0.9.x), which is compatible with CodeQL 2.20.2. Newer versions (2.x+) contain syntax that CodeQL 2.20.2 cannot parse.
+- The lock file pins the exact version to 0.9.4.
 
 ```bash
 # 1. Install CodeQL CLI 2.20.2
@@ -455,37 +456,45 @@ Manual library download is strongly discouraged because:
 **Issue: "token recognition error at: '?'" when running queries**
 
 This error indicates incompatible CodeQL library versions. Common causes:
-- **Wrong library version**: The lock file was created with incorrect versions (javascript-all 2.6.x instead of 0.9.x)
+- **Wrong library version**: CodeQL is installing javascript-all 2.6.x instead of 0.9.x
+- **Wildcard dependency**: Using `*` in qlpack.yml causes CodeQL to use the latest version
 - **Manually installed libraries** from GitHub that are too new for CodeQL 2.20.2
 - Libraries containing syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse
 - Version mismatch between CodeQL CLI and library files
 
 **Solution:**
-1. Ensure you have the latest version of this repository with the corrected lock file:
+1. Ensure you have the latest version of this repository:
    ```bash
    git pull origin main
    ```
 
-2. Remove any existing libraries:
-   ```bash
-   rm -rf ~/.codeql/packages
-   ```
-
-3. Re-install using the corrected lock file:
+2. Verify qlpack.yml has the correct version constraint:
    ```bash
    cd queries/azure-security
+   grep javascript-all qlpack.yml
+   # Should show: codeql/javascript-all: ~0.9.0 (NOT *)
+   ```
+
+3. Remove any existing libraries and lock file:
+   ```bash
+   rm -rf ~/.codeql/packages
+   rm -f codeql-pack.lock.yml  # Force regeneration
+   ```
+
+4. Re-install with correct version:
+   ```bash
    codeql pack install .
    ```
 
-The corrected lock file specifies javascript-all@0.9.4, which is compatible with CodeQL 2.20.2.
+5. Verify the correct version is installed:
+   ```bash
+   ls ~/.codeql/packages/codeql/javascript-all/
+   # Must show: 0.9.4 (not 2.6.18)
+   ```
 
-If you still see errors, verify the installed version:
-```bash
-ls ~/.codeql/packages/codeql/javascript-all/
-# Should show: 0.9.4 (not 2.6.18)
-```
+If it still installs 2.6.18, the qlpack.yml file has `*` instead of `~0.9.0`. Pull the latest changes or manually edit qlpack.yml.
 
-4. If SSL issues cannot be resolved, consider upgrading to CodeQL 2.18+ which has better certificate handling
+6. If SSL issues cannot be resolved, consider upgrading to CodeQL 2.18+ which has better certificate handling
 
 **Issue: "Could not resolve library path" errors**
 - Run `codeql pack install` in the `queries/azure-security` directory
