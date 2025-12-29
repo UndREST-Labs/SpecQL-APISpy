@@ -327,32 +327,37 @@ def codeql_menu():
         elif choice == 2:
             clear_screen()
             print_logo()
+            
+            # Dynamically discover all .ql files in queries/azure-security
+            queries_dir = Path("queries/azure-security")
+            if not queries_dir.exists():
+                print(f"{RED}Error: Queries directory not found: {queries_dir}{NC}")
+                pause()
+                continue
+            
+            query_files = sorted(queries_dir.glob("*.ql"))
+            
+            if not query_files:
+                print(f"{YELLOW}No query files found in {queries_dir}{NC}")
+                pause()
+                continue
+            
             print(f"{YELLOW}Available Queries:{NC}")
-            print(f"  1. InsecureLogicAppTrigger.ql")
-            print(f"  2. InsecureKeyVaultConfig.ql")
-            print(f"  3. MissingAccessControl.ql")
-            print(f"  4. InsecureCredentials.ql")
-            print(f"  5. SasUriInResponse.ql")
-            query_choice = input(f"\n{CYAN}Enter query number (1-5): {NC}").strip()
+            for i, query_file in enumerate(query_files, 1):
+                print(f"  {i}. {query_file.name}")
             
-            queries = [
-                "InsecureLogicAppTrigger.ql",
-                "InsecureKeyVaultConfig.ql",
-                "MissingAccessControl.ql",
-                "InsecureCredentials.ql",
-                "SasUriInResponse.ql"
-            ]
+            query_choice = input(f"\n{CYAN}Enter query number (1-{len(query_files)}): {NC}").strip()
             
-            if query_choice.isdigit() and 1 <= int(query_choice) <= 5:
-                query_file = queries[int(query_choice) - 1]
+            if query_choice.isdigit() and 1 <= int(query_choice) <= len(query_files):
+                query_file = query_files[int(query_choice) - 1]
                 clear_screen()
                 print_logo()
                 run_command([
                     "codeql", "database", "analyze", "database/azure-api-db",
-                    f"queries/azure-security/{query_file}",
+                    str(query_file),
                     "--format=sarif-latest",
-                    f"--output=results/{query_file.replace('.ql', '-results.sarif')}"
-                ], f"Running {query_file}")
+                    f"--output=results/{query_file.stem}-results.sarif"
+                ], f"Running {query_file.name}")
                 pause()
         elif choice == 3:
             clear_screen()
@@ -372,31 +377,42 @@ def codeql_menu():
         elif choice == 4:
             clear_screen()
             print_logo()
+            
+            # Dynamically discover all .ql files and show their documentation
+            queries_dir = Path("queries/azure-security")
+            query_files = sorted(queries_dir.glob("*.ql")) if queries_dir.exists() else []
+            
             print(f"{BOLD}Available Security Queries:{NC}\n")
-            print(f"{GREEN}1. InsecureLogicAppTrigger.ql{NC}")
-            print("   Detects Logic App triggers vulnerable to Azure Silent Reaper attack")
-            print("   - HTTP/Request triggers missing authentication")
-            print("   - Triggers using 'None' or 'Anonymous' authentication\n")
             
-            print(f"{GREEN}2. InsecureKeyVaultConfig.ql{NC}")
-            print("   Detects Key Vault misconfigurations (Azure Vault Recon)")
-            print("   - Key Vaults without network restrictions")
-            print("   - Public network access enabled\n")
+            for i, query_file in enumerate(query_files, 1):
+                query_name = query_file.stem
+                print(f"{GREEN}{i}. {query_file.name}{NC}")
+                
+                # Show description based on query name
+                if "InsecureLogicAppTrigger" in query_name:
+                    print("   Detects Logic App triggers vulnerable to Azure Silent Reaper attack")
+                    print("   - HTTP/Request triggers missing authentication")
+                    print("   - Triggers using 'None' or 'Anonymous' authentication")
+                elif "InsecureKeyVaultConfig" in query_name:
+                    print("   Detects Key Vault misconfigurations (Azure Vault Recon)")
+                    print("   - Key Vaults without network restrictions")
+                    print("   - Public network access enabled")
+                elif "MissingAccessControl" in query_name:
+                    print("   Finds API endpoints lacking proper access control")
+                    print("   - Sensitive operations without authentication")
+                    print("   - API endpoints with empty security arrays")
+                elif "InsecureCredentials" in query_name:
+                    print("   Locates hardcoded credentials and secrets")
+                    print("   - Hardcoded passwords, API keys, secrets")
+                    print("   - Connection strings with embedded credentials")
+                elif "SasUriInResponse" in query_name:
+                    print("   Detects SAS URIs exposed in API responses")
+                    print("   - SAS tokens in response bodies")
+                    print("   - Potential data exfiltration risks")
+                else:
+                    print(f"   Security query for Azure API specifications")
+                print()
             
-            print(f"{GREEN}3. MissingAccessControl.ql{NC}")
-            print("   Finds API endpoints lacking proper access control")
-            print("   - Sensitive operations without authentication")
-            print("   - API endpoints with empty security arrays\n")
-            
-            print(f"{GREEN}4. InsecureCredentials.ql{NC}")
-            print("   Locates hardcoded credentials and secrets")
-            print("   - Hardcoded passwords, API keys, secrets")
-            print("   - Connection strings with embedded credentials\n")
-            
-            print(f"{GREEN}5. SasUriInResponse.ql{NC}")
-            print("   Detects SAS URIs exposed in API responses")
-            print("   - SAS tokens in response bodies")
-            print("   - Potential data exfiltration risks\n")
             pause()
 
 
@@ -423,33 +439,121 @@ def sarif_menu():
             print_logo()
             sarif_file = select_file_from_list("results", "*.sarif")
             if sarif_file:
+                # Ask for format
+                print(f"\n{YELLOW}Output format options:{NC}")
+                print(f"  1. unique - Unique product+operation combinations (default)")
+                print(f"  2. grouped - Grouped results by product")
+                print(f"  3. summary - Summary statistics")
+                format_choice = input(f"\n{CYAN}Select format (1-3) [1]: {NC}").strip()
+                
+                format_map = {"1": "unique", "2": "grouped", "3": "summary", "": "unique"}
+                output_format = format_map.get(format_choice, "unique")
+                
+                # Ask for output destination
+                print(f"\n{YELLOW}Output destination:{NC}")
+                print(f"  1. Screen (default)")
+                print(f"  2. File")
+                output_choice = input(f"\n{CYAN}Select output (1-2) [1]: {NC}").strip()
+                
+                cmd = ["./scripts/sarif-analysis/deduplicate-by-product-operation.sh", "-f", output_format]
+                
+                if output_choice == "2":
+                    output_file = input(f"{CYAN}Enter output filename: {NC}").strip()
+                    if output_file:
+                        cmd.extend(["-o", output_file])
+                
+                cmd.append(sarif_file)
+                
                 clear_screen()
                 print_logo()
-                run_command(["./scripts/sarif-analysis/deduplicate-by-product-operation.sh", sarif_file],
-                          "Deduplicating SARIF results")
+                run_command(cmd, f"Deduplicating SARIF results (format: {output_format})")
                 pause()
+                
         elif choice == 2:
             clear_screen()
             print_logo()
             sarif_file = select_file_from_list("results", "*.sarif")
             if sarif_file:
-                format_choice = input(f"{CYAN}Output format (csv/json/grouped) [csv]: {NC}").strip() or "csv"
+                # Ask for format
+                print(f"\n{YELLOW}Output format options:{NC}")
+                print(f"  1. table - Human-readable table format (default)")
+                print(f"  2. json - Structured JSON output")
+                print(f"  3. csv - Comma-separated values")
+                format_choice = input(f"\n{CYAN}Select format (1-3) [1]: {NC}").strip()
+                
+                format_map = {"1": "table", "2": "json", "3": "csv", "": "table"}
+                output_format = format_map.get(format_choice, "table")
+                
+                # Ask for output destination
+                print(f"\n{YELLOW}Output destination:{NC}")
+                print(f"  1. Screen (default)")
+                print(f"  2. File")
+                output_choice = input(f"\n{CYAN}Select output (1-2) [1]: {NC}").strip()
+                
+                cmd = ["./scripts/sarif-analysis/parse-sarif-endpoints.sh", "-f", output_format]
+                
+                if output_choice == "2":
+                    output_file = input(f"{CYAN}Enter output filename: {NC}").strip()
+                    if output_file:
+                        cmd.extend(["-o", output_file])
+                
+                cmd.append(sarif_file)
+                
                 clear_screen()
                 print_logo()
-                run_command(["./scripts/sarif-analysis/parse-sarif-endpoints.sh", "-f", format_choice, sarif_file],
-                          f"Parsing SARIF endpoints as {format_choice}")
+                run_command(cmd, f"Parsing SARIF endpoints (format: {output_format})")
                 pause()
+                
         elif choice == 3:
             clear_screen()
             print_logo()
             sarif_file = select_file_from_list("results", "*.sarif")
             if sarif_file:
-                threshold = input(f"{CYAN}Threat threshold (critical/high/medium) [high]: {NC}").strip() or "high"
+                # Ask for threshold
+                print(f"\n{YELLOW}Priority threshold options:{NC}")
+                print(f"  1. all - Show all priorities (default)")
+                print(f"  2. critical - Critical issues only")
+                print(f"  3. high - High and above")
+                print(f"  4. medium - Medium and above")
+                print(f"  5. low - Low and above")
+                threshold_choice = input(f"\n{CYAN}Select threshold (1-5) [1]: {NC}").strip()
+                
+                threshold_map = {"1": "", "2": "critical", "3": "high", "4": "medium", "5": "low", "": ""}
+                threshold = threshold_map.get(threshold_choice, "")
+                
+                # Ask for format
+                print(f"\n{YELLOW}Output format options:{NC}")
+                print(f"  1. table - Human-readable table format (default)")
+                print(f"  2. markdown - Markdown format")
+                print(f"  3. json - Structured JSON output")
+                format_choice = input(f"\n{CYAN}Select format (1-3) [1]: {NC}").strip()
+                
+                format_map = {"1": "table", "2": "markdown", "3": "json", "": "table"}
+                output_format = format_map.get(format_choice, "table")
+                
+                # Ask for output destination
+                print(f"\n{YELLOW}Output destination:{NC}")
+                print(f"  1. Screen (default)")
+                print(f"  2. File")
+                output_choice = input(f"\n{CYAN}Select output (1-2) [1]: {NC}").strip()
+                
+                cmd = ["./scripts/sarif-analysis/prioritize-threats.sh", "-f", output_format]
+                
+                if threshold:
+                    cmd.extend(["--threshold", threshold])
+                
+                if output_choice == "2":
+                    output_file = input(f"{CYAN}Enter output filename: {NC}").strip()
+                    if output_file:
+                        cmd.extend(["-o", output_file])
+                
+                cmd.append(sarif_file)
+                
                 clear_screen()
                 print_logo()
-                run_command(["./scripts/sarif-analysis/prioritize-threats.sh", "--threshold", threshold, sarif_file],
-                          f"Prioritizing threats (threshold: {threshold})")
+                run_command(cmd, f"Prioritizing threats (threshold: {threshold or 'all'}, format: {output_format})")
                 pause()
+                
         elif choice == 4:
             clear_screen()
             print_logo()
