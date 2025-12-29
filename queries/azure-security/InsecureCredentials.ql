@@ -80,9 +80,10 @@ predicate hasInsecureConnectionString(JsonObject obj, string propName) {
  * Holds if securestring is used but value is still visible
  */
 predicate hasVisibleSecureString(JsonObject obj) {
-  exists(JsonObject param |
+  exists(JsonObject param, JsonValue typeValue |
     param = obj.getPropValue(_) and
-    param.getPropStringValue("type") = "securestring" and
+    typeValue = param.getPropValue("type") and
+    typeValue.(JsonString).getValue() = "securestring" and
     exists(JsonString defaultValue |
       defaultValue = param.getPropValue("defaultValue") and
       defaultValue.getValue().length() > 0 and
@@ -95,7 +96,10 @@ predicate hasVisibleSecureString(JsonObject obj) {
  * Holds if authentication type uses basic auth without secure storage
  */
 predicate usesInsecureBasicAuth(JsonObject auth) {
-  auth.getPropStringValue("type") = "Basic" and
+  exists(JsonValue typeValue |
+    typeValue = auth.getPropValue("type") and
+    typeValue.(JsonString).getValue() = "Basic"
+  ) and
   exists(JsonString password |
     password = auth.getPropValue("password") and
     not isKeyVaultReference(password) and
