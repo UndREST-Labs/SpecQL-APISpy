@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Set CodeQL environment variable to suppress installation path warnings
+if [ -z "${CODEQL_ALLOW_INSTALLATION_ANYWHERE:-}" ]; then
+    export CODEQL_ALLOW_INSTALLATION_ANYWHERE=true
+fi
+
 # SpeQL Setup Script
 # This script automates the installation and configuration of SpeQL
 

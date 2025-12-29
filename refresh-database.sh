@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Set CodeQL environment variable to suppress installation path warnings
+if [ -z "${CODEQL_ALLOW_INSTALLATION_ANYWHERE:-}" ]; then
+    export CODEQL_ALLOW_INSTALLATION_ANYWHERE=true
+fi
+
 # SpeQL Database Refresh Script
 # This script clones/updates Azure REST API specs and rebuilds the CodeQL database
 
