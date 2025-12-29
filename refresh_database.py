@@ -205,6 +205,12 @@ def build_codeql_database(spec_path: str, clean: bool) -> bool:
             print_info("Removing old database...")
         shutil.rmtree(db_path)
     
+    # Ensure parent directory exists (Git doesn't track empty directories)
+    db_parent = db_path.parent
+    if not db_parent.exists():
+        print_info(f"Creating database parent directory: {db_parent}")
+        db_parent.mkdir(parents=True, exist_ok=True)
+    
     # Create database
     print_info(f"Creating CodeQL database from {source_path}...")
     # Use --codescanning-config to specify which files to index (JSON files)

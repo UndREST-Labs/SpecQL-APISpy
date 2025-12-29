@@ -69,13 +69,25 @@ Detects Azure Shared Access Signature (SAS) URIs exposed in API responses:
 ```
 SpeQL/
 ├── README.md                    # This file
+├── CONTRIBUTING.md              # Contributing guidelines
+├── LICENSE                      # License information
 ├── setup.sh                     # Automated setup script
+├── refresh-database.sh          # Bash script to refresh database
+├── refresh_database.py          # Python script to refresh database
 ├── analyze.py                   # Python-based security analyzer (no dependencies!)
 ├── run-queries.sh              # CodeQL query execution script
 ├── config/
 │   └── SpeQL.yml               # CodeQL database configuration
-├── database/
+├── database/                   # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/           # CodeQL database of Azure API specs
+├── docs/                       # Documentation
+│   ├── ANALYSIS_JSON_FILE_COUNT.md
+│   ├── CODEQL_WORKFLOW.md
+│   ├── DATABASE_REFRESH.md
+│   ├── EXAMPLE_OUTPUT.md
+│   ├── QUICKSTART.md
+│   ├── QUICK_REFERENCE.md
+│   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/
 │   └── azure-security/         # Security query suite (CodeQL)
 │       ├── InsecureLogicAppTrigger.ql
@@ -92,6 +104,7 @@ SpeQL/
         ├── prioritize-threats.sh
         └── README.md           # Detailed script documentation
 ```
+
 
 ## Installation
 
@@ -283,7 +296,7 @@ python3 refresh_database.py --all --skip-db-build
 - **Specific Service**: Focused analysis of one Azure service (Key Vault, Compute, etc.)
 - **Custom Directory**: Analyze your own API specifications
 
-See `ANALYSIS_JSON_FILE_COUNT.md` for detailed information about file counts and performance considerations.
+See [docs/ANALYSIS_JSON_FILE_COUNT.md](docs/ANALYSIS_JSON_FILE_COUNT.md) for detailed information about file counts and performance considerations.
 
 ### Advanced: Using CodeQL Queries
 
