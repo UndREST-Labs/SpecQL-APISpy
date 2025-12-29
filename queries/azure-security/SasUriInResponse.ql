@@ -14,7 +14,7 @@
  *       external/cwe/cwe-359
  */
 
-import javascript
+import semmle.javascript.JSON
 
 from JsonString sasUri
 where 

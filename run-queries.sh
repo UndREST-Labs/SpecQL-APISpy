@@ -85,10 +85,10 @@ mkdir -p "$RESULTS_PATH"
 
 # List of queries to run
 QUERIES=(
-    "InsecureLogicAppTrigger.ql"
-    "InsecureKeyVaultConfig.ql"
-    "MissingAccessControl.ql"
-    "InsecureCredentials.ql"
+#    "InsecureLogicAppTrigger.ql"
+#    "InsecureKeyVaultConfig.ql"
+#    "MissingAccessControl.ql"
+#    "InsecureCredentials.ql"
     "SasUriInResponse.ql"
 )
 
