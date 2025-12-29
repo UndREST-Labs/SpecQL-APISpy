@@ -418,6 +418,34 @@ database/azure-api-db/
 - Add to PATH: `export PATH="$PATH:/path/to/codeql"`
 - Or use `--skip-db-build` to only update the repository
 
+**Issue: "Could not create access credentials" or SSL certificate errors during `codeql pack install`**
+This occurs when CodeQL cannot verify SSL certificates when downloading dependencies. Solutions:
+- **Option 1 (Recommended)**: Use CodeQL 2.20.2 and manually download the CodeQL repository containing all libraries:
+  ```bash
+  cd /tmp
+  wget https://github.com/github/codeql/archive/refs/heads/main.zip
+  unzip main.zip
+  mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
+  cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
+  # Copy other dependencies as needed
+  ```
+- **Option 2**: Update system certificates:
+  ```bash
+  sudo update-ca-certificates
+  ```
+- **Option 3**: Use a newer version of Java (JDK 17 or 21) which may have updated certificates
+
+**Issue: "token recognition error at: '?'" when running queries**
+This error typically indicates an issue with the CodeQL database or the JSON files being analyzed:
+- Ensure the database was created with CodeQL 2.20.x (not 2.23.x or newer)
+- Check that JSON files in the database are well-formed
+- Verify the query pack dependencies are correctly installed
+
+**Issue: "Could not resolve library path" errors**
+- Run `codeql pack install` in the `queries/azure-security` directory
+- If SSL issues persist, manually set up the libraries (see SSL certificate errors above)
+- Verify `~/.codeql/packages/codeql/javascript-all/` exists and contains the library files
+
 **Issue: Clone/build takes too long**
 - Use `--path` to target specific services instead of `--all`
 - The default Logic Apps specification is much smaller than all specifications

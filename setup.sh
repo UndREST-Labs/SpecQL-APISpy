@@ -102,11 +102,62 @@ if [ -d "queries/azure-security" ]; then
     cd queries/azure-security
     
     echo -e "${YELLOW}Running: codeql pack install .${NC}"
-    codeql pack install .
-    
-    cd ../..
-    echo -e "${GREEN}✓ Query pack dependencies installed successfully${NC}"
-    echo -e "${GREEN}  Dependencies installed to: ~/.codeql/packages/${NC}"
+    if codeql pack install . 2>&1 | tee /tmp/pack_install.log; then
+        cd ../..
+        echo -e "${GREEN}✓ Query pack dependencies installed successfully${NC}"
+        echo -e "${GREEN}  Dependencies installed to: ~/.codeql/packages/${NC}"
+    else
+        # Check if the error is due to SSL certificate issues
+        if grep -q "SunCertPathBuilderException\|SSL\|certificate" /tmp/pack_install.log; then
+            echo -e "${YELLOW}⚠ SSL certificate error detected during pack installation${NC}"
+            echo -e "${YELLOW}  This is a known issue with certain network configurations.${NC}"
+            echo
+            echo -e "${YELLOW}Attempting alternative installation method...${NC}"
+            
+            # Create a temporary directory for manual download
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            
+            echo -e "${YELLOW}Downloading CodeQL libraries manually...${NC}"
+            if wget -q https://github.com/github/codeql/archive/refs/heads/main.zip 2>/dev/null; then
+                unzip -q main.zip
+                
+                # Create package directories
+                mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
+                mkdir -p ~/.codeql/packages/codeql/{concepts,dataflow,controlflow,mad,regex,ssa,threat-models,tutorial,typetracking,util,xml,yaml}
+                
+                # Copy JavaScript libraries
+                cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
+                
+                # Copy shared libraries
+                for pack in concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml; do
+                    if [ -d "codeql-main/shared/$pack" ]; then
+                        VERSION=$(grep "^version:" "codeql-main/shared/$pack/qlpack.yml" | awk '{print $2}' | sed 's/-dev$//')
+                        mkdir -p ~/.codeql/packages/codeql/$pack/$VERSION
+                        cp -r codeql-main/shared/$pack/* ~/.codeql/packages/codeql/$pack/$VERSION/
+                    fi
+                done
+                
+                cd -
+                rm -rf "$TEMP_DIR"
+                
+                echo -e "${GREEN}✓ CodeQL libraries installed manually${NC}"
+                echo -e "${GREEN}  Alternative installation completed successfully${NC}"
+            else
+                echo -e "${RED}✗ Failed to download CodeQL libraries${NC}"
+                echo -e "${YELLOW}  Please check your internet connection and try again${NC}"
+                echo -e "${YELLOW}  Or manually download from: https://github.com/github/codeql${NC}"
+                cd ../..
+                exit 1
+            fi
+            cd ../..
+        else
+            echo -e "${RED}✗ Pack installation failed with unexpected error${NC}"
+            cat /tmp/pack_install.log
+            cd ../..
+            exit 1
+        fi
+    fi
 else
     echo -e "${RED}✗ queries/azure-security directory not found${NC}"
     echo -e "${RED}  Please run this script from the SpeQL repository root${NC}"
