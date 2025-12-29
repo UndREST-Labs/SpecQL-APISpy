@@ -84,7 +84,13 @@ SpeQL/
 │       ├── InsecureCredentials.ql
 │       ├── SasUriInResponse.ql
 │       └── qlpack.yml          # Query pack dependencies
-└── results/                    # Analysis results (generated)
+├── results/                    # Analysis results (generated)
+└── scripts/
+    └── sarif-analysis/         # SARIF analysis and threat hunting tools
+        ├── deduplicate-by-product-operation.sh
+        ├── parse-sarif-endpoints.sh
+        ├── prioritize-threats.sh
+        └── README.md           # Detailed script documentation
 ```
 
 ## Installation
@@ -339,6 +345,78 @@ Results from CodeQL are saved in SARIF format (Static Analysis Results Interchan
 - Viewed in VS Code with the SARIF Viewer extension
 - Uploaded to GitHub Advanced Security
 - Processed with SARIF tools
+
+### Analyzing SARIF Results for Threat Hunting
+
+SpeQL includes specialized scripts for analyzing SARIF output files to identify control plane/data plane isolation issues. These tools help prioritize findings and identify patterns similar to the Azure SilentReaper vulnerability.
+
+#### Quick Start with SARIF Analysis
+
+After running CodeQL queries, use these scripts to analyze the results:
+
+```bash
+# 1. Deduplicate findings by product + operation (ignore API versions)
+./scripts/sarif-analysis/deduplicate-by-product-operation.sh \
+    results/SasUriInResponse-results.sarif
+
+# 2. Parse and extract detailed endpoint data
+./scripts/sarif-analysis/parse-sarif-endpoints.sh \
+    -f csv results/SasUriInResponse-results.sarif
+
+# 3. Prioritize threats by severity (SilentReaper-style patterns)
+./scripts/sarif-analysis/prioritize-threats.sh \
+    --threshold high results/SasUriInResponse-results.sarif
+```
+
+#### Available SARIF Analysis Tools
+
+1. **deduplicate-by-product-operation.sh** - Removes duplicate findings across API versions
+   ```bash
+   # Get unique vulnerable patterns
+   ./scripts/sarif-analysis/deduplicate-by-product-operation.sh \
+       -f grouped results/SasUriInResponse-results.sarif
+   ```
+
+2. **parse-sarif-endpoints.sh** - Extract structured endpoint data in multiple formats
+   ```bash
+   # Export to CSV for spreadsheet analysis
+   ./scripts/sarif-analysis/parse-sarif-endpoints.sh \
+       -f csv -o endpoints.csv results/SasUriInResponse-results.sarif
+   ```
+
+3. **prioritize-threats.sh** - Prioritize findings based on control plane/data plane risks
+   ```bash
+   # Generate threat hunting report
+   ./scripts/sarif-analysis/prioritize-threats.sh \
+       -f markdown -o threat-report.md results/SasUriInResponse-results.sarif
+   ```
+
+See [scripts/sarif-analysis/README.md](scripts/sarif-analysis/README.md) for detailed documentation, examples, and integration guides.
+
+#### Threat Hunting Workflow
+
+1. **Run Security Analysis:**
+   ```bash
+   ./run-queries.sh
+   ```
+
+2. **Identify Unique Patterns:**
+   ```bash
+   ./scripts/sarif-analysis/deduplicate-by-product-operation.sh \
+       -v results/SasUriInResponse-results.sarif
+   ```
+
+3. **Focus on Critical Threats:**
+   ```bash
+   ./scripts/sarif-analysis/prioritize-threats.sh \
+       --threshold critical -v results/SasUriInResponse-results.sarif
+   ```
+
+4. **Export for Further Analysis:**
+   ```bash
+   ./scripts/sarif-analysis/parse-sarif-endpoints.sh \
+       -f csv --include-lines results/SasUriInResponse-results.sarif > analysis.csv
+   ```
 
 ## Database Management
 
