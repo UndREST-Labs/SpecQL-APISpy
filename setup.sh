@@ -7,7 +7,7 @@ set -e  # Exit on error
 
 # Configuration
 CODEQL_VERSION="2.20.2"
-JAVASCRIPT_ALL_VERSION="2.6.18"
+JAVASCRIPT_ALL_VERSION="0.9.4"
 # Note: Manual library download from GitHub is discouraged due to version compatibility issues.
 # The libraries in the main branch may contain syntax that CodeQL 2.20.2 cannot parse.
 # It's strongly recommended to fix SSL certificate issues instead.
@@ -219,7 +219,6 @@ if [ -d "queries/azure-security" ]; then
             echo -e "${YELLOW}    3. Re-run this setup with: ./setup.sh${NC}"
             echo -e "${YELLOW}  The only reliable solution is to use 'codeql pack install'.${NC}"
             echo
-            fi
             cd ../../
         else
             echo -e "${RED}✗ Pack installation failed with unexpected error${NC}"

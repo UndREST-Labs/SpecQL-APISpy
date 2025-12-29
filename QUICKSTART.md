@@ -219,7 +219,7 @@ No setup required! Works with existing `src.zip` database.
 ## Version Information
 
 - **CodeQL CLI**: 2.20.2 (recommended)
-- **JavaScript Library**: 2.6.18
+- **JavaScript Library**: 0.9.4 (compatible with CodeQL 2.20.2)
 - **Query Pack Version**: 1.0.0
 
 For more details, see the full documentation in [README.md](README.md).

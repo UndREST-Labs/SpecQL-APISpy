@@ -132,6 +132,7 @@ java -version
 **Important**: 
 - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
 - You need the **CodeQL libraries**, which can be obtained using `codeql pack install`.
+- **CRITICAL**: The lock file specifies javascript-all@0.9.4, which is compatible with CodeQL 2.20.2. Newer versions (2.x+) contain syntax that CodeQL 2.20.2 cannot parse.
 
 ```bash
 # 1. Install CodeQL CLI 2.20.2
@@ -454,23 +455,35 @@ Manual library download is strongly discouraged because:
 **Issue: "token recognition error at: '?'" when running queries**
 
 This error indicates incompatible CodeQL library versions. Common causes:
+- **Wrong library version**: The lock file was created with incorrect versions (javascript-all 2.6.x instead of 0.9.x)
 - **Manually installed libraries** from GitHub that are too new for CodeQL 2.20.2
-- Libraries containing syntax (like `?` optional chaining) that older CodeQL cannot parse
+- Libraries containing syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse
 - Version mismatch between CodeQL CLI and library files
 
 **Solution:**
-1. Remove manually installed libraries:
+1. Ensure you have the latest version of this repository with the corrected lock file:
+   ```bash
+   git pull origin main
+   ```
+
+2. Remove any existing libraries:
    ```bash
    rm -rf ~/.codeql/packages
    ```
 
-2. Fix SSL certificate issues (see above)
-
-3. Re-install using proper method:
+3. Re-install using the corrected lock file:
    ```bash
    cd queries/azure-security
    codeql pack install .
    ```
+
+The corrected lock file specifies javascript-all@0.9.4, which is compatible with CodeQL 2.20.2.
+
+If you still see errors, verify the installed version:
+```bash
+ls ~/.codeql/packages/codeql/javascript-all/
+# Should show: 0.9.4 (not 2.6.18)
+```
 
 4. If SSL issues cannot be resolved, consider upgrading to CodeQL 2.18+ which has better certificate handling
 

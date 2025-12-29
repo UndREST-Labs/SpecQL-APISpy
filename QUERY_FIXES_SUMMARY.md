@@ -37,7 +37,11 @@ dependencies:
 ### 3. Recreated Lock File
 **File: `queries/azure-security/codeql-pack.lock.yml`**
 
-Recreated the lock file to reflect the updated dependencies. The lock file specifies exact versions of all transitive dependencies.
+Recreated the lock file with correct library versions compatible with CodeQL 2.20.2:
+- **javascript-all**: Changed from 2.6.18 (incompatible) to 0.9.4 (compatible)
+- All transitive dependencies updated to versions from the CodeQL 2.20.2 era
+
+**Critical**: The original lock file specified javascript-all@2.6.18, which contains newer QL syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse. This caused "token recognition error at: '?'" when compiling queries.
 
 ### 4. Enhanced Documentation
 **File: `README.md`**
