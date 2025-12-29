@@ -132,6 +132,8 @@ java -version
 **Important**: 
 - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
 - You need the **CodeQL libraries**, which can be obtained using `codeql pack install`.
+- **CRITICAL**: The qlpack.yml specifies javascript-all@~0.9.0 (version 0.9.x), which is compatible with CodeQL 2.20.2. Newer versions (2.x+) contain syntax that CodeQL 2.20.2 cannot parse.
+- The lock file pins the exact version to 0.9.4.
 
 ```bash
 # 1. Install CodeQL CLI 2.20.2
@@ -417,6 +419,87 @@ database/azure-api-db/
 - Install CodeQL CLI from [GitHub releases](https://github.com/github/codeql-cli-binaries/releases)
 - Add to PATH: `export PATH="$PATH:/path/to/codeql"`
 - Or use `--skip-db-build` to only update the repository
+
+**Issue: "Could not create access credentials" or SSL certificate errors during `codeql pack install`**
+
+This occurs when CodeQL cannot verify SSL certificates when downloading dependencies. 
+
+**CRITICAL: The only reliable solution is to fix the SSL certificate issue and use `codeql pack install`.**
+
+Manual library download is strongly discouraged because:
+- Libraries from GitHub may be incompatible with your CodeQL version
+- Newer library syntax (like `?` optional chaining) causes "token recognition error"
+- Version mismatches lead to compilation failures
+
+**Recommended Solutions (in order):**
+1. **Update system certificates** (Best solution):
+   ```bash
+   sudo update-ca-certificates
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+2. **Use newer Java version** with updated CA certificates:
+   ```bash
+   sudo apt-get install openjdk-17-jdk  # or openjdk-21-jdk
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+3. **Configure corporate proxy** if behind one:
+   ```bash
+   export HTTP_PROXY=http://proxy.example.com:8080
+   export HTTPS_PROXY=http://proxy.example.com:8080
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+4. **Contact system administrator** to resolve certificate trust issues
+
+**Issue: "token recognition error at: '?'" when running queries**
+
+This error indicates incompatible CodeQL library versions. Common causes:
+- **Wrong library version**: CodeQL is installing javascript-all 2.6.x instead of 0.9.x
+- **Wildcard dependency**: Using `*` in qlpack.yml causes CodeQL to use the latest version
+- **Manually installed libraries** from GitHub that are too new for CodeQL 2.20.2
+- Libraries containing syntax (like `?` nullable types) that CodeQL 2.20.2 cannot parse
+- Version mismatch between CodeQL CLI and library files
+
+**Solution:**
+1. Ensure you have the latest version of this repository:
+   ```bash
+   git pull origin main
+   ```
+
+2. Verify qlpack.yml has the correct version constraint:
+   ```bash
+   cd queries/azure-security
+   grep javascript-all qlpack.yml
+   # Should show: codeql/javascript-all: ~0.9.0 (NOT *)
+   ```
+
+3. Remove any existing libraries and lock file:
+   ```bash
+   rm -rf ~/.codeql/packages
+   rm -f codeql-pack.lock.yml  # Force regeneration
+   ```
+
+4. Re-install with correct version:
+   ```bash
+   codeql pack install .
+   ```
+
+5. Verify the correct version is installed:
+   ```bash
+   ls ~/.codeql/packages/codeql/javascript-all/
+   # Must show: 0.9.4 (not 2.6.18)
+   ```
+
+If it still installs 2.6.18, the qlpack.yml file has `*` instead of `~0.9.0`. Pull the latest changes or manually edit qlpack.yml.
+
+6. If SSL issues cannot be resolved, consider upgrading to CodeQL 2.18+ which has better certificate handling
+
+**Issue: "Could not resolve library path" errors**
+- Run `codeql pack install` in the `queries/azure-security` directory
+- Verify `~/.codeql/packages/codeql/javascript-all/` exists and contains the library files
+- Check that library versions match the lock file requirements
 
 **Issue: Clone/build takes too long**
 - Use `--path` to target specific services instead of `--all`
