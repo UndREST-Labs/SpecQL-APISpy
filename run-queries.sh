@@ -31,7 +31,9 @@ if ! command -v codeql &> /dev/null; then
 fi
 
 # Determine CodeQL search path for library resolution
-# For CodeQL 2.20.x, we need to provide the path to CodeQL libraries
+# NOTE: If you used 'codeql pack install' in queries/azure-security/, 
+# CodeQL will automatically find dependencies in ~/.codeql/packages/
+# This search path detection is for backward compatibility with manual installations
 SEARCH_PATH=""
 
 # Priority 1: CODEQL_DIST environment variable (user override)

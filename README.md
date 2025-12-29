@@ -109,34 +109,38 @@ SpeQL/
    
    **Important**: 
    - CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
-   - You need the **CodeQL libraries**, which can be obtained using `codeql pack download`.
+   - You need the **CodeQL libraries**, which can be obtained using `codeql pack download` and `codeql pack install`.
    
    **Installation Options:**
    
-   **Option A: Using codeql pack download (Recommended for local setup)**
+   **Option A: Using codeql pack install (Recommended for local setup)**
    ```bash
    # 1. Install CodeQL CLI 2.20.2
    wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
    unzip codeql-linux64.zip
    export PATH="$PATH:$(pwd)/codeql"
    
-   # 2. Download JavaScript query pack with all dependencies
-   # This downloads the pack and all its library dependencies
-   codeql pack download codeql/javascript-queries --dir codeql/javascript/
+   # 2. Install query pack dependencies
+   # This automatically downloads all required libraries including codeql/javascript-all
+   cd queries/azure-security
+   codeql pack install .
+   cd ../..
    
    # 3. Verify installation
    codeql version
-   ls codeql/javascript/codeql/javascript-queries/*/
+   ls ~/.codeql/packages/codeql/javascript-all/
    
-   # 4. The run-queries.sh script will automatically detect the libraries
-   #    No additional configuration needed!
+   # 4. Run the queries
    ./run-queries.sh
    ```
    
-   The `codeql pack download` command will download:
-   - The JavaScript query pack with proper qlpack.yml configuration
-   - All dependent libraries including `codeql/javascript-all` in a `.codeql/libraries/` subdirectory
-   - Pre-compiled query suites
+   **How it works:**
+   - The `queries/azure-security/qlpack.yml` file declares a dependency on `codeql/javascript-queries`
+   - Running `codeql pack install` resolves and downloads all dependencies including:
+     - `codeql/javascript-all` (the JavaScript standard library)
+     - `codeql/javascript-queries` (standard JavaScript security queries)
+     - All transitive dependencies (dataflow, concepts, util, etc.)
+   - Dependencies are installed to `~/.codeql/packages/` and automatically resolved by CodeQL
    
    **Option B: Use Docker (Easiest - No Manual Setup Required)**
    See [Docker Installation](#docker-installation) section below for a pre-configured environment with everything included.
@@ -146,26 +150,14 @@ SpeQL/
    # Verify CodeQL version
    codeql version
    
-   # Verify libraries are present
-   ls codeql/javascript/codeql/javascript-queries/*/
+   # Verify libraries are installed
+   ls ~/.codeql/packages/codeql/javascript-all/
    
-   # Check that the downloaded library structure exists
-   find codeql/javascript/codeql -name "*.qll" -path "*/.codeql/libraries/*" | head -5
+   # Check pack dependencies were resolved
+   cat queries/azure-security/qlpack.lock.yml
    
-   # Run the queries - the script auto-detects the library location
+   # Run the queries
    ./run-queries.sh
-   ```
-   
-   **Note**: The downloaded pack will be in a nested structure like:
-   ```
-   codeql/javascript/codeql/javascript-queries/<version>/.codeql/libraries/codeql/javascript-all/<version>/
-   ```
-   
-   The `run-queries.sh` script **automatically detects this location** and configures the search path appropriately. You can also manually set `CODEQL_DIST` to point to the `.codeql/libraries` directory if needed:
-   ```bash
-   # Optional manual override (usually not needed)
-   PACK_VERSION=$(ls codeql/javascript/codeql/javascript-queries/)
-   export CODEQL_DIST=$(pwd)/codeql/javascript/codeql/javascript-queries/$PACK_VERSION/.codeql/libraries
    ```
 
 2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository. This is automatically handled by the database refresh scripts.
