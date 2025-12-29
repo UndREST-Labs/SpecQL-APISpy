@@ -14,7 +14,6 @@ The root directory contains only essential files for quick access:
 - **refresh_database.py** - Cross-platform Python script for database refresh
 - **analyze.py** - Python-based security analyzer (no dependencies)
 - **run-queries.sh** - CodeQL query execution script
-- **test_json_file_count_fix.sh** - Testing script
 
 ## Directory Structure
 
@@ -23,12 +22,12 @@ SpeQL/
 ├── config/               # Configuration files
 │   └── SpeQL.yml        # CodeQL database configuration
 ├── docs/                # Documentation (kept separate from root)
-│   ├── ANALYSIS_JSON_FILE_COUNT.md
 │   ├── CODEQL_WORKFLOW.md
 │   ├── DATABASE_REFRESH.md
 │   ├── EXAMPLE_OUTPUT.md
 │   ├── QUICKSTART.md
 │   ├── QUICK_REFERENCE.md
+│   ├── REPOSITORY_STRUCTURE.md
 │   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/             # CodeQL security queries
 │   └── azure-security/
@@ -43,7 +42,9 @@ SpeQL/
 │   └── sarif-analysis/  # SARIF processing and threat hunting tools
 ├── database/            # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/    # Not tracked in Git (generated)
-└── results/             # Analysis results (generated, not tracked)
+├── results/             # Analysis results (generated, not tracked)
+└── tests/               # Test scripts
+    └── test_json_file_count_fix.sh
 ```
 
 ## Key Changes from Previous Structure
@@ -92,4 +93,3 @@ SpeQL/
 
 ### Reference
 - [docs/QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Command reference
-- [docs/ANALYSIS_JSON_FILE_COUNT.md](ANALYSIS_JSON_FILE_COUNT.md) - File counts

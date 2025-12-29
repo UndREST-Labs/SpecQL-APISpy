@@ -81,12 +81,12 @@ SpeQL/
 ├── database/                   # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/           # CodeQL database of Azure API specs
 ├── docs/                       # Documentation
-│   ├── ANALYSIS_JSON_FILE_COUNT.md
 │   ├── CODEQL_WORKFLOW.md
 │   ├── DATABASE_REFRESH.md
 │   ├── EXAMPLE_OUTPUT.md
 │   ├── QUICKSTART.md
 │   ├── QUICK_REFERENCE.md
+│   ├── REPOSITORY_STRUCTURE.md
 │   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/
 │   └── azure-security/         # Security query suite (CodeQL)
@@ -97,12 +97,14 @@ SpeQL/
 │       ├── SasUriInResponse.ql
 │       └── qlpack.yml          # Query pack dependencies
 ├── results/                    # Analysis results (generated)
-└── scripts/
-    └── sarif-analysis/         # SARIF analysis and threat hunting tools
-        ├── deduplicate-by-product-operation.sh
-        ├── parse-sarif-endpoints.sh
-        ├── prioritize-threats.sh
-        └── README.md           # Detailed script documentation
+├── scripts/
+│   └── sarif-analysis/         # SARIF analysis and threat hunting tools
+│       ├── deduplicate-by-product-operation.sh
+│       ├── parse-sarif-endpoints.sh
+│       ├── prioritize-threats.sh
+│       └── README.md           # Detailed script documentation
+└── tests/                      # Test scripts
+    └── test_json_file_count_fix.sh
 ```
 
 For a detailed explanation of the repository organization and recent changes, see [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md).
@@ -296,8 +298,6 @@ python3 refresh_database.py --all --skip-db-build
 - **Full Repository**: Comprehensive security audit of all Azure services
 - **Specific Service**: Focused analysis of one Azure service (Key Vault, Compute, etc.)
 - **Custom Directory**: Analyze your own API specifications
-
-See [docs/ANALYSIS_JSON_FILE_COUNT.md](docs/ANALYSIS_JSON_FILE_COUNT.md) for detailed information about file counts and performance considerations.
 
 ### Advanced: Using CodeQL Queries
 

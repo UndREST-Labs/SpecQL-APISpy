@@ -237,4 +237,3 @@ python3 refresh_database.py --path specification/keyvault --fresh
 - `DATABASE_REFRESH.md`: Detailed database refresh documentation
 - `../README.md`: General usage guide
 - `QUICK_REFERENCE.md`: Quick command reference
-- `ANALYSIS_JSON_FILE_COUNT.md`: Understanding file counts and scopes
