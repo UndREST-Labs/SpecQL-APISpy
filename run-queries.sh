@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Set CodeQL environment variable to suppress installation path warnings
+if [ -z "${CODEQL_ALLOW_INSTALLATION_ANYWHERE:-}" ]; then
+    export CODEQL_ALLOW_INSTALLATION_ANYWHERE=true
+fi
+
 # SpeQL - Security Query Runner for Azure APIs
 # This script runs CodeQL security queries against Azure REST API specifications
 

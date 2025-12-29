@@ -13,6 +13,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Set CodeQL environment variable to suppress installation path warnings
+if 'CODEQL_ALLOW_INSTALLATION_ANYWHERE' not in os.environ:
+    os.environ['CODEQL_ALLOW_INSTALLATION_ANYWHERE'] = 'true'
+
 # ANSI color codes
 RED = '\033[0;31m'
 GREEN = '\033[0;32m'
