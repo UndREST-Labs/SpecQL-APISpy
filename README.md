@@ -69,6 +69,7 @@ Detects Azure Shared Access Signature (SAS) URIs exposed in API responses:
 ```
 SpeQL/
 ├── README.md                    # This file
+├── setup.sh                     # Automated setup script
 ├── analyze.py                   # Python-based security analyzer (no dependencies!)
 ├── run-queries.sh              # CodeQL query execution script
 ├── config/
@@ -81,136 +82,103 @@ SpeQL/
 │       ├── InsecureKeyVaultConfig.ql
 │       ├── MissingAccessControl.ql
 │       ├── InsecureCredentials.ql
-│       └── SasUriInResponse.ql
+│       ├── SasUriInResponse.ql
+│       └── qlpack.yml          # Query pack dependencies
 └── results/                    # Analysis results (generated)
 ```
 
 ## Installation
 
-### Prerequisites
+### Quick Setup (Recommended)
 
-1. **CodeQL CLI** (Version 2.20.x required): Download from [GitHub CodeQL releases](https://github.com/github/codeql-cli-binaries/releases)
-   
-   **Important**: CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
-   
-   ```bash
-   # Example installation (CodeQL 2.20.2)
-   wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
-   unzip codeql-linux64.zip
-   export PATH="$PATH:/path/to/codeql"
-   
-   # Verify version
-   codeql version
-   ```
+Run the automated setup script to install all dependencies:
 
-2. **Azure REST API Specifications**: The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository.
-
-### Docker Installation
-
-SpeQL provides Docker images for both x86_64 (standard Intel/AMD) and ARM64 architectures, making it easy to run on various platforms including standard servers, Raspberry Pi, Apple Silicon Macs, and other ARM-based systems.
-
-**For detailed Docker instructions, see [DOCKER.md](./DOCKER.md)**
-
-#### Building the Docker Image
-
-**Standard x86_64/amd64 (Intel/AMD processors):**
 ```bash
-# Build the standard Docker image
-docker build -t speql:latest .
+./setup.sh
 ```
 
-**ARM64 (Raspberry Pi, Apple Silicon, etc.):**
+This script will:
+1. Check and install Java Development Kit (JDK) if needed
+2. Download and install CodeQL CLI 2.20.2
+3. Install all required CodeQL query pack dependencies
+4. Verify the installation
+
+After setup completes, you're ready to run security analysis!
+
+### Manual Installation
+
+If you prefer to install manually or the automated script doesn't work on your system:
+
+#### 1. Java Development Kit (JDK)
+
+CodeQL requires a Java Runtime Environment (JRE) or Java Development Kit (JDK) to run.
+
 ```bash
-# Build the ARM64 Docker image
-docker build -f Dockerfile.arm64 -t speql:arm64 .
+# Install OpenJDK (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install openjdk-11-jdk
+
+# Or use a newer version
+sudo apt-get install openjdk-17-jdk
+
+# Verify installation
+java -version
 ```
 
-**Cross-platform build from x86_64 to ARM64:**
-```bash
-# Enable buildx for multi-platform builds
-docker buildx create --use
+**Note**: CodeQL 2.20.x works with JDK 11 or newer. Most systems will work with OpenJDK 11, 17, or 21.
 
-# Build for ARM64 platform
-docker buildx build --platform linux/arm64 -f Dockerfile.arm64 -t speql:arm64 --load .
+#### 2. CodeQL CLI with JavaScript Libraries
+
+**Important**: 
+- CodeQL version 2.23.x and newer have compatibility issues with JSON-only database creation. Use version 2.20.1 or 2.20.2.
+- You need the **CodeQL libraries**, which can be obtained using `codeql pack install`.
+
+```bash
+# 1. Install CodeQL CLI 2.20.2
+wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
+unzip codeql-linux64.zip
+export PATH="$PATH:$(pwd)/codeql"
+
+# 2. Install query pack dependencies
+# This automatically downloads all required libraries including codeql/javascript-all
+cd queries/azure-security
+codeql pack install .
+cd ../..
+
+# 3. Verify installation
+codeql version
+ls ~/.codeql/packages/codeql/javascript-all/
+
+# 4. Run the queries
+./run-queries.sh
 ```
 
-**Note**: Cross-platform builds may take significantly longer due to emulation.
+**How it works:**
+- The `queries/azure-security/qlpack.yml` file declares a dependency on `codeql/javascript-queries`
+- Running `codeql pack install` resolves and downloads all dependencies including:
+  - `codeql/javascript-all` (the JavaScript standard library)
+  - `codeql/javascript-queries` (standard JavaScript security queries)
+  - All transitive dependencies (dataflow, concepts, util, etc.)
+- Dependencies are installed to `~/.codeql/packages/` and automatically resolved by CodeQL
 
-**Using Docker Compose:**
+**Verification:**
 ```bash
-# Build and run the standard x86_64 service
-docker-compose up speql
+# Verify CodeQL version
+codeql version
 
-# Build and run the ARM64 service
-docker-compose up speql-arm64
+# Verify libraries are installed
+ls ~/.codeql/packages/codeql/javascript-all/
 
-# Run in detached mode
-docker-compose up -d speql
+# Check pack dependencies were resolved
+cat queries/azure-security/qlpack.lock.yml
 
-# View logs
-docker-compose logs -f
-
-# Stop and remove containers
-docker-compose down
+# Run the queries
+./run-queries.sh
 ```
 
-#### Running SpeQL in Docker
+#### 3. Azure REST API Specifications
 
-**Quick Start - Run the Python Analyzer:**
-```bash
-# x86_64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:latest python3 analyze.py
-
-# ARM64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:arm64 python3 analyze.py
-```
-
-**Refresh the Database:**
-```bash
-# x86_64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:latest ./refresh-database.sh
-
-# ARM64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./refresh-database.sh
-```
-
-**Run CodeQL Queries:**
-```bash
-# x86_64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:latest ./run-queries.sh
-
-# ARM64 version
-docker run --rm -v $(pwd)/results:/speql/results speql:arm64 ./run-queries.sh
-```
-
-**Interactive Shell:**
-```bash
-# x86_64 version
-docker run --rm -it speql:latest /bin/bash
-
-# ARM64 version
-docker run --rm -it speql:arm64 /bin/bash
-```
-
-#### Docker Volume Mounts
-
-- `/speql/results` - Mount this to save analysis results to your host system
-- `/speql/azure-rest-api-specs` - Mount this if you want to use external Azure specs
-
-**Example with external specs:**
-```bash
-docker run --rm \
-  -v $(pwd)/results:/speql/results \
-  -v $(pwd)/azure-rest-api-specs:/speql/azure-rest-api-specs \
-  speql:arm64 python3 analyze.py
-```
-
-#### System Requirements
-
-- **Docker** installed and running
-- **Architecture**: ARM64/aarch64 (Raspberry Pi 3+, Apple Silicon, AWS Graviton, etc.)
-- **Memory**: Minimum 2GB RAM recommended
-- **Storage**: At least 2GB free disk space
+The database should contain Azure API specs from the [azure-rest-api-specs](https://github.com/Azure/azure-rest-api-specs) repository. This is automatically handled by the database refresh scripts.
 
 ### Refreshing the Database
 

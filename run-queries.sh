@@ -30,6 +30,50 @@ if ! command -v codeql &> /dev/null; then
     exit 1
 fi
 
+# Determine CodeQL search path for library resolution
+# NOTE: If you used 'codeql pack install' in queries/azure-security/, 
+# CodeQL will automatically find dependencies in ~/.codeql/packages/
+# This search path detection is for backward compatibility with manual installations
+SEARCH_PATH=""
+
+# Priority 1: CODEQL_DIST environment variable (user override)
+if [ -n "${CODEQL_DIST:-}" ] && [ -d "$CODEQL_DIST" ]; then
+    SEARCH_PATH="--search-path=$CODEQL_DIST"
+    echo -e "${GREEN}Using CodeQL libraries from CODEQL_DIST: $CODEQL_DIST${NC}"
+# Priority 2: Check for downloaded pack location (from codeql pack download)
+# The structure is: codeql/javascript/codeql/javascript-queries/VERSION/.codeql/libraries/
+elif [ -d "codeql/javascript/codeql/javascript-queries" ]; then
+    # Find the downloaded javascript-queries pack version directory and use its .codeql/libraries subdirectory
+    PACK_VERSION=$(find codeql/javascript/codeql/javascript-queries -maxdepth 1 -type d -name "*.*.*" 2>/dev/null | head -n 1)
+    if [ -n "$PACK_VERSION" ] && [ -d "$PACK_VERSION/.codeql/libraries" ]; then
+        # Use the libraries directory within the downloaded pack
+        SEARCH_PATH="--search-path=$(pwd)/$PACK_VERSION/.codeql/libraries"
+        echo -e "${GREEN}Using CodeQL libraries from downloaded pack: $(pwd)/$PACK_VERSION/.codeql/libraries${NC}"
+    else
+        # Fallback to the codeql directory itself
+        SEARCH_PATH="--search-path=$(pwd)/codeql/javascript/codeql"
+        echo -e "${YELLOW}Using CodeQL pack directory (libraries may not be found): $(pwd)/codeql/javascript/codeql${NC}"
+    fi
+# Priority 3: CodeQL binary installation location
+elif command -v codeql &> /dev/null; then
+    CODEQL_PATH=$(dirname "$(dirname "$(which codeql)")")
+    if [ -d "$CODEQL_PATH" ] && [ -d "$CODEQL_PATH/javascript" ]; then
+        SEARCH_PATH="--search-path=$CODEQL_PATH"
+        echo -e "${GREEN}Using CodeQL libraries from: $CODEQL_PATH${NC}"
+    fi
+# Priority 4: Local codeql directory
+elif [ -d "codeql" ] && [ -d "codeql/javascript" ]; then
+    SEARCH_PATH="--search-path=$(pwd)/codeql"
+    echo -e "${GREEN}Using CodeQL libraries from local directory: $(pwd)/codeql${NC}"
+fi
+
+# If still no search path found, warn user
+if [ -z "$SEARCH_PATH" ]; then
+    echo -e "${YELLOW}Warning: Could not detect CodeQL library location.${NC}"
+    echo -e "${YELLOW}Please set CODEQL_DIST environment variable or ensure libraries are installed.${NC}"
+    echo -e "${YELLOW}See README.md for installation instructions.${NC}"
+fi
+
 # Check if database exists
 if [ ! -d "$DATABASE_PATH" ]; then
     echo -e "${RED}Error: Database not found at $DATABASE_PATH${NC}"
@@ -41,10 +85,10 @@ mkdir -p "$RESULTS_PATH"
 
 # List of queries to run
 QUERIES=(
-    "InsecureLogicAppTrigger.ql"
-    "InsecureKeyVaultConfig.ql"
-    "MissingAccessControl.ql"
-    "InsecureCredentials.ql"
+#    "InsecureLogicAppTrigger.ql"
+#    "InsecureKeyVaultConfig.ql"
+#    "MissingAccessControl.ql"
+#    "InsecureCredentials.ql"
     "SasUriInResponse.ql"
 )
 
@@ -64,6 +108,7 @@ for query in "${QUERIES[@]}"; do
         "$QUERIES_PATH/$query" \
         --format=sarif-latest \
         --output="$output_file" \
+        $SEARCH_PATH \
         --rerun 2>"$error_log"; then
         
         # Count issues found
