@@ -419,32 +419,65 @@ database/azure-api-db/
 - Or use `--skip-db-build` to only update the repository
 
 **Issue: "Could not create access credentials" or SSL certificate errors during `codeql pack install`**
-This occurs when CodeQL cannot verify SSL certificates when downloading dependencies. Solutions:
-- **Option 1 (Recommended)**: Use CodeQL 2.20.2 and manually download the CodeQL repository containing all libraries:
-  ```bash
-  cd /tmp
-  wget https://github.com/github/codeql/archive/refs/heads/main.zip
-  unzip main.zip
-  mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
-  cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
-  # Copy other dependencies as needed
-  ```
-- **Option 2**: Update system certificates:
-  ```bash
-  sudo update-ca-certificates
-  ```
-- **Option 3**: Use a newer version of Java (JDK 17 or 21) which may have updated certificates
+
+This occurs when CodeQL cannot verify SSL certificates when downloading dependencies. 
+
+**CRITICAL: The only reliable solution is to fix the SSL certificate issue and use `codeql pack install`.**
+
+Manual library download is strongly discouraged because:
+- Libraries from GitHub may be incompatible with your CodeQL version
+- Newer library syntax (like `?` optional chaining) causes "token recognition error"
+- Version mismatches lead to compilation failures
+
+**Recommended Solutions (in order):**
+1. **Update system certificates** (Best solution):
+   ```bash
+   sudo update-ca-certificates
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+2. **Use newer Java version** with updated CA certificates:
+   ```bash
+   sudo apt-get install openjdk-17-jdk  # or openjdk-21-jdk
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+3. **Configure corporate proxy** if behind one:
+   ```bash
+   export HTTP_PROXY=http://proxy.example.com:8080
+   export HTTPS_PROXY=http://proxy.example.com:8080
+   # Then retry: cd queries/azure-security && codeql pack install
+   ```
+
+4. **Contact system administrator** to resolve certificate trust issues
 
 **Issue: "token recognition error at: '?'" when running queries**
-This error typically indicates an issue with the CodeQL database or the JSON files being analyzed:
-- Ensure the database was created with CodeQL 2.20.x (not 2.23.x or newer)
-- Check that JSON files in the database are well-formed
-- Verify the query pack dependencies are correctly installed
+
+This error indicates incompatible CodeQL library versions. Common causes:
+- **Manually installed libraries** from GitHub that are too new for CodeQL 2.20.2
+- Libraries containing syntax (like `?` optional chaining) that older CodeQL cannot parse
+- Version mismatch between CodeQL CLI and library files
+
+**Solution:**
+1. Remove manually installed libraries:
+   ```bash
+   rm -rf ~/.codeql/packages
+   ```
+
+2. Fix SSL certificate issues (see above)
+
+3. Re-install using proper method:
+   ```bash
+   cd queries/azure-security
+   codeql pack install .
+   ```
+
+4. If SSL issues cannot be resolved, consider upgrading to CodeQL 2.18+ which has better certificate handling
 
 **Issue: "Could not resolve library path" errors**
 - Run `codeql pack install` in the `queries/azure-security` directory
-- If SSL issues persist, manually set up the libraries (see SSL certificate errors above)
 - Verify `~/.codeql/packages/codeql/javascript-all/` exists and contains the library files
+- Check that library versions match the lock file requirements
 
 **Issue: Clone/build takes too long**
 - Use `--path` to target specific services instead of `--all`

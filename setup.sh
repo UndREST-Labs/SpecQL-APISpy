@@ -8,7 +8,9 @@ set -e  # Exit on error
 # Configuration
 CODEQL_VERSION="2.20.2"
 JAVASCRIPT_ALL_VERSION="2.6.18"
-CODEQL_REPO_TAG="codeql-cli/v2.20.2"  # Use specific tag for stability
+# Note: Manual library download from GitHub is discouraged due to version compatibility issues.
+# The libraries in the main branch may contain syntax that CodeQL 2.20.2 cannot parse.
+# It's strongly recommended to fix SSL certificate issues instead.
 SHARED_PACKS="concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml"
 
 # Colors for output
@@ -122,24 +124,40 @@ if [ -d "queries/azure-security" ]; then
     else
         # Check if the error is due to SSL certificate issues
         if grep -q "SunCertPathBuilderException\|SSL\|certificate" /tmp/pack_install.log; then
-            echo -e "${YELLOW}⚠ SSL certificate error detected during pack installation${NC}"
+            echo -e "${RED}✗ SSL certificate error detected during pack installation${NC}"
             echo -e "${YELLOW}  This is a known issue with certain network configurations.${NC}"
             echo
-            echo -e "${YELLOW}Attempting alternative installation method...${NC}"
+            echo -e "${RED}IMPORTANT: Manual library download is NOT recommended!${NC}"
+            echo -e "${YELLOW}  Libraries from GitHub main branch may be incompatible with CodeQL ${CODEQL_VERSION}${NC}"
+            echo -e "${YELLOW}  and can cause 'token recognition error' when parsing newer syntax.${NC}"
+            echo
+            echo -e "${GREEN}Recommended solutions (in order of preference):${NC}"
+            echo -e "${GREEN}  1. Update system certificates: sudo update-ca-certificates${NC}"
+            echo -e "${GREEN}  2. Use newer Java version (JDK 17 or 21) with updated CA certificates${NC}"
+            echo -e "${GREEN}  3. Configure corporate proxy if behind one${NC}"
+            echo -e "${GREEN}  4. Contact your system administrator to resolve SSL issues${NC}"
+            echo
+            read -p "Do you want to attempt manual download anyway? (y/N) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "${YELLOW}Setup cancelled. Please resolve SSL certificate issues and try again.${NC}"
+                cd "$REPO_ROOT"
+                exit 1
+            fi
+            
+            echo -e "${YELLOW}⚠ WARNING: Proceeding with manual download at your own risk...${NC}"
+            echo -e "${YELLOW}  If you encounter 'token recognition error' later, you'll need to${NC}"
+            echo -e "${YELLOW}  resolve the SSL issue and use 'codeql pack install' instead.${NC}"
+            echo
             
             # Create a temporary directory for manual download
             TEMP_DIR=$(mktemp -d)
             REPO_ROOT=$(pwd)
             cd "$TEMP_DIR"
             
-            echo -e "${YELLOW}Downloading CodeQL libraries manually (using ${CODEQL_REPO_TAG})...${NC}"
-            # Use a specific tag instead of main for stability
-            if wget -q "https://github.com/github/codeql/archive/refs/tags/${CODEQL_REPO_TAG}.zip" 2>/dev/null; then
-                unzip -q "${CODEQL_REPO_TAG}.zip"
-                CODEQL_DIR="codeql-${CODEQL_REPO_TAG}"
-            elif wget -q https://github.com/github/codeql/archive/refs/heads/main.zip 2>/dev/null; then
-                # Fallback to main branch if tag not found
-                echo -e "${YELLOW}  Tag not found, using main branch as fallback${NC}"
+            echo -e "${YELLOW}Attempting to download CodeQL libraries from GitHub...${NC}"
+            # Try to download from main branch (may have compatibility issues)
+            if wget -q https://github.com/github/codeql/archive/refs/heads/main.zip 2>/dev/null; then
                 unzip -q main.zip
                 CODEQL_DIR="codeql-main"
             else
@@ -192,7 +210,15 @@ if [ -d "queries/azure-security" ]; then
             rm -rf "$TEMP_DIR"
             
             echo -e "${GREEN}✓ CodeQL libraries installed manually${NC}"
-            echo -e "${GREEN}  Alternative installation completed successfully${NC}"
+            echo
+            echo -e "${RED}⚠ IMPORTANT WARNING:${NC}"
+            echo -e "${YELLOW}  The manually installed libraries may be incompatible with CodeQL ${CODEQL_VERSION}${NC}"
+            echo -e "${YELLOW}  If you see 'token recognition error' when running queries, you MUST:${NC}"
+            echo -e "${YELLOW}    1. Remove manual libraries: rm -rf ~/.codeql/packages${NC}"
+            echo -e "${YELLOW}    2. Fix SSL certificate issues (see README.md)${NC}"
+            echo -e "${YELLOW}    3. Re-run this setup with: ./setup.sh${NC}"
+            echo -e "${YELLOW}  The only reliable solution is to use 'codeql pack install'.${NC}"
+            echo
             fi
             cd ../../
         else

@@ -74,18 +74,46 @@ results/
 
 ### Issue: "Could not create access credentials" (SSL Error)
 
-**Solution 1**: The setup script will automatically handle this. Just let it run.
+**IMPORTANT**: Do NOT use manual library download! It causes compatibility issues.
 
-**Solution 2**: If manual intervention is needed:
+**The only reliable solution is to fix SSL certificates:**
+
 ```bash
-cd /tmp
-wget https://github.com/github/codeql/archive/refs/heads/main.zip
-unzip main.zip
-mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
-cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
+# Solution 1: Update system certificates
+sudo update-ca-certificates
+
+# Solution 2: Use newer Java with updated certificates
+sudo apt-get install openjdk-17-jdk
+
+# Solution 3: Configure proxy if needed
+export HTTPS_PROXY=http://proxy.example.com:8080
+
+# Then retry installation
+cd queries/azure-security
+codeql pack install .
 ```
 
+The setup script may offer manual download, but **decline it** (`N`) and fix SSL issues instead.
+
 ### Issue: "token recognition error at: '?'"
+
+This means incompatible library versions were installed (usually from manual download).
+
+**Solution:**
+```bash
+# 1. Remove incompatible libraries
+rm -rf ~/.codeql/packages
+
+# 2. Fix SSL certificates (see above)
+
+# 3. Reinstall properly
+cd queries/azure-security
+codeql pack install .
+```
+
+**Root cause**: Libraries from GitHub main branch contain newer syntax (like `?` optional chaining) that CodeQL 2.20.2 cannot parse. This only happens with manual installation.
+
+### Issue: Database not found
 
 This typically indicates a database issue. Ensure:
 - Database was created with CodeQL 2.20.x (not 2.23.x or newer)

@@ -94,32 +94,26 @@ All queries have been validated for:
 ./setup.sh
 ```
 
-The script now handles SSL certificate issues automatically.
+The script will warn about SSL issues but offers manual download (not recommended).
 
-### Manual Approach (if setup.sh fails)
+### Manual Approach (ONLY if SSL cannot be fixed)
 ```bash
 # 1. Install CodeQL CLI
 wget https://github.com/github/codeql-cli-binaries/releases/download/v2.20.2/codeql-linux64.zip
 unzip codeql-linux64.zip
 export PATH="$PATH:$(pwd)/codeql"
 
-# 2. Try automatic pack installation
+# 2. Fix SSL certificates (REQUIRED for proper installation)
+sudo update-ca-certificates
+# OR use newer Java: sudo apt-get install openjdk-17-jdk
+
+# 3. Install dependencies properly
 cd queries/azure-security
 codeql pack install .
 
-# 3. If SSL errors occur, manually download libraries
-cd /tmp
-wget https://github.com/github/codeql/archive/refs/heads/main.zip
-unzip main.zip
-mkdir -p ~/.codeql/packages/codeql/javascript-all/2.6.18
-cp -r codeql-main/javascript/ql/lib/* ~/.codeql/packages/codeql/javascript-all/2.6.18/
-
-# Copy shared libraries
-for pack in concepts dataflow controlflow mad regex ssa threat-models tutorial typetracking util xml yaml; do
-    VERSION=$(grep "^version:" "codeql-main/shared/$pack/qlpack.yml" | awk '{print $2}' | sed 's/-dev$//')
-    mkdir -p ~/.codeql/packages/codeql/$pack/$VERSION
-    cp -r codeql-main/shared/$pack/* ~/.codeql/packages/codeql/$pack/$VERSION/
-done
+# WARNING: Manual library download from GitHub is NOT supported!
+# Libraries from main branch are incompatible with CodeQL 2.20.2
+# and will cause "token recognition error at: '?'"
 ```
 
 ## Testing
@@ -134,10 +128,19 @@ codeql query compile InsecureCredentials.ql
 codeql query compile MissingAccessControl.ql
 ```
 
+If you see "token recognition error at: '?'", you have incompatible libraries:
+```bash
+rm -rf ~/.codeql/packages
+# Fix SSL certificates, then:
+cd queries/azure-security
+codeql pack install .
+```
+
 ## Known Limitations
 
 - CodeQL 2.20.x is required for JSON-only database support
 - SSL certificate issues may occur in certain network environments
+- **Manual library download is NOT supported** - causes version incompatibility
 - Manual library installation may be needed in restricted environments
 
 ## Next Steps
