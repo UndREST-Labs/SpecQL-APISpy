@@ -201,8 +201,8 @@ case "$FORMAT" in
     
     markdown)
         RESULT=$(cat << EOF
-# Threat Hunting Report - Control Plane/Data Plane Isolation
-## SilentReaper Vulnerability Analysis
+# SilentReaper Vulnerability Threat Hunting Report
+## Control Plane/Data Plane Isolation Analysis
 
 **Generated:** $(date)
 **Source:** $(basename "$SARIF_FILE")
