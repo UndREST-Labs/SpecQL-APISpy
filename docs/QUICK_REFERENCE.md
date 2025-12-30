@@ -79,10 +79,11 @@ The database path matters for CodeQL! Build it with the specifications you want 
 ### Python Analyzer (analyze.py)
 The Python analyzer detects the following vulnerability types in API schema files:
 
-### 1. Azure Silent Reaper Vulnerabilities
+### 1. SilentReaper Vulnerability Patterns
 **Issue**: Logic App triggers without proper authentication
 **Risk**: Unauthorized workflow execution
 **Example**: HTTP triggers with missing or weak authentication
+**Definition**: A SilentReaper vulnerability is characterized by APIs emitting SAS URIs in responses, especially dangerous with improper RBAC or inadequate control/data plane isolation
 
 ### 2. Azure Vault Recon Vulnerabilities
 **Issue**: Key Vault misconfigurations
@@ -101,10 +102,11 @@ The Python analyzer detects the following vulnerability types in API schema file
 
 ### CodeQL Query (SasUriInResponse.ql)
 
-### 5. SAS URI Exposure
+### 5. SAS URI Exposure - SilentReaper Vulnerability Indicator
 **Issue**: Azure SAS tokens exposed in API example responses
 **Risk**: Unauthorized data-plane access and data exfiltration
 **Example**: Response URIs containing signature parameters (sig, se, sp)
+**SilentReaper Definition**: When an API emits a SAS URI in its response, creating danger with improper RBAC or inadequate control/data plane isolation
 **Note**: This query scans API example files where actual SAS URIs appear, not schema definitions
 
 ## 📊 Understanding the Output
@@ -217,7 +219,7 @@ chmod +x analyze.py run-queries.sh
 
 ## 🔗 Additional Resources
 
-- [Azure Silent Reaper Blog](https://cirriustech.co.uk/blog/azure-silent-reaper/)
+- [Azure SilentReaper Vulnerability](https://cirriustech.co.uk/blog/azure-silent-reaper/)
 - [Azure Vault Recon Blog](https://cirriustech.co.uk/blog/azure-vault-recon/)
 - [Azure Security Best Practices](https://docs.microsoft.com/en-us/azure/security/)
 - [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)

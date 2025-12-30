@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SpeQL.py script provides an interactive command-line interface (CLI) menu system that makes it easy to navigate and execute all SpeQL security analysis actions. The menu is designed for both beginners and experienced users, offering intuitive navigation and helpful prompts.
+The SpeQL.py script provides an interactive command-line interface (CLI) menu system that makes it easy to navigate and execute all SpeQL API spec query analysis actions. SpeQL is an API Spec Query Analyser that currently supports the Azure REST API and is designed to identify APIs that might be vulnerable to SilentReaper. The menu is designed for both beginners and experienced users, offering intuitive navigation and helpful prompts.
 
 ## Installation
 
@@ -46,7 +46,7 @@ When you launch SpeQL.py, you'll see the main menu with the following options:
 /____/ .___/\___/\___\_\/_____/
     /_/                        
 
-Security Pattern Query Language for Azure APIs
+API Spec Query Analyser for Azure REST API
 ═══════════════════════════════════════════════════════════
 
 Main Menu
@@ -271,7 +271,7 @@ Displays information about the SpeQL tool:
 - Purpose and capabilities
 - Vulnerabilities detected
 - Repository link and license
-- Security focuses (Silent Reaper, Vault Recon, etc.)
+- SilentReaper vulnerability focus and definition
 
 ## Navigation Tips
 

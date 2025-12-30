@@ -53,12 +53,12 @@ python3 analyze.py
 ### What Do These Queries Detect?
 
 **Python Analyzer (analyze.py)** - Detects multiple vulnerability types in API schemas:
-- Insecure Logic App triggers (Azure Silent Reaper)
+- Insecure Logic App triggers (SilentReaper Pattern)
 - Key Vault misconfigurations (Azure Vault Recon)
 - Missing access control on API endpoints
 - Hardcoded credentials and secrets
 
-**CodeQL Query (SasUriInResponse.ql)** - Detects Azure SAS URIs in API example response files
+**CodeQL Query (SasUriInResponse.ql)** - Detects Azure SAS URIs in API example response files, the defining characteristic of SilentReaper vulnerabilities. A SilentReaper vulnerability occurs when an API emits a SAS URI in its response, which becomes dangerous with improper RBAC or inadequate control/data plane isolation.
 
 ### Query Output
 

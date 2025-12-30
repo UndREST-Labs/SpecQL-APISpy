@@ -1,6 +1,6 @@
 # SARIF Analysis Scripts for Threat Hunting
 
-This directory contains specialized scripts for analyzing SARIF output files from Azure REST API security scans. These tools are designed for threat hunting, focusing on control plane/data plane isolation issues similar to the Azure SilentReaper vulnerability.
+This directory contains specialized scripts for analyzing SARIF output files from Azure REST API security scans. These tools are designed for threat hunting, focusing on SilentReaper vulnerabilities - where APIs emit SAS URIs in responses combined with improper RBAC or inadequate control plane/data plane isolation.
 
 ## Overview
 
@@ -88,7 +88,7 @@ Microsoft.Storage,queue,2021-09-01,stable,specification/storage/.../queue.json
 
 Analyzes and prioritizes findings based on control plane/data plane isolation risks.
 
-**Purpose:** Focus on the most critical vulnerabilities first. Identifies SilentReaper-style threats where control plane APIs expose data plane access credentials.
+**Purpose:** Focus on the most critical vulnerabilities first. Identifies SilentReaper vulnerabilities where control plane APIs expose data plane access credentials (SAS URIs in responses with improper RBAC or inadequate control/data plane isolation).
 
 **Usage:**
 ```bash

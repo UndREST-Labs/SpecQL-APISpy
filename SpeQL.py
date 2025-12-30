@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SpeQL - Interactive CLI Menu System
-A command-line interface for navigating and executing SpeQL security analysis actions
+A command-line interface for navigating and executing SpeQL API spec query analysis actions
 """
 
 import os
@@ -52,7 +52,7 @@ def print_logo():
         print("    /_/                            ")
         print(f"{NC}")
     
-    print(f"{BOLD}Security Pattern Query Language for Azure APIs{NC}")
+    print(f"{BOLD}API Spec Query Analyser for Azure REST API{NC}")
     print(f"{BLUE}═══════════════════════════════════════════════════════════{NC}\n")
 
 
@@ -836,7 +836,7 @@ def main_menu():
         if choice == 0:
             clear_screen()
             print(f"{CYAN}Thank you for using SpeQL!{NC}")
-            print(f"{YELLOW}Security Pattern Query Language for Azure APIs{NC}\n")
+            print(f"{YELLOW}API Spec Query Analyser for Azure REST API{NC}\n")
             sys.exit(0)
         elif choice == 1:
             analyze_menu()
@@ -854,14 +854,18 @@ def main_menu():
             clear_screen()
             print_logo()
             print(f"{BOLD}About SpeQL{NC}\n")
-            print("SpeQL is a security analysis tool that uses CodeQL to detect")
-            print("vulnerabilities and misconfigurations in Azure REST API specifications.")
-            print("\nIt specifically targets:")
-            print("  - Azure Silent Reaper - Insecure Logic App triggers")
+            print("SpeQL is an API Spec Query Analyser that uses CodeQL to analyze")
+            print("API specifications. Currently supporting the Azure REST API, SpeQL")
+            print("is designed to identify APIs that might be vulnerable to SilentReaper.")
+            print("\nA SilentReaper vulnerability is characterized by emitting a SAS URI")
+            print("in API responses, which becomes dangerous when there is improper RBAC")
+            print("(Role-Based Access Control) or inadequate control/data plane isolation.")
+            print("\nSpeQL detects:")
+            print("  - SilentReaper vulnerabilities - SAS URIs exposed in API responses")
+            print("  - Insecure Logic App triggers - Missing or weak authentication")
             print("  - Azure Vault Recon - Key Vault misconfigurations")
             print("  - Missing Access Control - API endpoints without authentication")
             print("  - Insecure Credentials - Hardcoded secrets and connection strings")
-            print("  - SAS URI Exposure - Azure SAS tokens in API responses")
             print("\n" + "─" * 60)
             print("Repository: https://github.com/SpeQLSec/SpeQL")
             print("License: See LICENSE file")

@@ -32,8 +32,8 @@ handle_download_failure() {
 }
 
 echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║         SpeQL - Security Query Language Setup             ║${NC}"
-echo -e "${GREEN}║              Azure API Security Analysis Tool             ║${NC}"
+echo -e "${GREEN}║    SpeQL - API Spec Query Analyser Setup                 ║${NC}"
+echo -e "${GREEN}║         Azure REST API Security Analysis Tool            ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo
 

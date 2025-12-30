@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SpeQL CLI menu system (`SpeQL.py`) provides an interactive command-line interface for navigating and executing all SpeQL security analysis actions. This document provides installation instructions and basic usage information.
+The SpeQL CLI menu system (`SpeQL.py`) provides an interactive command-line interface for navigating and executing all SpeQL API spec query analysis actions. SpeQL is an API Spec Query Analyser that currently supports the Azure REST API and is designed to identify APIs that might be vulnerable to SilentReaper. This document provides installation instructions and basic usage information.
 
 ## Installation
 
