@@ -313,6 +313,7 @@ def codeql_menu():
         options = [
             "Run All Security Queries",
             "Run Individual Query",
+            "Run with Custom Memory Limit",
             "View Previous Results",
             "Show Query Documentation"
         ]
@@ -326,6 +327,7 @@ def codeql_menu():
             clear_screen()
             print_logo()
             print(f"{YELLOW}Running all security queries...{NC}\n")
+            print(f"{BLUE}Note: Memory limit will be applied automatically if database has >50K JSON files{NC}\n")
             run_command(["./run-queries.sh"], "Running CodeQL security analysis")
             pause()
         elif choice == 2:
@@ -356,6 +358,22 @@ def codeql_menu():
                 query_file = query_files[int(query_choice) - 1]
                 clear_screen()
                 print_logo()
+                
+                # Check if we should apply memory limit
+                db_path = Path("database/azure-api-db")
+                mem_option = []
+                if db_path.exists():
+                    # Count JSON files to determine if memory limit should be applied
+                    json_count = 0
+                    src_dir = db_path / "src"
+                    if src_dir.exists():
+                        json_count = sum(1 for _ in src_dir.rglob("*.json"))
+                    
+                    if json_count >= 50000:
+                        print(f"{BLUE}Database has {json_count:,} JSON files (>50K threshold)${NC}")
+                        print(f"{BLUE}Calculating optimal memory limit...${NC}\n")
+                        # This will be handled by the run-queries.sh script
+                
                 run_command([
                     "codeql", "database", "analyze", "database/azure-api-db",
                     str(query_file),
@@ -364,6 +382,52 @@ def codeql_menu():
                 ], f"Running {query_file.name}")
                 pause()
         elif choice == 3:
+            clear_screen()
+            print_logo()
+            
+            # Prompt for memory limit
+            print(f"{YELLOW}Custom Memory Configuration${NC}\n")
+            print(f"{BLUE}Configure CodeQL memory limit for query execution${NC}")
+            print(f"Leave blank to use automatic detection based on database size\n")
+            
+            # Get system memory info
+            import subprocess
+            try:
+                # Try to get system memory
+                result = subprocess.run(["free", "-m"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    for line in result.stdout.split('\n'):
+                        if line.startswith('Mem:'):
+                            parts = line.split()
+                            total_mem = int(parts[1])
+                            recommended = int(total_mem * 0.9)
+                            print(f"System Memory: {total_mem} MB")
+                            print(f"Recommended (90%): {recommended} MB\n")
+            except:
+                pass
+            
+            mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for auto): {NC}").strip()
+            
+            if mem_limit:
+                if not mem_limit.isdigit():
+                    print(f"{RED}Invalid memory value. Please enter a number.${NC}")
+                    pause()
+                    continue
+                
+                # Set environment variable for the run
+                os.environ['CODEQL_MEMORY_LIMIT'] = mem_limit
+                print(f"\n{GREEN}Memory limit set to: {mem_limit} MB${NC}\n")
+            else:
+                print(f"\n{BLUE}Using automatic memory detection${NC}\n")
+            
+            run_command(["./run-queries.sh"], "Running CodeQL security analysis with custom settings")
+            
+            # Clean up environment variable
+            if 'CODEQL_MEMORY_LIMIT' in os.environ:
+                del os.environ['CODEQL_MEMORY_LIMIT']
+            
+            pause()
+        elif choice == 4:
             clear_screen()
             print_logo()
             results_dir = Path("results")
@@ -378,7 +442,7 @@ def codeql_menu():
             else:
                 print(f"{YELLOW}Results directory not found. Run queries first.{NC}")
             pause()
-        elif choice == 4:
+        elif choice == 5:
             clear_screen()
             print_logo()
             
