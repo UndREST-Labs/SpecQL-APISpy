@@ -2,6 +2,8 @@
 
 This is a quick reference guide for the SARIF analysis scripts. For detailed documentation, see [scripts/sarif-analysis/README.md](../scripts/sarif-analysis/README.md).
 
+![SARIF Analysis Tools Demo](../demos/06-sarif-analysis.gif)
+
 ## Prerequisites
 
 - `jq` (JSON processor) must be installed

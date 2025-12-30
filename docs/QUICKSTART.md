@@ -19,6 +19,8 @@ cd SpeQL
 ./setup.sh
 ```
 
+![Setup and Installation Demo](../demos/01-setup.gif)
+
 The script will:
 - Install CodeQL CLI if not present
 - Download all required query pack dependencies
@@ -43,10 +45,14 @@ ls ~/.codeql/packages/codeql/javascript-all/
 ./run-queries.sh
 ```
 
+![CodeQL Security Queries Demo](../demos/04-codeql-queries.gif)
+
 ### Option 2: Run Python Analyzer (no CodeQL needed)
 ```bash
 python3 analyze.py
 ```
+
+![Python Security Analyzer Demo](../demos/03-python-analyzer.gif)
 
 ## Understanding the Queries
 

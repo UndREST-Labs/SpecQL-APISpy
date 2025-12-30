@@ -199,6 +199,8 @@ Run the automated setup script to install all dependencies:
 ./setup.sh
 ```
 
+![Setup and Installation Demo](demos/01-setup.gif)
+
 This script will:
 1. Check and install Java Development Kit (JDK) if needed
 2. Download and install CodeQL CLI 2.20.2
@@ -288,6 +290,8 @@ The database should contain Azure API specs from the [azure-rest-api-specs](http
 
 The repository includes scripts to build and refresh the database directly from the Azure REST API specifications:
 
+![Database Refresh Demo](demos/02-database-refresh.gif)
+
 #### Using the Bash Script (Linux/Mac):
 ```bash
 # Update repository and rebuild database (default: Logic Apps specs)
@@ -332,6 +336,8 @@ The easiest way to run the security analysis is using the Python-based analyzer:
 ```bash
 python3 analyze.py
 ```
+
+![Python Security Analyzer Demo](demos/03-python-analyzer.gif)
 
 This will:
 1. Automatically extract Azure API specifications from the database
@@ -383,6 +389,8 @@ python3 refresh_database.py --all --skip-db-build
 
 For more advanced analysis with CodeQL (requires CodeQL CLI):
 
+![CodeQL Security Queries Demo](demos/04-codeql-queries.gif)
+
 #### Building Database for CodeQL Analysis
 
 **Important**: CodeQL queries run against the database. To analyze different Azure services with CodeQL, build the database with the desired path first:
@@ -420,6 +428,8 @@ codeql database analyze database/azure-api-db \
 
 #### Complete Workflow Example
 
+![Complete Workflow Demo](demos/07-complete-workflow.gif)
+
 ```bash
 # 1. Build database with Key Vault specifications
 python3 refresh_database.py --path specification/keyvault --fresh
@@ -443,6 +453,8 @@ Results from CodeQL are saved in SARIF format (Static Analysis Results Interchan
 ### Analyzing SARIF Results for Threat Hunting
 
 SpeQL includes specialized scripts for analyzing SARIF output files to identify control plane/data plane isolation issues. These tools help prioritize findings and identify SilentReaper vulnerability patterns - where APIs emit SAS URIs in responses combined with improper RBAC or inadequate control/data plane isolation.
+
+![SARIF Analysis Tools Demo](demos/06-sarif-analysis.gif)
 
 #### Quick Start with SARIF Analysis
 
