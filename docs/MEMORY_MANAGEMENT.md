@@ -17,7 +17,7 @@ SpeQL now includes intelligent memory management for CodeQL query execution. The
 1. **Database Analysis**: The system counts JSON files in the CodeQL database
 2. **Threshold Check**: If count exceeds 50,000 files, memory management is activated
 3. **Memory Calculation**: Calculates 90% of total system memory
-4. **Application**: Applies `--mem` flag to CodeQL analyze command
+4. **Application**: Applies `--ram` flag to CodeQL analyze command
 
 ## Usage
 
@@ -101,7 +101,7 @@ Located at `utils/memory_utils.sh`, provides:
 1. **run-queries.sh**: 
    - Sources memory utilities
    - Checks database size
-   - Applies `--mem` flag to `codeql database analyze`
+   - Applies `--ram` flag to `codeql database analyze`
 
 2. **SpeQL.py**:
    - Adds "Run with Custom Memory Limit" menu option

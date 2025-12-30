@@ -100,13 +100,13 @@ MEMORY_OPTION=""
 
 # Check for user-specified memory limit first
 if [ -n "${CODEQL_MEMORY_LIMIT:-}" ]; then
-    MEMORY_OPTION="--mem=$CODEQL_MEMORY_LIMIT"
+    MEMORY_OPTION="--ram=$CODEQL_MEMORY_LIMIT"
     echo -e "${GREEN}Using custom memory limit: ${CODEQL_MEMORY_LIMIT} MB (from CODEQL_MEMORY_LIMIT)${NC}"
 elif type get_memory_setting &>/dev/null; then
     MEMORY_LIMIT=$(get_memory_setting "$DATABASE_PATH" 50000)
     
     if [ -n "$MEMORY_LIMIT" ] && [ "$MEMORY_LIMIT" -gt 0 ]; then
-        MEMORY_OPTION="--mem=$MEMORY_LIMIT"
+        MEMORY_OPTION="--ram=$MEMORY_LIMIT"
         echo -e "${GREEN}Applying dynamic memory limit: ${MEMORY_LIMIT} MB${NC}"
         
         # Show memory configuration info
@@ -145,6 +145,7 @@ for query in "${QUERIES[@]}"; do
     
     # Run the query
     # Apply memory limit option if available (for databases with >50K JSON files)
+    # Using --ram flag which is the correct CodeQL option for memory limits
     error_log="$RESULTS_PATH/${query_name}-errors.log"
     if codeql database analyze "$DATABASE_PATH" \
         "$QUERIES_PATH/$query" \

@@ -108,7 +108,7 @@ get_memory_setting() {
     fi
 }
 
-# Format memory value for CodeQL --mem option
+# Format memory value for CodeQL --ram option
 # Note: This function is kept for potential future use but is not currently utilized
 # Memory limits are directly formatted in get_memory_setting()
 format_memory_for_codeql() {

@@ -359,20 +359,58 @@ def codeql_menu():
                 clear_screen()
                 print_logo()
                 
-                # Note: For individual queries, we run codeql directly without run-queries.sh
-                # Memory management is handled automatically by CodeQL for single queries
-                # For large databases, users should use option 3 "Run with Custom Memory Limit"
-                # or run all queries via option 1 which uses run-queries.sh with memory management
+                # Ask if user wants to set custom memory limit for this query
+                print(f"{BLUE}Running: {query_file.name}{NC}\n")
+                mem_choice = input(f"{CYAN}Set custom memory limit? (y/N): {NC}").strip().lower()
                 
-                print(f"{BLUE}Running individual query: {query_file.name}{NC}")
-                print(f"{YELLOW}Tip: For large databases, use 'Run with Custom Memory Limit' option{NC}\n")
-                
-                run_command([
+                cmd = [
                     "codeql", "database", "analyze", "database/azure-api-db",
                     str(query_file),
                     "--format=sarif-latest",
                     f"--output=results/{query_file.stem}-results.sarif"
-                ], f"Running {query_file.name}")
+                ]
+                
+                if mem_choice == 'y':
+                    # Get system memory info for display
+                    try:
+                        result = subprocess.run(["free", "-m"], capture_output=True, text=True)
+                        if result.returncode == 0:
+                            for line in result.stdout.split('\n'):
+                                if line.startswith('Mem:'):
+                                    parts = line.split()
+                                    total_mem = int(parts[1])
+                                    recommended = int(total_mem * 0.9)
+                                    print(f"\n{BLUE}System Memory: {total_mem} MB{NC}")
+                                    print(f"{BLUE}Recommended (90%): {recommended} MB{NC}\n")
+                    except:
+                        pass
+                    
+                    mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for 90% auto): {NC}").strip()
+                    
+                    if mem_limit:
+                        if mem_limit.isdigit():
+                            cmd.append(f"--ram={mem_limit}")
+                            print(f"\n{GREEN}Using memory limit: {mem_limit} MB{NC}\n")
+                        else:
+                            print(f"\n{RED}Invalid value. Running with default settings.{NC}\n")
+                    else:
+                        # Use auto-calculated 90%
+                        try:
+                            result = subprocess.run(["free", "-m"], capture_output=True, text=True)
+                            if result.returncode == 0:
+                                for line in result.stdout.split('\n'):
+                                    if line.startswith('Mem:'):
+                                        parts = line.split()
+                                        total_mem = int(parts[1])
+                                        auto_limit = int(total_mem * 0.9)
+                                        cmd.append(f"--ram={auto_limit}")
+                                        print(f"\n{GREEN}Using auto-calculated limit: {auto_limit} MB (90%){NC}\n")
+                        except:
+                            print(f"\n{YELLOW}Could not auto-calculate. Using default settings.{NC}\n")
+                else:
+                    print(f"\n{BLUE}Using default memory settings{NC}\n")
+                
+                run_command(cmd, f"Running {query_file.name}")
                 pause()
         elif choice == 3:
             clear_screen()
