@@ -14,6 +14,8 @@ pip3 install -r requirements.txt
 python3 SpeQL.py
 ```
 
+![SpeQL Interactive CLI Menu Demo](demos/05-cli-menu.gif)
+
 The CLI menu provides:
 - **Intuitive navigation** - Browse all actions organized by category
 - **Interactive prompts** - Step-by-step guidance for complex operations
