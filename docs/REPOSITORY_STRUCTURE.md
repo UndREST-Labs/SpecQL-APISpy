@@ -31,11 +31,7 @@ SpeQL/
 │   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/             # CodeQL security queries
 │   └── azure-security/
-│       ├── InsecureLogicAppTrigger.ql
-│       ├── InsecureKeyVaultConfig.ql
-│       ├── MissingAccessControl.ql
-│       ├── InsecureCredentials.ql
-│       ├── SasUriInResponse.ql
+│       ├── SasUriInResponse.ql  # Detects SAS URIs in API responses
 │       ├── qlpack.yml
 │       └── codeql-pack.lock.yml
 ├── scripts/             # Analysis scripts
@@ -61,7 +57,8 @@ SpeQL/
 
 ### What Stayed the Same
 
-- All 5 security queries are retained (including SasUriInResponse.ql which was kept unchanged)
+- CodeQL query for SAS URI detection (SasUriInResponse.ql) is retained
+- Python analyzer (analyze.py) is retained with all security checks
 - Core functionality scripts remain in the root for easy access
 - Scripts directory structure is unchanged
 - Query pack configuration is unchanged

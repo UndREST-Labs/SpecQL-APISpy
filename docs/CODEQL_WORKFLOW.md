@@ -64,11 +64,7 @@ After building the database, run your queries:
 ```
 
 This runs:
-- InsecureLogicAppTrigger.ql
-- InsecureKeyVaultConfig.ql
-- MissingAccessControl.ql
-- InsecureCredentials.ql
-- SasUriInResponse.ql
+- SasUriInResponse.ql (detects SAS URIs in API example responses)
 
 #### Run Custom Query
 ```bash

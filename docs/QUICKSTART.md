@@ -52,22 +52,20 @@ python3 analyze.py
 
 ### What Do These Queries Detect?
 
-1. **SasUriInResponse.ql** - Detects Azure SAS URIs exposed in API responses
-2. **InsecureKeyVaultConfig.ql** - Finds Key Vault misconfigurations (Azure Vault Recon)
-3. **InsecureLogicAppTrigger.ql** - Identifies Logic App triggers without authentication (Azure Silent Reaper)
-4. **MissingAccessControl.ql** - Finds API endpoints without proper access control
-5. **InsecureCredentials.ql** - Locates hardcoded credentials and secrets
+**Python Analyzer (analyze.py)** - Detects multiple vulnerability types in API schemas:
+- Insecure Logic App triggers (Azure Silent Reaper)
+- Key Vault misconfigurations (Azure Vault Recon)
+- Missing access control on API endpoints
+- Hardcoded credentials and secrets
+
+**CodeQL Query (SasUriInResponse.ql)** - Detects Azure SAS URIs in API example response files
 
 ### Query Output
 
-Queries produce SARIF format output in the `results/` directory:
+The CodeQL query produces SARIF format output in the `results/` directory:
 ```bash
 results/
-  ├── SasUriInResponse-results.sarif
-  ├── InsecureKeyVaultConfig-results.sarif
-  ├── InsecureLogicAppTrigger-results.sarif
-  ├── MissingAccessControl-results.sarif
-  └── InsecureCredentials-results.sarif
+  └── SasUriInResponse-results.sarif
 ```
 
 ## Troubleshooting
