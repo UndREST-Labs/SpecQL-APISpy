@@ -147,17 +147,14 @@ Execute CodeQL security queries and view results (requires CodeQL CLI):
 
 #### Options:
 1. **Run All Security Queries**
-   - Runs all 5 security queries against the database
+1. **Run All Queries**
+   - Runs CodeQL security query against the database
    - Generates SARIF output files
    - Command: `./run-queries.sh`
 
 2. **Run Individual Query**
-   - Lists available queries:
-     1. InsecureLogicAppTrigger.ql
-     2. InsecureKeyVaultConfig.ql
-     3. MissingAccessControl.ql
-     4. InsecureCredentials.ql
-     5. SasUriInResponse.ql
+   - Lists available query:
+     1. SasUriInResponse.ql (detects SAS URIs in API example responses)
    - Prompts for query selection
    - Command: `codeql database analyze database/azure-api-db queries/azure-security/<query>.ql ...`
 
@@ -166,8 +163,8 @@ Execute CodeQL security queries and view results (requires CodeQL CLI):
    - Shows file names and counts
 
 4. **Show Query Documentation**
-   - Displays detailed description of each security query
-   - Explains what each query detects and security impacts
+   - Displays detailed description of the security query
+   - Explains what the query detects and security impacts
 
 #### Example Workflow:
 ```
