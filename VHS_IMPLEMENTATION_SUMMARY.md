@@ -118,7 +118,7 @@ Set Shell bash
 Set FontSize 16
 Set Width 1000
 Set Height 720
-Set Theme "Ubuntu"
+Set Theme "TokyoNight"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 ```

@@ -7,12 +7,17 @@ Set Shell bash
 Set FontSize 16
 Set Width 1000
 Set Height 720
-Set Theme "Ubuntu"
+Set Theme "TokyoNight"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
+
+Hide
+Type "cd /home/runner/work/SpeQL/SpeQL"
+Enter
+Show
 
 Type "# Run all CodeQL security queries"
 Enter
 Type "./run-queries.sh"
 Enter
-Sleep 8s
+Sleep 6s

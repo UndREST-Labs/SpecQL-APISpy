@@ -7,28 +7,34 @@ Set Shell bash
 Set FontSize 16
 Set Width 1000
 Set Height 720
-Set Theme "Ubuntu"
+Set Theme "TokyoNight"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
-Type "# Clone the SpeQL repository"
+Type "# SpeQL Setup Demo - Installation Steps"
+Enter
+Sleep 1s
+
+Type "# Step 1: Clone the repository"
 Enter
 Type "git clone https://github.com/SpeQLSec/SpeQL.git"
 Enter
-Sleep 2s
+Sleep 1s
 
+Type "# Step 2: Navigate to directory"
+Enter
 Type "cd SpeQL"
 Enter
-Sleep 500ms
+Sleep 1s
 
-Type "# Install Python dependencies"
+Type "# Step 3: Install Python dependencies"
 Enter
 Type "pip3 install -r requirements.txt"
 Enter
-Sleep 3s
+Sleep 1s
 
-Type "# Run automated setup"
+Type "# Step 4: Run automated setup script"
 Enter
 Type "./setup.sh"
 Enter
-Sleep 5s
+Sleep 2s
