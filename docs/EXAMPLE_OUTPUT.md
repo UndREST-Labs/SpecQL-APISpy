@@ -1,8 +1,10 @@
 # SpeQL Analysis Example Output
 
-This document shows example output from running SpeQL on Azure REST API specifications.
+This document shows example output from running the SpeQL Python analyzer on Azure REST API specifications.
 
-## Running the Analyzer
+## Running the Python Analyzer
+
+The Python analyzer (analyze.py) detects security vulnerabilities in API schema files without requiring CodeQL.
 
 ```bash
 $ python3 analyze.py
@@ -140,6 +142,25 @@ jobs:
 
 The script exits with code 1 if issues are found, causing the build to fail.
 
+## CodeQL Query: SasUriInResponse
+
+In addition to the Python analyzer, SpeQL includes a CodeQL query specifically for detecting SAS URIs in API example response files:
+
+```bash
+# Run the CodeQL query
+./run-queries.sh
+```
+
+This query is particularly useful because:
+- API schema files don't contain actual SAS URIs with signature tokens
+- Only API example response files contain real SAS URIs
+- CodeQL database scanning is ideal for finding these in example outputs
+
+Example findings would show locations of SAS URIs like:
+```
+https://example.blob.core.windows.net/container/file?sig=SIGNATURE&se=EXPIRY&sp=PERMISSIONS
+```
+
 ## References
 
 - Azure Silent Reaper: Logic App trigger vulnerabilities
@@ -148,3 +169,5 @@ The script exits with code 1 if issues are found, causing the build to fail.
 - CWE-862: Missing Authorization
 - CWE-284: Improper Access Control
 - CWE-522: Insufficiently Protected Credentials
+- CWE-200: Exposure of Sensitive Information to an Unauthorized Actor
+- CWE-359: Exposure of Private Personal Information to an Unauthorized Actor
