@@ -155,6 +155,24 @@ def pause():
     input(f"\n{CYAN}Press Enter to continue...{NC}")
 
 
+def get_system_memory_info():
+    """Get system memory information for display
+    Returns tuple of (total_mem, recommended_90_percent) or (None, None) if unavailable
+    """
+    try:
+        result = subprocess.run(["free", "-m"], capture_output=True, text=True)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if line.startswith('Mem:'):
+                    parts = line.split()
+                    total_mem = int(parts[1])
+                    recommended = int(total_mem * 0.9)
+                    return total_mem, recommended
+    except Exception:
+        pass
+    return None, None
+
+
 def analyze_menu():
     """Security Analysis submenu"""
     while True:
@@ -372,18 +390,10 @@ def codeql_menu():
                 
                 if mem_choice == 'y':
                     # Get system memory info for display
-                    try:
-                        result = subprocess.run(["free", "-m"], capture_output=True, text=True)
-                        if result.returncode == 0:
-                            for line in result.stdout.split('\n'):
-                                if line.startswith('Mem:'):
-                                    parts = line.split()
-                                    total_mem = int(parts[1])
-                                    recommended = int(total_mem * 0.9)
-                                    print(f"\n{BLUE}System Memory: {total_mem} MB{NC}")
-                                    print(f"{BLUE}Recommended (90%): {recommended} MB{NC}\n")
-                    except:
-                        pass
+                    total_mem, recommended = get_system_memory_info()
+                    if total_mem:
+                        print(f"\n{BLUE}System Memory: {total_mem} MB{NC}")
+                        print(f"{BLUE}Recommended (90%): {recommended} MB{NC}\n")
                     
                     mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for 90% auto): {NC}").strip()
                     
@@ -395,17 +405,11 @@ def codeql_menu():
                             print(f"\n{RED}Invalid value. Running with default settings.{NC}\n")
                     else:
                         # Use auto-calculated 90%
-                        try:
-                            result = subprocess.run(["free", "-m"], capture_output=True, text=True)
-                            if result.returncode == 0:
-                                for line in result.stdout.split('\n'):
-                                    if line.startswith('Mem:'):
-                                        parts = line.split()
-                                        total_mem = int(parts[1])
-                                        auto_limit = int(total_mem * 0.9)
-                                        cmd.append(f"--ram={auto_limit}")
-                                        print(f"\n{GREEN}Using auto-calculated limit: {auto_limit} MB (90%){NC}\n")
-                        except:
+                        total_mem, auto_limit = get_system_memory_info()
+                        if auto_limit:
+                            cmd.append(f"--ram={auto_limit}")
+                            print(f"\n{GREEN}Using auto-calculated limit: {auto_limit} MB (90%){NC}\n")
+                        else:
                             print(f"\n{YELLOW}Could not auto-calculate. Using default settings.{NC}\n")
                 else:
                     print(f"\n{BLUE}Using default memory settings{NC}\n")
@@ -422,22 +426,12 @@ def codeql_menu():
             print(f"Leave blank to use automatic detection based on database size\n")
             
             # Get system memory info for display purposes only
-            # Note: This duplicates functionality from utils/memory_utils.sh
-            # but is intentional to provide immediate feedback to the user
+            # Note: This uses the same helper as individual queries
             # The actual memory limit will be calculated by run-queries.sh
-            try:
-                # Try to get system memory (Linux only - for display)
-                result = subprocess.run(["free", "-m"], capture_output=True, text=True)
-                if result.returncode == 0:
-                    for line in result.stdout.split('\n'):
-                        if line.startswith('Mem:'):
-                            parts = line.split()
-                            total_mem = int(parts[1])
-                            recommended = int(total_mem * 0.9)
-                            print(f"System Memory: {total_mem} MB")
-                            print(f"Recommended (90%): {recommended} MB\n")
-            except:
-                pass
+            total_mem, recommended = get_system_memory_info()
+            if total_mem:
+                print(f"System Memory: {total_mem} MB")
+                print(f"Recommended (90%): {recommended} MB\n")
             
             mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for auto): {NC}").strip()
             
