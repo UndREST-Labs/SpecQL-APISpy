@@ -361,7 +361,6 @@ def codeql_menu():
                 
                 # Check if we should apply memory limit
                 db_path = Path("database/azure-api-db")
-                mem_option = []
                 if db_path.exists():
                     # Count JSON files to determine if memory limit should be applied
                     json_count = 0
@@ -370,8 +369,8 @@ def codeql_menu():
                         json_count = sum(1 for _ in src_dir.rglob("*.json"))
                     
                     if json_count >= 50000:
-                        print(f"{BLUE}Database has {json_count:,} JSON files (>50K threshold)${NC}")
-                        print(f"{BLUE}Calculating optimal memory limit...${NC}\n")
+                        print(f"{BLUE}Database has {json_count:,} JSON files (>50K threshold){NC}")
+                        print(f"{BLUE}Calculating optimal memory limit...{NC}\n")
                         # This will be handled by the run-queries.sh script
                 
                 run_command([
@@ -386,12 +385,11 @@ def codeql_menu():
             print_logo()
             
             # Prompt for memory limit
-            print(f"{YELLOW}Custom Memory Configuration${NC}\n")
-            print(f"{BLUE}Configure CodeQL memory limit for query execution${NC}")
+            print(f"{YELLOW}Custom Memory Configuration{NC}\n")
+            print(f"{BLUE}Configure CodeQL memory limit for query execution{NC}")
             print(f"Leave blank to use automatic detection based on database size\n")
             
             # Get system memory info
-            import subprocess
             try:
                 # Try to get system memory
                 result = subprocess.run(["free", "-m"], capture_output=True, text=True)
@@ -410,15 +408,15 @@ def codeql_menu():
             
             if mem_limit:
                 if not mem_limit.isdigit():
-                    print(f"{RED}Invalid memory value. Please enter a number.${NC}")
+                    print(f"{RED}Invalid memory value. Please enter a number.{NC}")
                     pause()
                     continue
                 
                 # Set environment variable for the run
                 os.environ['CODEQL_MEMORY_LIMIT'] = mem_limit
-                print(f"\n{GREEN}Memory limit set to: {mem_limit} MB${NC}\n")
+                print(f"\n{GREEN}Memory limit set to: {mem_limit} MB{NC}\n")
             else:
-                print(f"\n{BLUE}Using automatic memory detection${NC}\n")
+                print(f"\n{BLUE}Using automatic memory detection{NC}\n")
             
             run_command(["./run-queries.sh"], "Running CodeQL security analysis with custom settings")
             
