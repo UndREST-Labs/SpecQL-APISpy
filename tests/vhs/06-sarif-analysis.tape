@@ -6,49 +6,25 @@ Output demos/06-sarif-analysis.gif
 Set Shell bash
 Set FontSize 16
 Set Width 1000
-Set Height 600
+Set Height 720
 Set Theme "Ubuntu"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
-Type "# Tool 1: Deduplicate findings by product and operation"
+Type "# Deduplicate findings by product and operation"
 Enter
-Type "./scripts/sarif-analysis/deduplicate-by-product-operation.sh \\"
+Type "./scripts/sarif-analysis/deduplicate-by-product-operation.sh results/SasUriInResponse-results.sarif"
 Enter
-Type "    results/SasUriInResponse-results.sarif"
-Enter
-Sleep 1s
-Type "# ✓ Removed duplicate findings across API versions"
-Enter
-Sleep 1s
-Enter
+Sleep 3s
 
-Type "# Tool 2: Parse and extract endpoint data to CSV"
+Type "# Parse and extract endpoint data to CSV"
 Enter
-Type "./scripts/sarif-analysis/parse-sarif-endpoints.sh \\"
+Type "./scripts/sarif-analysis/parse-sarif-endpoints.sh -f csv results/SasUriInResponse-results.sarif"
 Enter
-Type "    -f csv results/SasUriInResponse-results.sarif"
-Enter
-Sleep 1s
-Type "# ✓ Exported endpoint data to CSV format"
-Enter
-Sleep 1s
-Enter
+Sleep 3s
 
-Type "# Tool 3: Prioritize threats by severity"
+Type "# Prioritize threats by severity"
 Enter
-Type "./scripts/sarif-analysis/prioritize-threats.sh \\"
-Enter
-Type "    --threshold high results/SasUriInResponse-results.sarif"
-Enter
-Sleep 1s
-Type "# ✓ Prioritized high and critical severity findings"
-Enter
-Sleep 1s
-Enter
-
-Type "# These tools help identify control plane/data plane"
-Enter
-Type "# isolation issues and SilentReaper vulnerabilities"
+Type "./scripts/sarif-analysis/prioritize-threats.sh --threshold high results/SasUriInResponse-results.sarif"
 Enter
 Sleep 3s

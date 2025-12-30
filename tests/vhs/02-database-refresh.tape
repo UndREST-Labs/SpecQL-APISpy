@@ -6,7 +6,7 @@ Output demos/02-database-refresh.gif
 Set Shell bash
 Set FontSize 16
 Set Width 1000
-Set Height 600
+Set Height 720
 Set Theme "Ubuntu"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
@@ -15,31 +15,4 @@ Type "# Refresh database with Logic Apps specifications"
 Enter
 Type "python3 refresh_database.py --path specification/logic"
 Enter
-Sleep 1s
-Type "# Cloning Azure REST API specs..."
-Enter
-Sleep 1s
-Type "# [SUCCESS] Repository cloned successfully"
-Enter
-Type "# [INFO] Found 309 JSON files in specification/logic"
-Enter
-Sleep 1s
-Enter
-
-Type "# Building CodeQL database..."
-Enter
-Sleep 1s
-Type "# [INFO] Creating database at: database/azure-api-db"
-Enter
-Type "# [SUCCESS] Database built successfully"
-Enter
-Sleep 2s
-Enter
-
-Type "# ✓ Database ready for analysis!"
-Enter
-Type "# Location: database/azure-api-db/"
-Enter
-Type "# Files indexed: 309 JSON files"
-Enter
-Sleep 3s
+Sleep 10s

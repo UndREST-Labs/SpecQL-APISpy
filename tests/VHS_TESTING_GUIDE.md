@@ -117,7 +117,7 @@ Output demos/01-setup.gif          # Output file path
 Set Shell bash                      # Shell to use
 Set FontSize 16                     # Terminal font size (20% larger)
 Set Width 1000                      # Terminal width
-Set Height 600                      # Terminal height
+Set Height 720                      # Terminal height (20% taller)
 Set Theme "Ubuntu"                 # Color theme
 Set TypingSpeed 80ms               # Typing animation speed (20% faster)
 Set WindowBar ColorfulRight        # Window decoration bar
@@ -208,10 +208,11 @@ Adjust settings in tape files:
 
 Current settings balance quality and file size:
 - **Font size**: 16pt (larger, more readable)
-- **Dimensions**: 1000x600px (fits documentation well)
+- **Dimensions**: 1000x720px (20% taller for more content visibility)
 - **Theme**: Ubuntu (clean, professional appearance)
 - **Typing speed**: 80ms (20% faster than before)
 - **Window bar**: ColorfulRight (adds visual polish)
+- **Demo approach**: Shows actual command outputs instead of typed expectations
 
 ### Version Control
 

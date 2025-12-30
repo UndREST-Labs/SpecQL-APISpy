@@ -117,7 +117,7 @@ This creates a database with **309 JSON files** from Azure Logic Apps specificat
 Set Shell bash
 Set FontSize 16
 Set Width 1000
-Set Height 600
+Set Height 720
 Set Theme "Ubuntu"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
