@@ -9,8 +9,8 @@ The Python analyzer (analyze.py) detects security vulnerabilities in API schema 
 ```bash
 $ python3 analyze.py
 ════════════════════════════════════════════════════════════
-  SpeQL - Azure Security Analyzer
-  Detecting Azure Silent Reaper & Vault Recon vulnerabilities
+  SpeQL - API Spec Query Analyser
+  Identifying SilentReaper vulnerabilities in Azure REST API
 ════════════════════════════════════════════════════════════
 
 Analyzing 309 JSON files...
@@ -163,7 +163,7 @@ https://example.blob.core.windows.net/container/file?sig=SIGNATURE&se=EXPIRY&sp=
 
 ## References
 
-- Azure Silent Reaper: Logic App trigger vulnerabilities
+- SilentReaper Vulnerability: APIs emitting SAS URIs in responses with improper RBAC or inadequate control/data plane isolation
 - Azure Vault Recon: Key Vault enumeration attacks
 - CWE-306: Missing Authentication for Critical Function
 - CWE-862: Missing Authorization

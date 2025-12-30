@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Prioritize SARIF results for SilentReaper-style control plane/data plane isolation threats
-# Identifies high-priority vulnerabilities in Azure REST APIs
+# Prioritize SARIF results for SilentReaper vulnerabilities
+# Identifies high-priority vulnerabilities where APIs emit SAS URIs with improper RBAC or control/data plane isolation
 
 set -euo pipefail
 
@@ -17,8 +17,8 @@ usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS] <sarif-file>
 
-Prioritize SARIF results for control plane/data plane isolation threats.
-Focuses on SilentReaper-style vulnerabilities in Azure REST APIs.
+Prioritize SARIF results for SilentReaper vulnerabilities.
+Focuses on APIs emitting SAS URIs in responses with improper RBAC or control/data plane isolation.
 
 OPTIONS:
     -h, --help              Show this help message
@@ -202,7 +202,7 @@ case "$FORMAT" in
     markdown)
         RESULT=$(cat << EOF
 # Threat Hunting Report - Control Plane/Data Plane Isolation
-## SilentReaper-Style Vulnerability Analysis
+## SilentReaper Vulnerability Analysis
 
 **Generated:** $(date)
 **Source:** $(basename "$SARIF_FILE")

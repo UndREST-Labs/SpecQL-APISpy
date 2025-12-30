@@ -1,4 +1,6 @@
-# SpeQL - Security Pattern Query Language
+# SpeQL - API Spec Query Analyser
+# Currently supporting Azure REST API
+# Designed to identify SilentReaper vulnerabilities
 # Python dependencies for the CLI menu system
 
 # For rendering the SpeQL logo in ASCII art

@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to SpeQL! This guide will help you add new security queries and improve the tool.
 
+SpeQL is an API Spec Query Analyser that currently supports the Azure REST API and is designed to identify APIs that might be vulnerable to SilentReaper. A SilentReaper vulnerability is characterized by emitting a SAS URI in API responses, which becomes dangerous when there is improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
+
 ## 🎯 Ways to Contribute
 
 1. **Add new security queries** for Azure vulnerabilities

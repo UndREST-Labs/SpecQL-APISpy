@@ -1,6 +1,6 @@
-# SpeQL - Security Query Language for Azure APIs
+# SpeQL - API Spec Query Analyser
 
-SpeQL is a security analysis tool that uses CodeQL to detect vulnerabilities and misconfigurations in Azure REST API specifications. It is specifically designed to identify issues similar to those described in the Azure Silent Reaper and Azure Vault Recon vulnerabilities.
+SpeQL is an API Spec Query Analyser that uses CodeQL to analyze API specifications. Currently supporting the Azure REST API, SpeQL is designed to identify APIs that might be vulnerable to SilentReaper. A SilentReaper vulnerability is characterized by emitting a SAS URI in API responses, which becomes dangerous when there is improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
 
 ## Quick Start with CLI Menu
 
@@ -49,16 +49,16 @@ python3 refresh_database.py
 
 ## Overview
 
-This tool analyzes Azure REST API specification files (Swagger/OpenAPI) to detect security vulnerabilities. It includes:
+SpeQL analyzes Azure REST API specification files (Swagger/OpenAPI) to identify potential security vulnerabilities. It includes:
 
-- **Python Analyzer (analyze.py)**: Scans API schemas for multiple vulnerability types including Azure Silent Reaper, Azure Vault Recon, missing access control, and insecure credentials
-- **CodeQL Query (SasUriInResponse.ql)**: Detects Azure Shared Access Signature (SAS) tokens exposed in API example responses
+- **Python Analyzer (analyze.py)**: Scans API schemas for multiple vulnerability types including SilentReaper patterns, Azure Vault Recon, missing access control, and insecure credentials
+- **CodeQL Query (SasUriInResponse.ql)**: Detects Azure Shared Access Signature (SAS) tokens exposed in API example responses - a key indicator of SilentReaper vulnerabilities
 
 ## Vulnerabilities Detected
 
 The Python analyzer (analyze.py) detects the following vulnerability types when analyzing API schema files:
 
-### 1. Insecure Logic App Trigger (Azure Silent Reaper)
+### 1. Insecure Logic App Trigger (SilentReaper Pattern)
 
 Detects Logic App HTTP triggers that can be invoked without authentication:
 - Missing authentication configuration
@@ -96,9 +96,9 @@ Locates hardcoded credentials and secrets:
 
 **CWE References**: CWE-798 (Hardcoded Credentials), CWE-259 (Hard-coded Password)
 
-### 5. SAS URI Exposure in API Responses (CodeQL Query)
+### 5. SAS URI Exposure in API Responses (CodeQL Query) - SilentReaper Vulnerability
 
-The CodeQL query (SasUriInResponse.ql) detects Azure Shared Access Signature (SAS) URIs in API example responses:
+The CodeQL query (SasUriInResponse.ql) detects Azure Shared Access Signature (SAS) URIs in API example responses, which is the hallmark of SilentReaper vulnerabilities:
 - SAS tokens in response bodies (inputsLink, outputsLink, etc.)
 - URIs containing signature parameters (sig, se, sp, sv)
 - Control-plane APIs exposing data-plane access credentials
@@ -106,7 +106,9 @@ The CodeQL query (SasUriInResponse.ql) detects Azure Shared Access Signature (SA
 
 **Why CodeQL for SAS URIs?**: API schema definitions don't contain actual SAS URIs - only API example response files do. This makes CodeQL database scanning ideal for finding real SAS URI exposures in example outputs.
 
-**Security Impact**: SAS URIs grant time-limited access to Azure resources. When exposed in control-plane API responses, they can enable unauthorized data-plane access and data exfiltration.
+**SilentReaper Vulnerability Definition**: A SilentReaper vulnerability occurs when an API emits a SAS URI in its response. This becomes dangerous when combined with improper RBAC (Role-Based Access Control) or inadequate control plane/data plane isolation, potentially allowing unauthorized access to Azure resources.
+
+**Security Impact**: SAS URIs grant time-limited access to Azure resources. When exposed in control-plane API responses with improper RBAC or inadequate control/data plane isolation, they can enable unauthorized data-plane access and data exfiltration.
 
 **CWE References**: CWE-200 (Exposure of Sensitive Information), CWE-359 (Exposure of Private Personal Information)
 
@@ -438,7 +440,7 @@ Results from CodeQL are saved in SARIF format (Static Analysis Results Interchan
 
 ### Analyzing SARIF Results for Threat Hunting
 
-SpeQL includes specialized scripts for analyzing SARIF output files to identify control plane/data plane isolation issues. These tools help prioritize findings and identify patterns similar to the Azure SilentReaper vulnerability.
+SpeQL includes specialized scripts for analyzing SARIF output files to identify control plane/data plane isolation issues. These tools help prioritize findings and identify SilentReaper vulnerability patterns - where APIs emit SAS URIs in responses combined with improper RBAC or inadequate control/data plane isolation.
 
 #### Quick Start with SARIF Analysis
 
@@ -453,7 +455,7 @@ After running CodeQL queries, use these scripts to analyze the results:
 ./scripts/sarif-analysis/parse-sarif-endpoints.sh \
     -f csv results/SasUriInResponse-results.sarif
 
-# 3. Prioritize threats by severity (SilentReaper-style patterns)
+# 3. Prioritize threats by severity (SilentReaper vulnerability patterns)
 ./scripts/sarif-analysis/prioritize-threats.sh \
     --threshold high results/SasUriInResponse-results.sarif
 ```
@@ -688,14 +690,14 @@ The Python-based security analyzer provides comprehensive scanning of API schema
 - Quick security assessments
 
 **Vulnerability types detected:**
-- **Insecure Logic App Triggers** (Azure Silent Reaper): HTTP/Request triggers missing or using weak authentication
+- **Insecure Logic App Triggers** (SilentReaper Pattern): HTTP/Request triggers missing or using weak authentication
 - **Insecure Key Vault Configuration** (Azure Vault Recon): Key Vaults without network restrictions or with overly permissive access
 - **Missing Access Control**: Sensitive operations without authentication requirements
 - **Insecure Credentials**: Hardcoded passwords, API keys, and connection strings
 
 ### CodeQL Query: SasUriInResponse.ql
 
-This CodeQL query detects Azure Shared Access Signature (SAS) URIs exposed in API example response files.
+This CodeQL query detects Azure Shared Access Signature (SAS) URIs exposed in API example response files - the defining characteristic of SilentReaper vulnerabilities.
 
 **What it detects:**
 - SAS URIs in API response bodies containing signature tokens
@@ -705,8 +707,10 @@ This CodeQL query detects Azure Shared Access Signature (SAS) URIs exposed in AP
 
 **Why CodeQL for this?**: API schema definitions don't contain actual SAS URIs with signature tokens - only API example response files do. CodeQL database scanning is ideal for finding real SAS URI exposures in these example outputs.
 
+**SilentReaper Vulnerability**: A SilentReaper vulnerability occurs when an API emits a SAS URI in its response. This becomes particularly dangerous when combined with improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
+
 **Security Impact:**
-SAS tokens grant time-limited access to Azure resources. When control-plane APIs expose these tokens in responses, attackers can:
+SAS tokens grant time-limited access to Azure resources. When control-plane APIs expose these tokens in responses with improper RBAC or inadequate control/data plane isolation, attackers can:
 - Access storage accounts or other data-plane resources
 - Exfiltrate sensitive data
 - Bypass intended access controls

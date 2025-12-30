@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deduplicate SARIF results by product + operation, ignoring API versions
 # This script is designed for threat hunting in Azure REST APIs
-# focusing on SilentReaper-style control plane/data plane isolation issues
+# focusing on SilentReaper vulnerabilities (SAS URIs in responses with improper RBAC or control/data plane isolation)
 
 set -euo pipefail
 

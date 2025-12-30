@@ -5,8 +5,8 @@ if [ -z "${CODEQL_ALLOW_INSTALLATION_ANYWHERE:-}" ]; then
     export CODEQL_ALLOW_INSTALLATION_ANYWHERE=true
 fi
 
-# SpeQL - Security Query Runner for Azure APIs
-# This script runs CodeQL security queries against Azure REST API specifications
+# SpeQL - API Spec Query Runner for Azure REST API
+# This script runs CodeQL queries to identify SilentReaper vulnerabilities in Azure REST API specifications
 
 set -euo pipefail
 
@@ -30,8 +30,8 @@ fi
 
 # Print banner
 echo "═══════════════════════════════════════════════════════════"
-echo "  SpeQL - Azure Security Query Analyzer"
-echo "  Detecting Azure Silent Reaper & Vault Recon vulnerabilities"
+echo "  SpeQL - API Spec Query Analyser"
+echo "  Identifying SilentReaper vulnerabilities in Azure REST API"
 echo "═══════════════════════════════════════════════════════════"
 echo ""
 
