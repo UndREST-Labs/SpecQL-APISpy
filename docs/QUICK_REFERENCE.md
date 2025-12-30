@@ -76,6 +76,9 @@ The database path matters for CodeQL! Build it with the specifications you want 
 
 ## 🎯 What Does SpeQL Detect?
 
+### Python Analyzer (analyze.py)
+The Python analyzer detects the following vulnerability types in API schema files:
+
 ### 1. Azure Silent Reaper Vulnerabilities
 **Issue**: Logic App triggers without proper authentication
 **Risk**: Unauthorized workflow execution
@@ -96,10 +99,13 @@ The database path matters for CodeQL! Build it with the specifications you want 
 **Risk**: Credential exposure and theft
 **Example**: Connection strings with embedded passwords
 
+### CodeQL Query (SasUriInResponse.ql)
+
 ### 5. SAS URI Exposure
-**Issue**: Azure SAS tokens exposed in API responses
+**Issue**: Azure SAS tokens exposed in API example responses
 **Risk**: Unauthorized data-plane access and data exfiltration
 **Example**: Response URIs containing signature parameters (sig, se, sp)
+**Note**: This query scans API example files where actual SAS URIs appear, not schema definitions
 
 ## 📊 Understanding the Output
 
@@ -144,12 +150,12 @@ python3 analyze.py || exit 1
 
 ### CodeQL Analysis (requires CodeQL CLI)
 ```bash
-# Run all CodeQL queries
+# Run CodeQL query for SAS URI detection
 ./run-queries.sh
 
 # Run specific query
 codeql database analyze database/azure-api-db \
-    queries/azure-security/InsecureLogicAppTrigger.ql \
+    queries/azure-security/SasUriInResponse.ql \
     --format=sarif-latest \
     --output=results/output.sarif
 ```

@@ -125,11 +125,9 @@ fi
 mkdir -p "$RESULTS_PATH"
 
 # List of queries to run
+# Note: Only SasUriInResponse is included as it's the only query that benefits from
+# scanning API example outputs. Other security checks are better performed using analyze.py.
 QUERIES=(
-#    "InsecureLogicAppTrigger.ql"
-#    "InsecureKeyVaultConfig.ql"
-#    "MissingAccessControl.ql"
-#    "InsecureCredentials.ql"
     "SasUriInResponse.ql"
 )
 

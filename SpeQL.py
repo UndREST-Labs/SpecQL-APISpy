@@ -484,25 +484,11 @@ def codeql_menu():
                 print(f"{GREEN}{i}. {query_file.name}{NC}")
                 
                 # Show description based on query name
-                if "InsecureLogicAppTrigger" in query_name:
-                    print("   Detects Logic App triggers vulnerable to Azure Silent Reaper attack")
-                    print("   - HTTP/Request triggers missing authentication")
-                    print("   - Triggers using 'None' or 'Anonymous' authentication")
-                elif "InsecureKeyVaultConfig" in query_name:
-                    print("   Detects Key Vault misconfigurations (Azure Vault Recon)")
-                    print("   - Key Vaults without network restrictions")
-                    print("   - Public network access enabled")
-                elif "MissingAccessControl" in query_name:
-                    print("   Finds API endpoints lacking proper access control")
-                    print("   - Sensitive operations without authentication")
-                    print("   - API endpoints with empty security arrays")
-                elif "InsecureCredentials" in query_name:
-                    print("   Locates hardcoded credentials and secrets")
-                    print("   - Hardcoded passwords, API keys, secrets")
-                    print("   - Connection strings with embedded credentials")
-                elif "SasUriInResponse" in query_name:
-                    print("   Detects SAS URIs exposed in API responses")
-                    print("   - SAS tokens in response bodies")
+                if "SasUriInResponse" in query_name:
+                    print("   Detects SAS URIs exposed in API example response files")
+                    print("   - SAS tokens in response bodies (inputsLink, outputsLink, etc.)")
+                    print("   - URIs with signature parameters (sig, se, sp, sv)")
+                    print("   - Control-plane APIs exposing data-plane access tokens")
                     print("   - Potential data exfiltration risks")
                 else:
                     print(f"   Security query for Azure API specifications")

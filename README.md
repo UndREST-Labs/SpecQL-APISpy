@@ -49,15 +49,14 @@ python3 refresh_database.py
 
 ## Overview
 
-This tool analyzes Azure REST API specification files (Swagger/OpenAPI) to detect:
+This tool analyzes Azure REST API specification files (Swagger/OpenAPI) to detect security vulnerabilities. It includes:
 
-- **Azure Silent Reaper**: Insecure Logic App trigger configurations that allow unauthorized workflow execution
-- **Azure Vault Recon**: Key Vault misconfigurations enabling unauthorized secret enumeration or access
-- **Missing Access Control**: API endpoints lacking proper authentication/authorization
-- **Insecure Credentials**: Hardcoded secrets and connection strings that should use Key Vault
-- **SAS URI Exposure**: Azure Shared Access Signature tokens exposed in API responses
+- **Python Analyzer (analyze.py)**: Scans API schemas for multiple vulnerability types including Azure Silent Reaper, Azure Vault Recon, missing access control, and insecure credentials
+- **CodeQL Query (SasUriInResponse.ql)**: Detects Azure Shared Access Signature (SAS) tokens exposed in API example responses
 
 ## Vulnerabilities Detected
+
+The Python analyzer (analyze.py) detects the following vulnerability types when analyzing API schema files:
 
 ### 1. Insecure Logic App Trigger (Azure Silent Reaper)
 
@@ -97,13 +96,15 @@ Locates hardcoded credentials and secrets:
 
 **CWE References**: CWE-798 (Hardcoded Credentials), CWE-259 (Hard-coded Password)
 
-### 5. SAS URI Exposure in API Responses
+### 5. SAS URI Exposure in API Responses (CodeQL Query)
 
-Detects Azure Shared Access Signature (SAS) URIs exposed in API responses:
+The CodeQL query (SasUriInResponse.ql) detects Azure Shared Access Signature (SAS) URIs in API example responses:
 - SAS tokens in response bodies (inputsLink, outputsLink, etc.)
 - URIs containing signature parameters (sig, se, sp, sv)
 - Control-plane APIs exposing data-plane access credentials
 - Data exfiltration risks through exposed SAS tokens
+
+**Why CodeQL for SAS URIs?**: API schema definitions don't contain actual SAS URIs - only API example response files do. This makes CodeQL database scanning ideal for finding real SAS URI exposures in example outputs.
 
 **Security Impact**: SAS URIs grant time-limited access to Azure resources. When exposed in control-plane API responses, they can enable unauthorized data-plane access and data exfiltration.
 
@@ -135,11 +136,7 @@ SpeQL/
 │   └── SARIF_ANALYSIS_QUICKSTART.md
 ├── queries/
 │   └── azure-security/         # Security query suite (CodeQL)
-│       ├── InsecureLogicAppTrigger.ql
-│       ├── InsecureKeyVaultConfig.ql
-│       ├── MissingAccessControl.ql
-│       ├── InsecureCredentials.ql
-│       ├── SasUriInResponse.ql
+│       ├── SasUriInResponse.ql # Detects SAS URIs in API example responses
 │       └── qlpack.yml          # Query pack dependencies
 ├── results/                    # Analysis results (generated)
 ├── scripts/
@@ -412,9 +409,9 @@ This will:
 #### Run Individual Queries:
 ```bash
 codeql database analyze database/azure-api-db \
-    queries/azure-security/InsecureLogicAppTrigger.ql \
+    queries/azure-security/SasUriInResponse.ql \
     --format=sarif-latest \
-    --output=results/InsecureLogicAppTrigger.sarif
+    --output=results/SasUriInResponse.sarif
 ```
 
 #### Complete Workflow Example
@@ -683,48 +680,30 @@ If it still installs 2.6.18, the qlpack.yml file has `*` instead of `~0.9.0`. Pu
 
 ## Query Details
 
-### InsecureLogicAppTrigger.ql
-Identifies Logic App triggers vulnerable to the Azure Silent Reaper attack pattern where workflows can be triggered without proper authentication.
+### Python Analyzer (analyze.py)
 
-**What it detects:**
-- HTTP/Request triggers missing authentication configuration
-- Triggers using "None" or "Anonymous" authentication
-- Enabled workflows with public endpoints but no access control
+The Python-based security analyzer provides comprehensive scanning of API schema files for multiple vulnerability types. It works standalone without CodeQL dependencies and is ideal for:
+- Scanning API schema/specification files
+- CI/CD integration
+- Quick security assessments
 
-### InsecureKeyVaultConfig.ql
-Detects Key Vault configurations susceptible to the Azure Vault Recon attack pattern where secrets can be enumerated or accessed due to misconfigurations.
+**Vulnerability types detected:**
+- **Insecure Logic App Triggers** (Azure Silent Reaper): HTTP/Request triggers missing or using weak authentication
+- **Insecure Key Vault Configuration** (Azure Vault Recon): Key Vaults without network restrictions or with overly permissive access
+- **Missing Access Control**: Sensitive operations without authentication requirements
+- **Insecure Credentials**: Hardcoded passwords, API keys, and connection strings
 
-**What it detects:**
-- Key Vaults without network restrictions
-- Public network access enabled on Key Vaults
-- Network ACL default action set to "Allow"
-- Overly permissive access policies
+### CodeQL Query: SasUriInResponse.ql
 
-### MissingAccessControl.ql
-Finds Azure API endpoints that lack proper access control mechanisms, allowing unauthorized access to sensitive operations.
-
-**What it detects:**
-- Sensitive operations (CREATE, UPDATE, DELETE) without authentication
-- API endpoints with empty security arrays
-- Workflows with public access but no access control
-
-### InsecureCredentials.ql
-Locates hardcoded credentials, connection strings, and API keys that should be stored securely in Azure Key Vault.
-
-**What it detects:**
-- Hardcoded passwords, API keys, and secrets
-- Connection strings with embedded credentials
-- Secure string parameters with visible default values
-- Basic authentication with hardcoded passwords
-
-### SasUriInResponse.ql
-Detects Azure Shared Access Signature (SAS) URIs exposed in API responses, which can lead to data exfiltration or unauthorized data-plane access.
+This CodeQL query detects Azure Shared Access Signature (SAS) URIs exposed in API example response files.
 
 **What it detects:**
 - SAS URIs in API response bodies containing signature tokens
 - URIs with SAS parameters (sig, se, sp, sv) in response properties
 - Control-plane APIs exposing data-plane access tokens
 - Potential data exfiltration risks through exposed SAS tokens
+
+**Why CodeQL for this?**: API schema definitions don't contain actual SAS URIs with signature tokens - only API example response files do. CodeQL database scanning is ideal for finding real SAS URI exposures in these example outputs.
 
 **Security Impact:**
 SAS tokens grant time-limited access to Azure resources. When control-plane APIs expose these tokens in responses, attackers can:
