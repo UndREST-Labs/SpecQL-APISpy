@@ -115,11 +115,12 @@ This creates a database with **309 JSON files** from Azure Logic Apps specificat
 ### VHS Configuration
 ```tape
 Set Shell bash
-Set FontSize 13
+Set FontSize 16
 Set Width 1000
 Set Height 600
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 100ms
+Set TypingSpeed 80ms
+Set WindowBar Colorful
 ```
 
 ### File Structure

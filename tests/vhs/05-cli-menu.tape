@@ -4,46 +4,21 @@
 Output demos/05-cli-menu.gif
 
 Set Shell bash
-Set FontSize 13
+Set FontSize 16
 Set Width 1000
 Set Height 600
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 100ms
-
-Type "# ╔═══════════════════════════════════════════════════════╗"
-Enter
-Type "# ║  SpeQL Interactive CLI Menu Demo                     ║"
-Enter
-Type "# ╚═══════════════════════════════════════════════════════╝"
-Enter
-Sleep 1s
-Enter
+Set TypingSpeed 80ms
+Set WindowBar Colorful
 
 Type "# Launch the interactive CLI"
 Enter
 Type "python3 SpeQL.py"
 Enter
-Sleep 1s
+Sleep 2s
 Enter
 
-Type "#    _____            ____    __  "
-Enter
-Type "#   / ___/____  ___  / __ \\  / /  "
-Enter
-Type "#   \\__ \\/ __ \\/ _ \\/ / / / / /   "
-Enter
-Type "#  ___/ / /_/ /  __/ /_/ / / /___  "
-Enter
-Type "# /____/ .___/\\___/\\___\\_\\/_____/  "
-Enter
-Type "#     /_/                          "
-Enter
-Sleep 1s
-Enter
-
-Type "# Main Menu"
-Enter
-Type "# ────────────────────────────────"
+Type "# The CLI displays the main menu with options:"
 Enter
 Type "# 1. 📊 Security Analysis"
 Enter

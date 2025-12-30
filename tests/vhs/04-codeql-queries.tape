@@ -4,20 +4,12 @@
 Output demos/04-codeql-queries.gif
 
 Set Shell bash
-Set FontSize 13
+Set FontSize 16
 Set Width 1000
 Set Height 600
 Set Theme "Catppuccin Mocha"
-Set TypingSpeed 100ms
-
-Type "# ╔═══════════════════════════════════════════════════════╗"
-Enter
-Type "# ║  CodeQL Security Queries Demo                        ║"
-Enter
-Type "# ╚═══════════════════════════════════════════════════════╝"
-Enter
-Sleep 1s
-Enter
+Set TypingSpeed 80ms
+Set WindowBar Colorful
 
 Type "# Run all CodeQL security queries"
 Enter

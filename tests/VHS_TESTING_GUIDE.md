@@ -115,11 +115,12 @@ Key VHS commands used in our tapes:
 ```tape
 Output demos/01-setup.gif          # Output file path
 Set Shell bash                      # Shell to use
-Set FontSize 13                     # Terminal font size
+Set FontSize 16                     # Terminal font size (20% larger)
 Set Width 1000                      # Terminal width
 Set Height 600                      # Terminal height
 Set Theme "Catppuccin Mocha"       # Color theme
-Set TypingSpeed 100ms              # Typing animation speed
+Set TypingSpeed 80ms               # Typing animation speed (20% faster)
+Set WindowBar Colorful             # Window decoration bar
 
 Type "command text"                 # Type text (simulated)
 Enter                               # Press Enter key
@@ -206,9 +207,11 @@ Adjust settings in tape files:
 ### GIF Optimization
 
 Current settings balance quality and file size:
-- **Font size**: 13pt (readable but compact)
+- **Font size**: 16pt (larger, more readable)
 - **Dimensions**: 1000x600px (fits documentation well)
 - **Theme**: Catppuccin Mocha (professional, easy to read)
+- **Typing speed**: 80ms (20% faster than before)
+- **Window bar**: Colorful (adds visual polish)
 
 ### Version Control
 
