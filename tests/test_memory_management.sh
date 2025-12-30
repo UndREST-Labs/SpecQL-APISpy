@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Test Script: Memory Management Feature Validation
 # 
 # This script validates that the memory management features work correctly:

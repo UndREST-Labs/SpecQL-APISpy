@@ -359,19 +359,13 @@ def codeql_menu():
                 clear_screen()
                 print_logo()
                 
-                # Check if we should apply memory limit
-                db_path = Path("database/azure-api-db")
-                if db_path.exists():
-                    # Count JSON files to determine if memory limit should be applied
-                    json_count = 0
-                    src_dir = db_path / "src"
-                    if src_dir.exists():
-                        json_count = sum(1 for _ in src_dir.rglob("*.json"))
-                    
-                    if json_count >= 50000:
-                        print(f"{BLUE}Database has {json_count:,} JSON files (>50K threshold){NC}")
-                        print(f"{BLUE}Calculating optimal memory limit...{NC}\n")
-                        # This will be handled by the run-queries.sh script
+                # Note: For individual queries, we run codeql directly without run-queries.sh
+                # Memory management is handled automatically by CodeQL for single queries
+                # For large databases, users should use option 3 "Run with Custom Memory Limit"
+                # or run all queries via option 1 which uses run-queries.sh with memory management
+                
+                print(f"{BLUE}Running individual query: {query_file.name}{NC}")
+                print(f"{YELLOW}Tip: For large databases, use 'Run with Custom Memory Limit' option{NC}\n")
                 
                 run_command([
                     "codeql", "database", "analyze", "database/azure-api-db",
@@ -389,9 +383,12 @@ def codeql_menu():
             print(f"{BLUE}Configure CodeQL memory limit for query execution{NC}")
             print(f"Leave blank to use automatic detection based on database size\n")
             
-            # Get system memory info
+            # Get system memory info for display purposes only
+            # Note: This duplicates functionality from utils/memory_utils.sh
+            # but is intentional to provide immediate feedback to the user
+            # The actual memory limit will be calculated by run-queries.sh
             try:
-                # Try to get system memory
+                # Try to get system memory (Linux only - for display)
                 result = subprocess.run(["free", "-m"], capture_output=True, text=True)
                 if result.returncode == 0:
                     for line in result.stdout.split('\n'):

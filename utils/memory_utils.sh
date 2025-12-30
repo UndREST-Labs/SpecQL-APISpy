@@ -39,6 +39,8 @@ calculate_memory_limit() {
 }
 
 # Count JSON files in a directory
+# Note: For very large directories (>100K files), this may be slow
+# Consider using early termination if only threshold checking is needed
 count_json_files() {
     local dir="$1"
     
@@ -107,6 +109,8 @@ get_memory_setting() {
 }
 
 # Format memory value for CodeQL --mem option
+# Note: This function is kept for potential future use but is not currently utilized
+# Memory limits are directly formatted in get_memory_setting()
 format_memory_for_codeql() {
     local mem_mb="$1"
     
