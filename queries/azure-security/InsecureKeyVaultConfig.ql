@@ -17,30 +17,18 @@
 import javascript
 
 /**
- * Holds if a JSON object represents a Key Vault reference or configuration
- */
-predicate isKeyVaultReference(JsonObject obj) {
-  exists(JsonString str, string value |
-    str = obj.getPropValue(_) and
-    value = str.getValue() and
-    (
-      value.regexpMatch("(?i).*keyvault.*") or
-      value.matches("%vault.azure.net%") or
-      value.matches("%@Microsoft.KeyVault%")
-    )
-  )
-}
-
-/**
  * Holds if Key Vault access is configured without network restrictions
  */
 predicate hasNoNetworkRestrictions(JsonObject config) {
   exists(JsonString uri |
     uri = config.getPropValue(_) and
     uri.getValue().matches("%vault.azure.net%") and
-    not exists(JsonObject networkAcls |
-      networkAcls = config.getParentContainer*().getPropValue("networkAcls") or
-      networkAcls = config.getParentContainer*().getPropValue("networkRuleSet")
+    not exists(JsonObject networkAcls, JsonValue parent |
+      parent = config.getParent+() and
+      (
+        networkAcls = parent.(JsonObject).getPropValue("networkAcls") or
+        networkAcls = parent.(JsonObject).getPropValue("networkRuleSet")
+      )
     )
   )
 }
@@ -49,13 +37,18 @@ predicate hasNoNetworkRestrictions(JsonObject config) {
  * Holds if Key Vault allows public network access
  */
 predicate allowsPublicNetworkAccess(JsonObject config) {
-  exists(JsonValue publicAccess |
-    publicAccess = config.getParentContainer*().getPropValue("publicNetworkAccess") and
+  exists(JsonValue publicAccess, JsonValue parent |
+    parent = config.getParent+() and
+    publicAccess = parent.(JsonObject).getPropValue("publicNetworkAccess") and
     publicAccess.(JsonString).getValue() = "Enabled"
   ) or
-  exists(JsonValue defaultAction |
-    defaultAction = config.getParentContainer*().getPropValue("networkAcls").(JsonObject).getPropValue("defaultAction") and
-    defaultAction.(JsonString).getValue() = "Allow"
+  exists(JsonValue defaultAction, JsonValue parent |
+    parent = config.getParent+() and
+    exists(JsonObject networkAcls |
+      networkAcls = parent.(JsonObject).getPropValue("networkAcls") and
+      defaultAction = networkAcls.getPropValue("defaultAction") and
+      defaultAction.(JsonString).getValue() = "Allow"
+    )
   )
 }
 
@@ -63,13 +56,13 @@ predicate allowsPublicNetworkAccess(JsonObject config) {
  * Holds if Key Vault secret is embedded or exposed in configuration
  */
 predicate hasEmbeddedSecret(JsonObject config) {
-  exists(JsonString secret |
-    secret = config.getPropValue(_) and
+  exists(JsonString secret, string propName |
+    secret = config.getPropValue(propName) and
     (
-      config.getPropStringValue(_).matches("%password%") or
-      config.getPropStringValue(_).matches("%secret%") or
-      config.getPropStringValue(_).matches("%key=%") or
-      config.getPropStringValue(_).matches("%connectionString%")
+      propName.toLowerCase().matches("%password%") or
+      propName.toLowerCase().matches("%secret%") or
+      propName.toLowerCase().matches("%key%") or
+      propName.toLowerCase().matches("%connectionstring%")
     ) and
     not secret.getValue().matches("%@Microsoft.KeyVault%") and
     secret.getValue().length() > 20
@@ -80,8 +73,12 @@ predicate hasEmbeddedSecret(JsonObject config) {
  * Holds if Key Vault access policy allows overly permissive operations
  */
 predicate hasOverlyPermissiveAccess(JsonObject policy) {
-  exists(JsonArray permissions |
-    permissions = policy.getParentContainer*().getPropValue("permissions").(JsonObject).getPropValue("secrets") and
+  exists(JsonArray permissions, JsonValue parent |
+    parent = policy.getParent+() and
+    exists(JsonObject permsObj |
+      permsObj = parent.(JsonObject).getPropValue("permissions") and
+      permissions = permsObj.getPropValue("secrets")
+    ) and
     (
       permissions.getElementValue(_).(JsonString).getValue() = "all" or
       (

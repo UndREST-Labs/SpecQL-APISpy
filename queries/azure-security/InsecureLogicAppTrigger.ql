@@ -27,12 +27,14 @@ class TriggerType extends string {
  * Holds if a JSON object represents a workflow trigger definition
  */
 predicate isWorkflowTrigger(JsonObject obj) {
-  exists(TriggerType triggerType |
-    obj.getPropValue("type").(JsonString).getValue() = triggerType
+  exists(TriggerType triggerType, JsonValue typeValue |
+    typeValue = obj.getPropValue("type") and
+    typeValue.(JsonString).getValue() = triggerType
   ) or
-  exists(JsonValue triggers |
-    triggers = obj.getParentContainer*().getPropValue("triggers") and
-    obj.getParentContainer() = triggers
+  exists(JsonValue triggers, JsonValue parent |
+    parent = obj.getParent+() and
+    triggers = parent.(JsonObject).getPropValue("triggers") and
+    obj.getParent() = triggers
   )
 }
 
@@ -41,9 +43,10 @@ predicate isWorkflowTrigger(JsonObject obj) {
  */
 predicate hasNoAuthentication(JsonObject trigger) {
   isWorkflowTrigger(trigger) and
-  not exists(JsonObject inputs |
+  not exists(JsonObject inputs, JsonValue authValue |
     inputs = trigger.getPropValue("inputs") and
-    inputs.getPropStringValue("authentication") != ""
+    authValue = inputs.getPropValue("authentication") and
+    authValue.(JsonString).getValue() != ""
   ) and
   not exists(JsonObject operationOptions |
     operationOptions = trigger.getPropValue("operationOptions")
@@ -55,12 +58,18 @@ predicate hasNoAuthentication(JsonObject trigger) {
  */
 predicate hasWeakAuthentication(JsonObject trigger) {
   isWorkflowTrigger(trigger) and
-  exists(JsonObject inputs |
+  exists(JsonObject inputs, JsonValue authValue |
     inputs = trigger.getPropValue("inputs") and
+    authValue = inputs.getPropValue("authentication") and
     (
-      inputs.getPropStringValue("authentication") = "None" or
-      inputs.getPropValue("authentication").(JsonObject).getPropStringValue("type") = "None" or
-      inputs.getPropValue("authentication").(JsonObject).getPropStringValue("type") = "Anonymous"
+      authValue.(JsonString).getValue() = "None" or
+      (
+        authValue instanceof JsonObject and
+        (
+          authValue.(JsonObject).getPropValue("type").(JsonString).getValue() = "None" or
+          authValue.(JsonObject).getPropValue("type").(JsonString).getValue() = "Anonymous"
+        )
+      )
     )
   )
 }

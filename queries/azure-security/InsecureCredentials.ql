@@ -27,20 +27,6 @@ predicate isConnectionString(JsonString str) {
 }
 
 /**
- * Holds if a property name suggests it contains sensitive information
- */
-predicate isSensitiveProperty(string propName) {
-  propName.toLowerCase().matches("%password%") or
-  propName.toLowerCase().matches("%secret%") or
-  propName.toLowerCase().matches("%apikey%") or
-  propName.toLowerCase().matches("%api_key%") or
-  propName.toLowerCase().matches("%connectionstring%") or
-  propName.toLowerCase().matches("%accountkey%") or
-  propName.toLowerCase().matches("%sharedkey%") or
-  propName.toLowerCase().matches("%accesskey%")
-}
-
-/**
  * Holds if a value is a Key Vault reference (secure)
  */
 predicate isKeyVaultReference(JsonString str) {
@@ -52,9 +38,19 @@ predicate isKeyVaultReference(JsonString str) {
  * Holds if credential is hardcoded (not from Key Vault)
  */
 predicate hasHardcodedCredential(JsonObject obj, string propName) {
-  exists(JsonString value |
+  exists(JsonString value, string lower |
     value = obj.getPropValue(propName) and
-    isSensitiveProperty(propName) and
+    lower = propName.toLowerCase() and
+    (
+      lower.matches("%password%") or
+      lower.matches("%secret%") or
+      lower.matches("%apikey%") or
+      lower.matches("%api_key%") or
+      lower.matches("%connectionstring%") or
+      lower.matches("%accountkey%") or
+      lower.matches("%sharedkey%") or
+      lower.matches("%accesskey%")
+    ) and
     not isKeyVaultReference(value) and
     value.getValue().length() > 10 and
     not value.getValue() = ""
@@ -80,9 +76,10 @@ predicate hasInsecureConnectionString(JsonObject obj, string propName) {
  * Holds if securestring is used but value is still visible
  */
 predicate hasVisibleSecureString(JsonObject obj) {
-  exists(JsonObject param |
+  exists(JsonObject param, JsonValue typeValue |
     param = obj.getPropValue(_) and
-    param.getPropStringValue("type") = "securestring" and
+    typeValue = param.getPropValue("type") and
+    typeValue.(JsonString).getValue() = "securestring" and
     exists(JsonString defaultValue |
       defaultValue = param.getPropValue("defaultValue") and
       defaultValue.getValue().length() > 0 and
@@ -95,7 +92,10 @@ predicate hasVisibleSecureString(JsonObject obj) {
  * Holds if authentication type uses basic auth without secure storage
  */
 predicate usesInsecureBasicAuth(JsonObject auth) {
-  auth.getPropStringValue("type") = "Basic" and
+  exists(JsonValue typeValue |
+    typeValue = auth.getPropValue("type") and
+    typeValue.(JsonString).getValue() = "Basic"
+  ) and
   exists(JsonString password |
     password = auth.getPropValue("password") and
     not isKeyVaultReference(password) and

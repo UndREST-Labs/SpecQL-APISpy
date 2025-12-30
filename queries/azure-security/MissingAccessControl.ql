@@ -18,14 +18,18 @@ import javascript
  * Holds if an operation (GET, POST, etc.) is missing security requirements
  */
 predicate hasNoSecurity(JsonObject operation) {
-  exists(JsonObject pathDef |
-    pathDef = pathDef.getParentContainer().getPropValue("paths").(JsonObject).getPropValue(_) and
-    operation = pathDef.getPropValue(_) and
-    operation instanceof JsonObject and
-    not exists(JsonValue security | security = operation.getPropValue("security")) and
-    not exists(JsonValue security | 
-      security = operation.getParentContainer*().getPropValue("security") and
-      security.getParentContainer() != operation
+  exists(JsonObject pathDef, JsonValue paths |
+    paths = pathDef.getParent().getPropValue("paths") and
+    exists(JsonObject pathsObj |
+      pathsObj = paths and
+      pathDef = pathsObj.getPropValue(_) and
+      operation = pathDef.getPropValue(_) and
+      not exists(JsonValue security | security = operation.getPropValue("security")) and
+      not exists(JsonValue security, JsonValue parent |
+        parent = operation.getParent+() and
+        security = parent.(JsonObject).getPropValue("security") and
+        security.getParent() != operation
+      )
     )
   )
 }
@@ -36,7 +40,7 @@ predicate hasNoSecurity(JsonObject operation) {
 predicate hasEmptySecurity(JsonObject operation) {
   exists(JsonArray security |
     security = operation.getPropValue("security") and
-    security.getNumElement() = 0
+    not exists(security.getChild(0))
   )
 }
 
@@ -44,8 +48,9 @@ predicate hasEmptySecurity(JsonObject operation) {
  * Holds if the endpoint performs sensitive operations without authentication
  */
 predicate isSensitiveOperation(JsonObject operation) {
-  exists(string opType |
-    opType = operation.getPropStringValue("operationId") and
+  exists(string opType, JsonValue opIdValue |
+    opIdValue = operation.getPropValue("operationId") and
+    opType = opIdValue.(JsonString).getValue() and
     (
       opType.toLowerCase().matches("%delete%") or
       opType.toLowerCase().matches("%create%") or
@@ -78,7 +83,10 @@ predicate hasPublicWorkflowAccess(JsonObject workflow) {
     state.getValue() = "Enabled"
   ) and
   (
-    workflow.getPropValue("accessControl").(JsonObject).getNumProperty() = 0 or
+    exists(JsonObject accessControl |
+      accessControl = workflow.getPropValue("accessControl") and
+      not exists(accessControl.getPropValue(_))
+    ) or
     not exists(JsonValue ac | ac = workflow.getPropValue("accessControl"))
   ) and
   exists(JsonString endpoint | endpoint = workflow.getPropValue("accessEndpoint"))
