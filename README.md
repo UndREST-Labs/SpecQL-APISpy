@@ -20,6 +20,7 @@ The CLI menu provides:
 - **ASCII art logo** - Beautiful SpeQL branding using figlet
 - **Comprehensive coverage** - Access to all documented scripts and tools
 - **User-friendly** - Input validation and helpful error messages
+- **Smart memory management** - Automatic CodeQL memory optimization for large databases
 
 ### CLI Menu Structure
 
@@ -147,11 +148,45 @@ SpeQL/
 │       ├── parse-sarif-endpoints.sh
 │       ├── prioritize-threats.sh
 │       └── README.md           # Detailed script documentation
-└── tests/                      # Test scripts
-    └── test_json_file_count_fix.sh
+├── tests/                      # Test scripts
+│   ├── test_json_file_count_fix.sh
+│   └── test_memory_management.sh
+└── utils/                      # Utility scripts
+    └── memory_utils.sh         # Memory management utilities
 ```
 
 For a detailed explanation of the repository organization and recent changes, see [docs/REPOSITORY_STRUCTURE.md](docs/REPOSITORY_STRUCTURE.md).
+
+## Smart Memory Management
+
+SpeQL includes intelligent memory management for CodeQL query execution that automatically optimizes performance for large databases.
+
+### Key Features
+- **Automatic Detection**: Detects total system memory on Linux and macOS
+- **Smart Optimization**: Applies memory limits (90% of total RAM) only for databases with >50K JSON files
+- **Manual Override**: Set custom memory limits via environment variable or interactive menu
+- **Zero Configuration**: Works automatically without user intervention
+
+### Usage
+
+**Automatic (Recommended)**:
+```bash
+./run-queries.sh  # Memory limits applied automatically when needed
+```
+
+**Custom Memory Limit**:
+```bash
+export CODEQL_MEMORY_LIMIT=4096  # Set to 4GB
+./run-queries.sh
+```
+
+**Interactive Menu**:
+```bash
+python3 SpeQL.py
+# Navigate to: CodeQL Queries → Run with Custom Memory Limit
+```
+
+For detailed information, see [docs/MEMORY_MANAGEMENT.md](docs/MEMORY_MANAGEMENT.md).
 
 ## Installation
 

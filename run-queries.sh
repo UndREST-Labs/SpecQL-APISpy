@@ -19,7 +19,14 @@ RESULTS_PATH="results"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Load memory management utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/utils/memory_utils.sh" ]; then
+    source "$SCRIPT_DIR/utils/memory_utils.sh"
+fi
 
 # Print banner
 echo "═══════════════════════════════════════════════════════════"
@@ -85,6 +92,35 @@ if [ ! -d "$DATABASE_PATH" ]; then
     exit 1
 fi
 
+# Dynamic Memory Management
+# Calculate memory limit based on database size (>50K JSON files)
+# Memory limit is set to 90% of total system memory when threshold is met
+# Can be overridden with CODEQL_MEMORY_LIMIT environment variable
+MEMORY_OPTION=""
+
+# Check for user-specified memory limit first
+if [ -n "${CODEQL_MEMORY_LIMIT:-}" ]; then
+    MEMORY_OPTION="--ram=$CODEQL_MEMORY_LIMIT"
+    echo -e "${GREEN}Using custom memory limit: ${CODEQL_MEMORY_LIMIT} MB (from CODEQL_MEMORY_LIMIT)${NC}"
+elif type get_memory_setting &>/dev/null; then
+    MEMORY_LIMIT=$(get_memory_setting "$DATABASE_PATH" 50000)
+    
+    if [ -n "$MEMORY_LIMIT" ] && [ "$MEMORY_LIMIT" -gt 0 ]; then
+        MEMORY_OPTION="--ram=$MEMORY_LIMIT"
+        echo -e "${GREEN}Applying dynamic memory limit: ${MEMORY_LIMIT} MB${NC}"
+        
+        # Show memory configuration info
+        if type print_memory_info &>/dev/null; then
+            print_memory_info "$DATABASE_PATH" "$NC" "$BLUE" "$YELLOW" "$GREEN"
+            echo ""
+        fi
+    else
+        echo -e "${BLUE}Using default memory settings (database < 50K JSON files)${NC}"
+    fi
+else
+    echo -e "${YELLOW}Memory utilities not available, using default settings${NC}"
+fi
+
 # Create results directory
 mkdir -p "$RESULTS_PATH"
 
@@ -108,12 +144,15 @@ for query in "${QUERIES[@]}"; do
     output_file="$RESULTS_PATH/${query_name}-results.sarif"
     
     # Run the query
+    # Apply memory limit option if available (for databases with >50K JSON files)
+    # Using --ram flag which is the correct CodeQL option for memory limits
     error_log="$RESULTS_PATH/${query_name}-errors.log"
     if codeql database analyze "$DATABASE_PATH" \
         "$QUERIES_PATH/$query" \
         --format=sarif-latest \
         --output="$output_file" \
         $SEARCH_PATH \
+        $MEMORY_OPTION \
         --rerun 2>"$error_log"; then
         
         # Count issues found

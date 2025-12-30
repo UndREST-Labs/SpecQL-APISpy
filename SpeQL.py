@@ -155,6 +155,24 @@ def pause():
     input(f"\n{CYAN}Press Enter to continue...{NC}")
 
 
+def get_system_memory_info():
+    """Get system memory information for display
+    Returns tuple of (total_mem, recommended_90_percent) or (None, None) if unavailable
+    """
+    try:
+        result = subprocess.run(["free", "-m"], capture_output=True, text=True)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if line.startswith('Mem:'):
+                    parts = line.split()
+                    total_mem = int(parts[1])
+                    recommended = int(total_mem * 0.9)
+                    return total_mem, recommended
+    except Exception:
+        pass
+    return None, None
+
+
 def analyze_menu():
     """Security Analysis submenu"""
     while True:
@@ -313,6 +331,7 @@ def codeql_menu():
         options = [
             "Run All Security Queries",
             "Run Individual Query",
+            "Run with Custom Memory Limit",
             "View Previous Results",
             "Show Query Documentation"
         ]
@@ -326,6 +345,7 @@ def codeql_menu():
             clear_screen()
             print_logo()
             print(f"{YELLOW}Running all security queries...{NC}\n")
+            print(f"{BLUE}Note: Memory limit will be applied automatically if database has >50K JSON files{NC}\n")
             run_command(["./run-queries.sh"], "Running CodeQL security analysis")
             pause()
         elif choice == 2:
@@ -356,14 +376,85 @@ def codeql_menu():
                 query_file = query_files[int(query_choice) - 1]
                 clear_screen()
                 print_logo()
-                run_command([
+                
+                # Ask if user wants to set custom memory limit for this query
+                print(f"{BLUE}Running: {query_file.name}{NC}\n")
+                mem_choice = input(f"{CYAN}Set custom memory limit? (y/N): {NC}").strip().lower()
+                
+                cmd = [
                     "codeql", "database", "analyze", "database/azure-api-db",
                     str(query_file),
                     "--format=sarif-latest",
                     f"--output=results/{query_file.stem}-results.sarif"
-                ], f"Running {query_file.name}")
+                ]
+                
+                if mem_choice == 'y':
+                    # Get system memory info for display
+                    total_mem, recommended = get_system_memory_info()
+                    if total_mem:
+                        print(f"\n{BLUE}System Memory: {total_mem} MB{NC}")
+                        print(f"{BLUE}Recommended (90%): {recommended} MB{NC}\n")
+                    
+                    mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for 90% auto): {NC}").strip()
+                    
+                    if mem_limit:
+                        if mem_limit.isdigit():
+                            cmd.append(f"--ram={mem_limit}")
+                            print(f"\n{GREEN}Using memory limit: {mem_limit} MB{NC}\n")
+                        else:
+                            print(f"\n{RED}Invalid value. Running with default settings.{NC}\n")
+                    else:
+                        # Use auto-calculated 90%
+                        total_mem, auto_limit = get_system_memory_info()
+                        if auto_limit:
+                            cmd.append(f"--ram={auto_limit}")
+                            print(f"\n{GREEN}Using auto-calculated limit: {auto_limit} MB (90%){NC}\n")
+                        else:
+                            print(f"\n{YELLOW}Could not auto-calculate. Using default settings.{NC}\n")
+                else:
+                    print(f"\n{BLUE}Using default memory settings{NC}\n")
+                
+                run_command(cmd, f"Running {query_file.name}")
                 pause()
         elif choice == 3:
+            clear_screen()
+            print_logo()
+            
+            # Prompt for memory limit
+            print(f"{YELLOW}Custom Memory Configuration{NC}\n")
+            print(f"{BLUE}Configure CodeQL memory limit for query execution{NC}")
+            print(f"Leave blank to use automatic detection based on database size\n")
+            
+            # Get system memory info for display purposes only
+            # Note: This uses the same helper as individual queries
+            # The actual memory limit will be calculated by run-queries.sh
+            total_mem, recommended = get_system_memory_info()
+            if total_mem:
+                print(f"System Memory: {total_mem} MB")
+                print(f"Recommended (90%): {recommended} MB\n")
+            
+            mem_limit = input(f"{CYAN}Enter memory limit in MB (or press Enter for auto): {NC}").strip()
+            
+            if mem_limit:
+                if not mem_limit.isdigit():
+                    print(f"{RED}Invalid memory value. Please enter a number.{NC}")
+                    pause()
+                    continue
+                
+                # Set environment variable for the run
+                os.environ['CODEQL_MEMORY_LIMIT'] = mem_limit
+                print(f"\n{GREEN}Memory limit set to: {mem_limit} MB{NC}\n")
+            else:
+                print(f"\n{BLUE}Using automatic memory detection{NC}\n")
+            
+            run_command(["./run-queries.sh"], "Running CodeQL security analysis with custom settings")
+            
+            # Clean up environment variable
+            if 'CODEQL_MEMORY_LIMIT' in os.environ:
+                del os.environ['CODEQL_MEMORY_LIMIT']
+            
+            pause()
+        elif choice == 4:
             clear_screen()
             print_logo()
             results_dir = Path("results")
@@ -378,7 +469,7 @@ def codeql_menu():
             else:
                 print(f"{YELLOW}Results directory not found. Run queries first.{NC}")
             pause()
-        elif choice == 4:
+        elif choice == 5:
             clear_screen()
             print_logo()
             
