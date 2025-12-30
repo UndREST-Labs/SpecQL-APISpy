@@ -118,9 +118,9 @@ Set Shell bash                      # Shell to use
 Set FontSize 16                     # Terminal font size (20% larger)
 Set Width 1000                      # Terminal width
 Set Height 600                      # Terminal height
-Set Theme "Catppuccin Mocha"       # Color theme
+Set Theme "Ubuntu"                 # Color theme
 Set TypingSpeed 80ms               # Typing animation speed (20% faster)
-Set WindowBar Colorful             # Window decoration bar
+Set WindowBar ColorfulRight        # Window decoration bar
 
 Type "command text"                 # Type text (simulated)
 Enter                               # Press Enter key
@@ -209,9 +209,9 @@ Adjust settings in tape files:
 Current settings balance quality and file size:
 - **Font size**: 16pt (larger, more readable)
 - **Dimensions**: 1000x600px (fits documentation well)
-- **Theme**: Catppuccin Mocha (professional, easy to read)
+- **Theme**: Ubuntu (clean, professional appearance)
 - **Typing speed**: 80ms (20% faster than before)
-- **Window bar**: Colorful (adds visual polish)
+- **Window bar**: ColorfulRight (adds visual polish)
 
 ### Version Control
 

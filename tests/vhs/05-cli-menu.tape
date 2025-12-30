@@ -7,31 +7,12 @@ Set Shell bash
 Set FontSize 16
 Set Width 1000
 Set Height 600
-Set Theme "Catppuccin Mocha"
+Set Theme "Ubuntu"
 Set TypingSpeed 80ms
-Set WindowBar Colorful
+Set WindowBar ColorfulRight
 
 Type "# Launch the interactive CLI"
 Enter
 Type "python3 SpeQL.py"
 Enter
-Sleep 2s
-Enter
-
-Type "# The CLI displays the main menu with options:"
-Enter
-Type "# 1. 📊 Security Analysis"
-Enter
-Type "# 2. 🗄️  Database Management"
-Enter
-Type "# 3. 🔍 CodeQL Security Queries"
-Enter
-Type "# 4. 📈 SARIF Analysis Tools"
-Enter
-Type "# 5. ⚙️  Setup and Installation"
-Enter
-Type "# 6. 📚 Documentation and Help"
-Enter
-Type "# 0. Exit"
-Enter
-Sleep 3s
+Sleep 10s
