@@ -16,20 +16,14 @@ Type "cd /home/runner/work/SpeQL/SpeQL"
 Enter
 Show
 
-Type "# Deduplicate findings by product and operation"
-Enter
 Type "./scripts/sarif-analysis/deduplicate-by-product-operation.sh results/SasUriInResponse-results.sarif"
 Enter
-Sleep 2s
+Sleep 4s
 
-Type "# Parse and extract endpoint data to CSV"
-Enter
 Type "./scripts/sarif-analysis/parse-sarif-endpoints.sh -f csv results/SasUriInResponse-results.sarif"
 Enter
-Sleep 2s
+Sleep 4s
 
-Type "# Prioritize threats by severity"
-Enter
 Type "./scripts/sarif-analysis/prioritize-threats.sh --threshold high results/SasUriInResponse-results.sarif"
 Enter
-Sleep 2s
+Sleep 4s

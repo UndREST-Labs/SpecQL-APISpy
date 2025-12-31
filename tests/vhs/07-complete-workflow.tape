@@ -16,26 +16,18 @@ Type "cd /home/runner/work/SpeQL/SpeQL"
 Enter
 Show
 
-Type "# Step 1: Refresh database with Logic Apps specs"
-Enter
 Type "python3 refresh_database.py --path specification/logic --skip-db-build"
 Enter
-Sleep 4s
+Sleep 8s
 
-Type "# Step 2: Run Python security analyzer"
-Enter
 Type "python3 analyze.py"
 Enter
-Sleep 4s
+Sleep 8s
 
-Type "# Step 3: Run CodeQL queries"
-Enter
 Type "./run-queries.sh"
 Enter
-Sleep 4s
+Sleep 10s
 
-Type "# Step 4: Analyze results with SARIF tools"
-Enter
 Type "./scripts/sarif-analysis/prioritize-threats.sh --threshold high results/SasUriInResponse-results.sarif"
 Enter
-Sleep 2s
+Sleep 4s

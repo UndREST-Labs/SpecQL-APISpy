@@ -11,30 +11,23 @@ Set Theme "TokyoNight"
 Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
-Type "# SpeQL Setup Demo - Installation Steps"
+Hide
+Type "cd /tmp"
 Enter
-Sleep 1s
+Show
 
-Type "# Step 1: Clone the repository"
-Enter
 Type "git clone https://github.com/SpeQLSec/SpeQL.git"
 Enter
-Sleep 1s
+Sleep 3s
 
-Type "# Step 2: Navigate to directory"
-Enter
 Type "cd SpeQL"
 Enter
-Sleep 1s
+Sleep 500ms
 
-Type "# Step 3: Install Python dependencies"
-Enter
 Type "pip3 install -r requirements.txt"
 Enter
-Sleep 1s
+Sleep 5s
 
-Type "# Step 4: Run automated setup script"
-Enter
 Type "./setup.sh"
 Enter
-Sleep 2s
+Sleep 8s

@@ -16,8 +16,6 @@ Type "cd /home/runner/work/SpeQL/SpeQL"
 Enter
 Show
 
-Type "# Run security analysis on Logic Apps specifications"
-Enter
 Type "python3 analyze.py"
 Enter
-Sleep 6s
+Sleep 10s

@@ -16,8 +16,6 @@ Type "cd /home/runner/work/SpeQL/SpeQL"
 Enter
 Show
 
-Type "# Refresh database with Logic Apps specifications"
-Enter
 Type "python3 refresh_database.py --path specification/logic --skip-db-build"
 Enter
-Sleep 8s
+Sleep 15s

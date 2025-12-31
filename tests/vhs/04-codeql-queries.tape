@@ -16,8 +16,6 @@ Type "cd /home/runner/work/SpeQL/SpeQL"
 Enter
 Show
 
-Type "# Run all CodeQL security queries"
-Enter
 Type "./run-queries.sh"
 Enter
-Sleep 6s
+Sleep 12s

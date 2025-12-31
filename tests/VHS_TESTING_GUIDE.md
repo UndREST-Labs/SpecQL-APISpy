@@ -217,8 +217,9 @@ Current settings balance quality and file size:
 - **Theme**: TokyoNight (modern, developer-friendly theme)
 - **Typing speed**: 80ms (20% faster than before)
 - **Window bar**: ColorfulRight (adds visual polish)
-- **Demo approach**: Shows actual command outputs instead of typed expectations
+- **Demo approach**: Shows only actual command execution - no typed comments or expected outputs
 - **Environment**: Uses Hide/Show to set proper working directory without displaying it
+- **Sleep times**: Longer sleeps for long-running commands (8-15s) to ensure completion
 
 ### Version Control
 
