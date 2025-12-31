@@ -13,21 +13,21 @@ Set WindowBar ColorfulRight
 
 Hide
 Type "cd /tmp"
-Enter
+Enter 1
 Show
 
 Type "git clone https://github.com/SpeQLSec/SpeQL.git"
-Enter
+Enter 1
 Sleep 3s
 
 Type "cd SpeQL"
-Enter
+Enter 1
 Sleep 500ms
 
 Type "pip3 install -r requirements.txt"
-Enter
+Enter 1
 Sleep 5s
 
 Type "./setup.sh"
-Enter
+Enter 1
 Sleep 8s

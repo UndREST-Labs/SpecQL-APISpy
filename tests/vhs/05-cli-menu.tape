@@ -13,44 +13,44 @@ Set WindowBar ColorfulRight
 
 Hide
 Type "cd /home/runner/work/SpeQL/SpeQL"
-Enter
+Enter 1
 Show
 
 Type "python3 SpeQL.py"
-Enter
+Enter 1
 Sleep 3s
 
 Type "1"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 4s
 
 Type "0"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 2s
 
 Type "2"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 4s
 
 Type "0"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 2s
 
 Type "6"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 4s
 
 Type "0"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 2s
 
 Type "0"
 Sleep 100ms
-Enter
+Enter 1
 Sleep 1s

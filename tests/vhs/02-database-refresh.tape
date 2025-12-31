@@ -13,9 +13,9 @@ Set WindowBar ColorfulRight
 
 Hide
 Type "cd /home/runner/work/SpeQL/SpeQL"
-Enter
+Enter 1
 Show
 
 Type "python3 refresh_database.py --path specification/logic --skip-db-build"
-Enter
+Enter 1
 Sleep 15s

@@ -13,17 +13,17 @@ Set WindowBar ColorfulRight
 
 Hide
 Type "cd /home/runner/work/SpeQL/SpeQL"
-Enter
+Enter 1
 Show
 
 Type "./scripts/sarif-analysis/deduplicate-by-product-operation.sh results/SasUriInResponse-results.sarif"
-Enter
+Enter 1
 Sleep 4s
 
 Type "./scripts/sarif-analysis/parse-sarif-endpoints.sh -f csv results/SasUriInResponse-results.sarif"
-Enter
+Enter 1
 Sleep 4s
 
 Type "./scripts/sarif-analysis/prioritize-threats.sh --threshold high results/SasUriInResponse-results.sarif"
-Enter
+Enter 1
 Sleep 4s
