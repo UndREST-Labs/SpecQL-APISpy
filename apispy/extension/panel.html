@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>APISpy</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="toolbar">
+    <span class="brand">AP👁️Spy</span>
+    <span class="brand-sub">SpecRecon DevTools</span>
+
+    <div class="toolbar-controls">
+      <label for="filter-select">Filter:</label>
+      <select id="filter-select">
+        <option value="all">All</option>
+        <option value="exact_match">Exact matches</option>
+        <option value="route_match_version_mismatch">Version mismatch</option>
+        <option value="provider_known_route_unknown">Unknown route</option>
+        <option value="no_spec_match">No spec match</option>
+        <option value="out_of_scope">Out of scope</option>
+      </select>
+
+      <button id="btn-clear" title="Clear all observed requests">Clear</button>
+    </div>
+
+    <div class="status-bar">
+      <span id="status-text">Initialising…</span>
+      <span id="request-count" class="count-badge">0</span>
+    </div>
+  </header>
+
+  <main>
+    <table id="request-table" class="request-table">
+      <thead>
+        <tr>
+          <th class="col-time">Time</th>
+          <th class="col-method">Method</th>
+          <th class="col-host">Host</th>
+          <th class="col-path">Path</th>
+          <th class="col-version">api-version</th>
+          <th class="col-status">Status</th>
+        </tr>
+      </thead>
+      <tbody id="request-tbody">
+        <!-- rows injected by panel.js -->
+      </tbody>
+    </table>
+
+    <div id="empty-state" class="empty-state">
+      <p>No requests observed yet.</p>
+      <p class="hint">Browse Azure/Microsoft API endpoints to see results here.</p>
+    </div>
+
+    <section id="detail-panel" class="detail-panel hidden" aria-live="polite">
+      <button id="detail-close" class="detail-close" title="Close detail">&times;</button>
+      <h2 id="detail-heading">Request detail</h2>
+      <dl id="detail-fields" class="detail-fields"></dl>
+    </section>
+  </main>
+
+  <!-- lib order matters: loader must be first (no bundler in v1) -->
+  <script src="lib/filters.js"></script>
+  <script src="lib/normalizer.js"></script>
+  <script src="lib/loader.js"></script>
+  <script src="lib/matcher.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
