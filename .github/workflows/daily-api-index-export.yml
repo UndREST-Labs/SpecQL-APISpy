@@ -37,19 +37,12 @@ jobs:
 
       - name: Run API inventory export
         run: |
-          SCOPE="${{ github.event.inputs.spec_scope || 'specification' }}"
+          SCOPE="${{ github.event.inputs.spec_scope || 'spec_scope' }}"
           python3 scripts/export/export_api_inventory.py \
             --source "azure-rest-api-specs/${SCOPE}" \
             --output-dir inventory/ \
             --minified \
             --verbose
-
-      - name: Upload inventory artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-index-${{ github.run_id }}
-          path: inventory/
-          retention-days: 30
 
       - name: Run export pipeline tests
         run: |
@@ -57,3 +50,10 @@ jobs:
             tests/test_api_inventory_export.py \
             tests/test_api_inventory_normalization.py \
             -v
+
+      - name: Upload inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-index-${{ github.run_id }}
+          path: inventory/
+          retention-days: 30
