@@ -34,6 +34,8 @@ chmod +x SpeQL.py
 ./SpeQL.py
 ```
 
+![SpeQL Interactive CLI Menu Demo](../demos/05-cli-menu.gif)
+
 ## Main Menu Overview
 
 When you launch SpeQL.py, you'll see the main menu with the following options:

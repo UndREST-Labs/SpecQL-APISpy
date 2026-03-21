@@ -69,6 +69,8 @@ python3 refresh_database.py
 python3 refresh_database.py --help
 ```
 
+![Database Refresh Demo](../demos/02-database-refresh.gif)
+
 ## Usage Examples
 
 ### Basic Operations

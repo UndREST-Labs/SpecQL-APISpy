@@ -1,0 +1,88 @@
+# SpeQL Demo GIFs
+
+This directory contains animated GIF demonstrations of all major SpeQL use cases. These demos showcase the tool's capabilities and provide visual guides for users.
+
+## Available Demos
+
+### 1. Setup and Installation (`01-setup.gif`)
+Demonstrates the initial setup process:
+- Cloning the repository
+- Installing Python dependencies
+- Running automated setup
+- Installing CodeQL and dependencies
+
+### 2. Database Refresh (`02-database-refresh.gif`)
+Shows how to refresh the database with Azure Logic Apps specifications:
+- Running `refresh_database.py` with `specification/logic`
+- Cloning Azure REST API specs
+- Building the CodeQL database
+- Verifying 309 JSON files indexed
+
+### 3. Python Security Analyzer (`03-python-analyzer.gif`)
+Demonstrates running the Python-based security analyzer:
+- Analyzing Logic Apps specifications
+- Detecting multiple vulnerability types
+- Showing detected issues (SilentReaper, Azure Vault Recon, etc.)
+
+### 4. CodeQL Security Queries (`04-codeql-queries.gif`)
+Shows CodeQL query execution:
+- Running `run-queries.sh`
+- Detecting SAS URIs in API responses
+- Generating SARIF results
+- Identifying SilentReaper vulnerabilities
+
+### 5. Interactive CLI Menu (`05-cli-menu.gif`)
+Demonstrates the SpeQL interactive CLI:
+- Launching `python3 SpeQL.py`
+- Displaying the main menu with all options
+- Navigating through Security Analysis, Database Management, CodeQL Queries, SARIF Tools, Setup, and Documentation
+
+### 6. SARIF Analysis Tools (`06-sarif-analysis.gif`)
+Shows SARIF analysis and threat hunting:
+- Deduplicating findings across API versions
+- Parsing endpoint data to CSV
+- Prioritizing threats by severity
+- Identifying control plane/data plane isolation issues
+
+### 7. Complete Workflow (`07-complete-workflow.gif`)
+End-to-end demonstration from setup to results:
+- Refreshing database with Logic Apps specs
+- Running Python analyzer
+- Executing CodeQL queries
+- Analyzing SARIF results
+- Complete security analysis workflow
+
+## Generating Demos
+
+To regenerate all demos, use the provided script:
+
+```bash
+cd /path/to/SpeQL
+./tests/generate-vhs-demos.sh
+```
+
+This requires:
+- [VHS](https://github.com/charmbracelet/vhs) tool installed
+- ffmpeg for video processing
+- ttyd for terminal recording
+
+## Technical Details
+
+- **Format**: Animated GIF
+- **Size**: 1000x600 pixels
+- **Theme**: Catppuccin Mocha
+- **Font Size**: 13pt
+- **Tool**: VHS (Video Hype Script) by Charm
+
+## Usage in Documentation
+
+These GIFs are referenced throughout the SpeQL documentation:
+- `README.md` - Quick start and overview sections
+- `docs/QUICKSTART.md` - Setup and first run guides
+- `docs/CLI_MENU_GUIDE.md` - CLI navigation examples
+- `docs/DATABASE_REFRESH.md` - Database management workflows
+- `docs/SARIF_ANALYSIS_QUICKSTART.md` - SARIF tool demonstrations
+
+## License
+
+These demos are part of the SpeQL project and are subject to the same license terms.
