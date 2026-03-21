@@ -138,6 +138,19 @@ console.log("\n=== Matcher.classify — no api-version → route_match_version_m
   eq(r.reason, "no_api_version_in_request", "correct reason");
 }
 
+console.log("\n=== Matcher.classify — shard_load_failed ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/providers/Microsoft.FakeProvider/operations?api-version=2024-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, null, { inScope: true, shardLoadError: "HTTP 503: Service Unavailable" });
+  eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "no_spec_match when shard load fails");
+  eq(r.reason, "shard_load_failed", "reason=shard_load_failed");
+  eq(r.error, "HTTP 503: Service Unavailable", "error message preserved");
+  assert(r.provider_namespace === "Microsoft.FakeProvider", "provider_namespace inferred even on load failure");
+}
+
 console.log("\n=== Matcher.STATUS_LABELS ===");
 Object.values(Matcher.STATUS).forEach((s) => {
   assert(Matcher.STATUS_LABELS[s], "label defined for status: " + s);

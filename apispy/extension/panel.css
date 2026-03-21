@@ -306,3 +306,8 @@ main {
   font-family: var(--font-ui);
   font-weight: 600;
 }
+
+.detail-fields dd.load-error {
+  color: var(--c-no-match);
+  font-family: var(--font-mono);
+}

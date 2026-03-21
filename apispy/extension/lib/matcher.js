@@ -151,11 +151,13 @@
    * @param {object}      norm   Output of Normalizer.normalise() — must have ok===true.
    * @param {object|null} shard  Loaded shard JSON for the inferred provider, or null.
    * @param {object}      [opts]
-   * @param {boolean}     [opts.inScope=true]  Whether the request is in scope per filters.
+   * @param {boolean}     [opts.inScope=true]       Whether the request is in scope per filters.
+   * @param {string|null} [opts.shardLoadError=null] Error message if shard fetch/parse failed.
    * @returns {object}  Classification result.
    */
   function classify(norm, shard, opts) {
-    const inScope = (opts && opts.inScope !== undefined) ? opts.inScope : true;
+    const inScope        = (opts && opts.inScope        !== undefined) ? opts.inScope        : true;
+    const shardLoadError = (opts && opts.shardLoadError !== undefined) ? opts.shardLoadError : null;
 
     if (!inScope) {
       return _result(STATUS.OUT_OF_SCOPE, {
@@ -170,8 +172,14 @@
     }
 
     if (!shard) {
-      // Try to give a more informative reason
       const inferredNs = inferProviderNamespace(norm.pathname);
+      if (shardLoadError) {
+        return _result(STATUS.NO_SPEC_MATCH, {
+          provider_namespace: inferredNs || null,
+          reason:             "shard_load_failed",
+          error:              shardLoadError,
+        });
+      }
       return _result(STATUS.NO_SPEC_MATCH, {
         provider_namespace: inferredNs || null,
         reason: inferredNs ? "provider_shard_not_bundled" : "no_provider_inferred",
@@ -196,6 +204,7 @@
         matched_version:    null,
         shard_name:         null,
         reason:             null,
+        error:              null,
       },
       extra
     );

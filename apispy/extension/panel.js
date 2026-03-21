@@ -111,14 +111,16 @@ async function buildEntry(req, norm, scope) {
     // Infer provider namespace and load shard lazily
     const ns = Matcher.inferProviderNamespace(norm.pathname);
     let shard = null;
+    let shardLoadError = null;
     if (ns) {
       try {
         shard = await Loader.loadShard(ns);
-      } catch (_) {
+      } catch (err) {
+        shardLoadError = err && err.message ? err.message : String(err);
         shard = null;
       }
     }
-    result = Matcher.classify(norm, shard, { inScope: true });
+    result = Matcher.classify(norm, shard, { inScope: true, shardLoadError });
   }
 
   return {
@@ -239,6 +241,7 @@ function showDetail(entry) {
     ["Available versions",  (r.matched_versions && r.matched_versions.join(", ")) || "—"],
     ["Shard / source",      r.shard_name || "—"],
     ["Reason",              r.reason || "—"],
+    ...(r.error ? [["Load error", r.error, "load-error"]] : []),
   ];
 
   fields.forEach(([label, value, extraClass]) => {
