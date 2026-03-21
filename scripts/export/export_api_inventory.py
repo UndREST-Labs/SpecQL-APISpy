@@ -436,6 +436,7 @@ def _write_sharded_index(
     output_dir: Path,
     error_count: int,
     minified: bool,
+    verbose: bool = False,
 ) -> None:
     """Write one JSON file per provider namespace into ``{output_dir}/shards/``.
 
@@ -446,9 +447,14 @@ def _write_sharded_index(
     File naming: ``{output_dir}/shards/{Provider.Namespace}.json``
     The provider namespace is used as-is as the filename; characters that are
     illegal on common file systems (``/``, ``\\``) are replaced with ``_``.
+
+    Per-shard paths are printed only when *verbose* is True; a single summary
+    line is always emitted after all shards are written.
     """
     shards_dir = output_dir / "shards"
     shards_dir.mkdir(parents=True, exist_ok=True)
+
+    files_written = 0
 
     for provider_ns, prov_data in sorted(grouped_providers.items()):
         shard_metadata = {
@@ -472,13 +478,19 @@ def _write_sharded_index(
         shard_path = shards_dir / f"{safe_name}.json"
         with open(shard_path, "w", encoding="utf-8") as fh:
             json.dump(shard_payload, fh, indent=2, ensure_ascii=False)
-        print(f"[SpecRecon] Written: {shard_path}")
+        files_written += 1
+        if verbose:
+            print(f"[SpecRecon] Written: {shard_path}")
 
         if minified:
             shard_min_path = shards_dir / f"{safe_name}.min.json"
             with open(shard_min_path, "w", encoding="utf-8") as fh:
                 json.dump(shard_payload, fh, separators=(",", ":"), ensure_ascii=False)
-            print(f"[SpecRecon] Written: {shard_min_path}")
+            files_written += 1
+            if verbose:
+                print(f"[SpecRecon] Written: {shard_min_path}")
+
+    print(f"[SpecRecon] Written: {files_written} shard file(s) → {shards_dir}")
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +600,7 @@ def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool
                 output_dir,
                 len(errors),
                 minified,
+                verbose,
             )
 
     # Print summary
