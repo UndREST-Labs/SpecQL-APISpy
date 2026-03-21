@@ -32,9 +32,9 @@ if str(_HERE) not in sys.path:
 from normalize_api_inventory import (
     classify_plane,
     classify_stability,
-    detect_source_kind,
     extract_api_version_from_path,
     extract_provider_namespace,
+    generate_lookup_key,
     is_preview_version,
     normalize_method,
 )
@@ -209,7 +209,6 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
     api_version_from_info = spec.get("info", {}).get("version", "")
     api_version = api_version_from_path if api_version_from_path != "unknown" else api_version_from_info
 
-    # Path-level parameters (merged into operation-level ones later)
     paths_blocks = {
         "paths": spec.get("paths", {}),
         "x-ms-paths": spec.get("x-ms-paths", {}),
@@ -217,16 +216,13 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
 
     operations = []
 
-    for block_key, paths_obj in paths_blocks.items():
+    for paths_obj in paths_blocks.values():
         if not isinstance(paths_obj, dict):
             continue
-        source_kind = detect_source_kind(block_key)
 
         for path_template, path_item in paths_obj.items():
             if not isinstance(path_item, dict):
                 continue
-
-            path_level_params = path_item.get("parameters", [])
 
             http_methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"]
             for method_lower in http_methods:
@@ -235,18 +231,11 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
                     continue
 
                 method = normalize_method(method_lower)
-
-                # Merge path-level and operation-level parameters
-                op_params = operation.get("parameters", [])
-                all_params = path_level_params + op_params
-                param_info = _extract_parameter_info(all_params)
-
                 operation_id = operation.get("operationId", "")
-                tags = operation.get("tags", [])
-
                 plane = classify_plane(host, path_template)
                 stability = classify_stability(str(file_path), api_version)
                 preview = is_preview_version(api_version) or stability == "preview"
+                lookup_key = generate_lookup_key(host, method, path_template)
 
                 all_versions = [api_version] if api_version and api_version != "unknown" else []
 
@@ -257,13 +246,9 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
                     "operation_id": operation_id,
                     "api_versions": all_versions,
                     "spec_file": str(rel_path).replace("\\", "/"),
-                    "source_kind": source_kind,
                     "plane": plane,
                     "is_preview": preview,
-                    "tags": tags,
-                    "parameter_names": param_info["parameter_names"],
-                    "required_query_parameters": param_info["required_query_parameters"],
-                    "has_api_version_parameter": param_info["has_api_version_parameter"],
+                    "lookup_key": lookup_key,
                 }
                 operations.append(entry)
 

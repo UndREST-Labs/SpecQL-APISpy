@@ -64,38 +64,29 @@ found in a spec file.
   "operation_id": "StorageAccounts_GetProperties",
   "api_versions": ["2023-01-01"],
   "spec_file": "specification/storage/resource-manager/Microsoft.Storage/stable/2023-01-01/storage.json",
-  "source_kind": "paths",
   "plane": "management",
   "is_preview": false,
-  "tags": ["StorageAccounts"],
-  "parameter_names": ["subscriptionId", "resourceGroupName", "accountName", "api-version"],
-  "required_query_parameters": ["api-version"],
-  "has_api_version_parameter": true
+  "lookup_key": "management.azure.com|GET|/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}"
 }
 ```
 
 ### Field Reference
 
-| Field                       | Type    | Description |
-|-----------------------------|---------|-------------|
-| `host`                      | string  | Hostname from the spec (lowercased). E.g. `"management.azure.com"`, `"myvault.vault.azure.net"`, or `"unknown"`. |
-| `method`                    | string  | HTTP method in uppercase: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`. |
-| `path_template`             | string  | Canonical URL path template from the spec, including path parameter placeholders like `{subscriptionId}`. |
-| `operation_id`              | string  | `operationId` from the spec, or `""` when not present. |
-| `api_versions`              | array   | All API version strings associated with this operation (derived from the file path). |
-| `spec_file`                 | string  | Relative path to the source spec file within the repository, using forward slashes. |
-| `source_kind`               | string  | Which paths block the operation came from: `"paths"`, `"x-ms-paths"`, or `"other"`. |
-| `plane`                     | string  | Control plane classification: `"management"`, `"data"`, or `"unknown"`. |
-| `is_preview`                | boolean | `true` when the operation is from a preview spec or has a preview API version. |
-| `tags`                      | array   | Tags from the operation definition (useful for grouping). Empty array when absent. |
-| `parameter_names`           | array   | Names of all parameters (path, query, header, body) defined for this operation. |
-| `required_query_parameters` | array   | Names of query parameters that are marked `required: true`. |
-| `has_api_version_parameter` | boolean | `true` when the `api-version` query parameter is explicitly defined. |
+| Field             | Type    | Description |
+|-------------------|---------|-------------|
+| `host`            | string  | Hostname from the spec (lowercased). E.g. `"management.azure.com"`, `"myvault.vault.azure.net"`, or `"unknown"`. |
+| `method`          | string  | HTTP method in uppercase: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`. |
+| `path_template`   | string  | Canonical URL path template from the spec, including path parameter placeholders like `{subscriptionId}`. |
+| `operation_id`    | string  | `operationId` from the spec, or `""` when not present. |
+| `api_versions`    | array   | All API version strings associated with this operation (derived from the file path). |
+| `spec_file`       | string  | Relative path to the source spec file within the repository, using forward slashes. |
+| `plane`           | string  | Control plane classification: `"management"`, `"data"`, or `"unknown"`. |
+| `is_preview`      | boolean | `true` when the operation is from a preview spec or has a preview API version. |
+| `lookup_key`      | string  | Pre-computed normalized key: `"<host>|<METHOD>|<path_template>"`. Designed for fast runtime matching in browser extensions. |
 
 > **Derivable fields (not stored):** `provider_namespace` and `resource_provider_family`
 > can be extracted from `path_template` using the pattern
 > `/providers/(<Namespace>)/(<ResourceType>)/…`.
-> `lookup_key` can be constructed as `"<host>|<METHOD>|<path_template>"`.
 > `stable_versions` and `preview_versions` can be split from `api_versions` using `is_preview`.
 
 ### Classification Rules
@@ -169,5 +160,5 @@ Consumers should check `schema_version` before processing the index.
 
 | Version | Changes |
 |---------|---------|
-| `2.0.0` | **Breaking**: removed `provider_namespace`, `resource_provider_family`, `lookup_key`, `stable_versions`, and `preview_versions` from each operation entry. These are all derivable from the remaining fields and were the primary contributors to export file size. |
+| `2.0.0` | **Breaking**: removed `provider_namespace`, `resource_provider_family`, `stable_versions`, `preview_versions`, `source_kind`, `tags`, `parameter_names`, `required_query_parameters`, and `has_api_version_parameter` from each operation entry. `lookup_key` is retained for fast browser-extension matching. Retained fields are sufficient for an MVP runtime consumer. |
 | `1.0.0` | Initial schema release. |

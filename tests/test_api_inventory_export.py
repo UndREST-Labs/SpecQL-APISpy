@@ -108,8 +108,7 @@ class TestParseSpecFile:
         assert op["method"] == "GET"
         assert op["operation_id"] == "StorageAccounts_Get"
         assert op["host"] == "management.azure.com"
-        assert op["has_api_version_parameter"] is True
-        assert "api-version" in op["required_query_parameters"]
+        assert "lookup_key" in op
 
     def test_multiple_methods_on_same_path(self, tmp_path):
         path = "/providers/Microsoft.Compute/virtualMachines/{vmName}"
@@ -152,7 +151,7 @@ class TestParseSpecFile:
         ops, err = exp._parse_spec_file(p, tmp_path, verbose=False)
         assert err is None
         assert len(ops) == 1
-        assert ops[0]["source_kind"] == "x-ms-paths"
+        assert ops[0]["lookup_key"].startswith("management.azure.com|GET|")
 
     def test_openapi3_spec_parsed(self, tmp_path):
         spec = {
@@ -288,7 +287,6 @@ class TestRunExport:
         op = index["operations"][0]
         required_fields = {
             "host", "method", "path_template", "operation_id", "api_versions",
-            "spec_file", "source_kind", "plane", "is_preview", "tags",
-            "parameter_names", "required_query_parameters", "has_api_version_parameter",
+            "spec_file", "plane", "is_preview", "lookup_key",
         }
         assert required_fields.issubset(op.keys())
