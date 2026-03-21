@@ -14,13 +14,16 @@ Options:
     --output-dir  Directory where the output files are written (default: inventory/)
     --minified    Also produce a minified api-index.min.json (no indentation)
     --grouped     Also produce a grouped/deduplicated api-index-grouped.json (schema 3.0.0)
+    --sharded     Also produce per-provider shards under {output-dir}/shards/ (schema 3.0.0)
     --verbose     Print per-file progress messages
 
 Output files:
-    api-index.json             Flat pretty-printed index (schema 2.1.0)
-    api-index.min.json         Flat minified index (with --minified)
-    api-index-grouped.json     Grouped/deduplicated index (with --grouped, schema 3.0.0)
-    api-index-grouped.min.json Grouped minified index (with --grouped --minified)
+    api-index.json                     Flat pretty-printed index (schema 2.1.0)
+    api-index.min.json                 Flat minified index (with --minified)
+    api-index-grouped.json             Grouped/deduplicated index (with --grouped, schema 3.0.0)
+    api-index-grouped.min.json         Grouped minified index (with --grouped --minified)
+    shards/{Provider.Namespace}.json   Per-provider shard (with --sharded, schema 3.0.0)
+    shards/{Provider.Namespace}.min.json  Minified per-provider shard (with --sharded --minified)
 """
 
 import argparse
@@ -402,11 +405,87 @@ def _build_grouped_summary(providers: dict, spec_file_count: int, error_count: i
     }
 
 
+def _build_shard_summary(prov_data: dict, error_count: int) -> dict:
+    """Build summary statistics for a single provider shard."""
+    total_routes = 0
+    total_versions = 0
+    planes: dict = {}
+    spec_files: set = set()
+
+    for _host, host_data in prov_data.get("hosts", {}).items():
+        for _route_key, route in host_data.get("routes", {}).items():
+            total_routes += 1
+            plane = route.get("plane", "unknown")
+            planes[plane] = planes.get(plane, 0) + 1
+            for _ver, ver_data in route.get("versions", {}).items():
+                total_versions += 1
+                spec_files.update(ver_data.get("spec_files", []))
+
+    return {
+        "total_routes": total_routes,
+        "total_versions": total_versions,
+        "total_spec_files": len(spec_files),
+        "planes": planes,
+        "errors": error_count,
+    }
+
+
+def _write_sharded_index(
+    grouped_providers: dict,
+    grouped_metadata: dict,
+    output_dir: Path,
+    error_count: int,
+    minified: bool,
+) -> None:
+    """Write one JSON file per provider namespace into ``{output_dir}/shards/``.
+
+    Each shard file contains the same metadata as the grouped export (with
+    ``export_format`` set to ``"sharded"`` and a ``provider_namespace`` field
+    added), the provider's ``hosts`` tree, and a per-provider summary.
+
+    File naming: ``{output_dir}/shards/{Provider.Namespace}.json``
+    The provider namespace is used as-is as the filename; characters that are
+    illegal on common file systems (``/``, ``\\``) are replaced with ``_``.
+    """
+    shards_dir = output_dir / "shards"
+    shards_dir.mkdir(parents=True, exist_ok=True)
+
+    for provider_ns, prov_data in sorted(grouped_providers.items()):
+        shard_metadata = {
+            **grouped_metadata,
+            "export_format": "sharded",
+            "provider_namespace": provider_ns,
+        }
+
+        shard_summary = _build_shard_summary(prov_data, error_count)
+
+        shard_payload = {
+            "metadata": shard_metadata,
+            "provider_namespace": provider_ns,
+            "hosts": prov_data.get("hosts", {}),
+            "summary": shard_summary,
+        }
+
+        # Sanitize provider namespace to a safe filename
+        safe_name = provider_ns.replace("/", "_").replace("\\", "_")
+
+        shard_path = shards_dir / f"{safe_name}.json"
+        with open(shard_path, "w", encoding="utf-8") as fh:
+            json.dump(shard_payload, fh, indent=2, ensure_ascii=False)
+        print(f"[SpecRecon] Written: {shard_path}")
+
+        if minified:
+            shard_min_path = shards_dir / f"{safe_name}.min.json"
+            with open(shard_min_path, "w", encoding="utf-8") as fh:
+                json.dump(shard_payload, fh, separators=(",", ":"), ensure_ascii=False)
+            print(f"[SpecRecon] Written: {shard_min_path}")
+
+
 # ---------------------------------------------------------------------------
 # Main export logic
 # ---------------------------------------------------------------------------
 
-def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool, grouped: bool = False) -> int:
+def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool, grouped: bool = False, sharded: bool = False) -> int:
     """Execute the full export pipeline.  Returns an exit code (0 = success)."""
 
     print(f"[SpecRecon] Starting API inventory export")
@@ -476,7 +555,7 @@ def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool
         print(f"[SpecRecon] Written: {min_path}")
 
     # Write grouped / deduplicated JSON (optional)
-    if grouped:
+    if grouped or sharded:
         grouped_providers = _build_grouped_index(all_operations)
         grouped_summary = _build_grouped_summary(grouped_providers, len(spec_files), len(errors))
         grouped_metadata = {
@@ -490,16 +569,26 @@ def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool
             "summary": grouped_summary,
         }
 
-        grouped_path = output_dir / "api-index-grouped.json"
-        with open(grouped_path, "w", encoding="utf-8") as fh:
-            json.dump(grouped_payload, fh, indent=2, ensure_ascii=False)
-        print(f"[SpecRecon] Written: {grouped_path}")
+        if grouped:
+            grouped_path = output_dir / "api-index-grouped.json"
+            with open(grouped_path, "w", encoding="utf-8") as fh:
+                json.dump(grouped_payload, fh, indent=2, ensure_ascii=False)
+            print(f"[SpecRecon] Written: {grouped_path}")
 
-        if minified:
-            grouped_min_path = output_dir / "api-index-grouped.min.json"
-            with open(grouped_min_path, "w", encoding="utf-8") as fh:
-                json.dump(grouped_payload, fh, separators=(",", ":"), ensure_ascii=False)
-            print(f"[SpecRecon] Written: {grouped_min_path}")
+            if minified:
+                grouped_min_path = output_dir / "api-index-grouped.min.json"
+                with open(grouped_min_path, "w", encoding="utf-8") as fh:
+                    json.dump(grouped_payload, fh, separators=(",", ":"), ensure_ascii=False)
+                print(f"[SpecRecon] Written: {grouped_min_path}")
+
+        if sharded:
+            _write_sharded_index(
+                grouped_providers,
+                grouped_metadata,
+                output_dir,
+                len(errors),
+                minified,
+            )
 
     # Print summary
     print()
@@ -550,6 +639,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--sharded",
+        action="store_true",
+        help=(
+            "Also produce per-provider shard files under {output-dir}/shards/. "
+            "Each file is named {Provider.Namespace}.json and contains only that "
+            "provider's routes in the same grouped (schema 3.0.0) structure."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print per-file progress messages",
@@ -564,7 +662,7 @@ def main():
     source_dir = Path(args.source).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
 
-    sys.exit(run_export(source_dir, output_dir, args.minified, args.verbose, args.grouped))
+    sys.exit(run_export(source_dir, output_dir, args.minified, args.verbose, args.grouped, args.sharded))
 
 
 if __name__ == "__main__":

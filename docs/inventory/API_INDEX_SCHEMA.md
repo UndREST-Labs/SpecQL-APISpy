@@ -8,6 +8,7 @@ Two formats are available:
 |------|---------------|------|-------------|
 | `api-index.json` / `api-index.min.json` | `2.1.0` | _(default)_ | Flat array — one entry per HTTP operation found |
 | `api-index-grouped.json` / `api-index-grouped.min.json` | `3.0.0` | `--grouped` | Grouped/deduplicated — routes nested by provider → host → route → version |
+| `shards/{Provider.Namespace}.json` / `shards/{Provider.Namespace}.min.json` | `3.0.0` | `--sharded` | Per-provider shard — same grouped structure scoped to one provider namespace |
 
 > **Why the grouped format?**
 > The flat format repeats `host`, `provider_namespace`, `method`, `path_template`,
@@ -261,6 +262,77 @@ the exact route cannot be matched.
 
 ---
 
+## Sharded Format — `shards/{Provider.Namespace}.json` (schema `3.0.0`)
+
+When `--sharded` is used, the exporter writes one JSON file per provider namespace
+into a `shards/` subdirectory.  Each shard uses the same schema version (`3.0.0`) as
+the grouped format but scopes the content to a single provider.
+
+### File naming
+
+The provider namespace is used as-is as the filename; characters that are illegal on
+common file systems (`/`, `\`) are replaced with `_`.  The `unknown` namespace
+(for routes without a `/providers/` segment) is written as `unknown.json`.
+
+### Top-Level Structure
+
+```json
+{
+  "metadata": { ... },
+  "provider_namespace": "Microsoft.Storage",
+  "hosts": { ... },
+  "summary": { ... }
+}
+```
+
+### `metadata` Block (sharded)
+
+Same fields as the grouped metadata, with `export_format` set to `"sharded"` and an
+additional `provider_namespace` field:
+
+```json
+{
+  "schema_version": "3.0.0",
+  "export_format": "sharded",
+  "provider_namespace": "Microsoft.Storage"
+}
+```
+
+### `hosts` Map
+
+Identical structure to `providers[provider_namespace]["hosts"]` in the grouped format:
+
+```
+hosts
+  └─ host             (e.g. "management.azure.com")
+       └─ routes
+            └─ route_key  ("METHOD path_template")
+                 ├─ [shared route fields]
+                 └─ versions
+                      └─ api_version
+                           └─ [version-specific fields]
+```
+
+### `summary` Block (sharded)
+
+```json
+{
+  "total_routes": 120,
+  "total_versions": 450,
+  "total_spec_files": 678,
+  "planes": { "management": 115, "data": 5 },
+  "errors": 0
+}
+```
+
+The sharded summary omits the `providers` list (it is always a single provider).
+
+> **Use case:** Consumers that only care about one provider namespace (e.g. the APISpy
+> extension checking `Microsoft.KeyVault` calls) can load a much smaller shard file
+> instead of the full grouped index.
+
+---
+
 ## Minified Files
 
 The minified files (`*.min.json`) contain identical data serialized without indentation:
@@ -291,7 +363,7 @@ Consumers should check `schema_version` before processing.
 
 | Version | Format | Changes |
 |---------|--------|---------|
-| `3.0.0` | grouped | **New format.** Providers → hosts → routes → versions hierarchy. Replaces the flat operations array for size-sensitive consumers. `export_format: "grouped"` in metadata. |
+| `3.0.0` | grouped / sharded | **New format.** Providers → hosts → routes → versions hierarchy. Replaces the flat operations array for size-sensitive consumers. `export_format: "grouped"` in metadata. The `--sharded` flag uses the same schema but scopes each file to one provider namespace (`export_format: "sharded"`). |
 | `2.1.0` | flat | Added `source_kind` field to each operation entry (which paths block the operation came from: `"paths"` or `"x-ms-paths"`). |
 | `2.0.0` | flat | **Breaking**: removed `provider_namespace`, `resource_provider_family`, `stable_versions`, `preview_versions`, `source_kind`, `tags`, `parameter_names`, `required_query_parameters`, and `has_api_version_parameter`. |
 | `1.0.0` | flat | Initial schema release. |
