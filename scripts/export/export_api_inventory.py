@@ -170,8 +170,9 @@ def _detect_host(spec: dict, file_path: Path) -> str:
         first_url = servers[0].get("url", "") if isinstance(servers[0], dict) else ""
         if first_url:
             # Strip scheme and path to get just the host
-            stripped = first_url.split("//", 1)[-1].split("/")[0]
-            return stripped.lower()
+            stripped = first_url.split("//", 1)[-1].split("/")[0].strip()
+            if stripped:
+                return stripped.lower()
 
     return "unknown"
 
