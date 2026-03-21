@@ -168,7 +168,7 @@ providers
 ```json
 "2023-01-01": {
   "is_preview": false,
-  "spec_files": ["Microsoft.Storage/stable/2023-01-01/storage.json"],
+  "spec_files": ["storage/resource-manager/Microsoft.Storage/stable/2023-01-01/storage.json"],
   "operation_ids": ["StorageAccounts_GetProperties"],
   "source_kinds": ["paths"]
 }
