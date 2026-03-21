@@ -68,7 +68,7 @@ Each element represents one HTTP operation (method + path) found in a spec file.
   "path_template": "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}",
   "operation_id": "StorageAccounts_GetProperties",
   "api_versions": ["2023-01-01"],
-  "spec_file": "Microsoft.Storage/stable/2023-01-01/storage.json",
+  "spec_file": "storage/resource-manager/Microsoft.Storage/stable/2023-01-01/storage.json",
   "source_kind": "paths",
   "plane": "management",
   "is_preview": false,
