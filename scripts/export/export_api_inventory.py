@@ -13,7 +13,14 @@ Options:
     --source      Path to the specifications directory (default: azure-rest-api-specs/specification)
     --output-dir  Directory where the output files are written (default: inventory/)
     --minified    Also produce a minified api-index.min.json (no indentation)
+    --grouped     Also produce a grouped/deduplicated api-index-grouped.json (schema 3.0.0)
     --verbose     Print per-file progress messages
+
+Output files:
+    api-index.json             Flat pretty-printed index (schema 2.1.0)
+    api-index.min.json         Flat minified index (with --minified)
+    api-index-grouped.json     Grouped/deduplicated index (with --grouped, schema 3.0.0)
+    api-index-grouped.min.json Grouped minified index (with --grouped --minified)
 """
 
 import argparse
@@ -32,6 +39,7 @@ if str(_HERE) not in sys.path:
 from normalize_api_inventory import (
     classify_plane,
     classify_stability,
+    detect_source_kind,
     extract_api_version_from_path,
     extract_provider_namespace,
     generate_lookup_key,
@@ -45,7 +53,8 @@ from normalize_api_inventory import (
 
 TOOL_NAME = "SpecRecon"
 TOOL_COMPONENT = "SpeQL"
-SCHEMA_VERSION = "2.0.0"
+SCHEMA_VERSION = "2.1.0"          # flat format — minor bump for additive source_kind field
+GROUPED_SCHEMA_VERSION = "3.0.0"  # grouped/deduplicated format
 SOURCE_REPO = "Azure/azure-rest-api-specs"
 SOURCE_BRANCH = "main"
 
@@ -216,9 +225,12 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
 
     operations = []
 
-    for paths_obj in paths_blocks.values():
+    for paths_block_key, paths_obj in paths_blocks.items():
         if not isinstance(paths_obj, dict):
             continue
+
+        # "paths" | "x-ms-paths" | "other" — recorded as provenance in each op entry
+        source_kind = detect_source_kind(paths_block_key)
 
         for path_template, path_item in paths_obj.items():
             if not isinstance(path_item, dict):
@@ -246,6 +258,7 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
                     "operation_id": operation_id,
                     "api_versions": all_versions,
                     "spec_file": str(rel_path).replace("\\", "/"),
+                    "source_kind": source_kind,
                     "plane": plane,
                     "is_preview": preview,
                     "lookup_key": lookup_key,
@@ -283,10 +296,117 @@ def _build_summary(operations: list, spec_file_count: int, error_count: int) -> 
 
 
 # ---------------------------------------------------------------------------
+# Grouped export helpers
+# ---------------------------------------------------------------------------
+
+def _build_grouped_index(flat_ops: list) -> dict:
+    """Transform the flat operations list into a grouped providers structure.
+
+    Structure::
+
+        providers[provider_namespace][hosts][host][routes][route_key] = {
+            method, path_template, provider_namespace, plane, lookup_key,
+            versions: {
+                api_version: {is_preview, spec_files, operation_ids, source_kinds}
+            }
+        }
+
+    The ``route_key`` is ``"METHOD path_template"`` (e.g. ``"GET /providers/…"``).
+    Routes with no recognisable provider namespace are grouped under ``"unknown"``.
+    """
+    providers: dict = {}
+
+    for op in flat_ops:
+        host = op["host"]
+        method = op["method"]
+        path_template = op["path_template"]
+        provider_ns = extract_provider_namespace(path_template)
+        route_key = f"{method} {path_template}"
+
+        # Navigate / create the nested slots
+        if provider_ns not in providers:
+            providers[provider_ns] = {"hosts": {}}
+        prov = providers[provider_ns]
+
+        if host not in prov["hosts"]:
+            prov["hosts"][host] = {"routes": {}}
+        host_entry = prov["hosts"][host]
+
+        if route_key not in host_entry["routes"]:
+            host_entry["routes"][route_key] = {
+                "method": method,
+                "path_template": path_template,
+                "provider_namespace": provider_ns,
+                "plane": op["plane"],
+                "lookup_key": op["lookup_key"],
+                "versions": {},
+            }
+        route = host_entry["routes"][route_key]
+
+        # Merge version-specific info.  Use "unknown" when no version was found.
+        api_versions = op.get("api_versions") or ["unknown"]
+        for api_version in api_versions:
+            if not api_version:
+                api_version = "unknown"
+
+            if api_version not in route["versions"]:
+                route["versions"][api_version] = {
+                    "is_preview": op["is_preview"],
+                    "spec_files": [],
+                    "operation_ids": [],
+                    "source_kinds": [],
+                }
+            ver = route["versions"][api_version]
+            # Combine preview classification across all contributing ops for this version.
+            # If any op for (route_key, api_version) is preview, mark the version as preview.
+            ver["is_preview"] = bool(ver.get("is_preview")) or bool(op["is_preview"])
+
+            spec_file = op.get("spec_file", "")
+            if spec_file and spec_file not in ver["spec_files"]:
+                ver["spec_files"].append(spec_file)
+
+            op_id = op.get("operation_id", "")
+            if op_id and op_id not in ver["operation_ids"]:
+                ver["operation_ids"].append(op_id)
+
+            source_kind = op.get("source_kind", "")
+            if source_kind and source_kind not in ver["source_kinds"]:
+                ver["source_kinds"].append(source_kind)
+
+    return providers
+
+
+def _build_grouped_summary(providers: dict, spec_file_count: int, error_count: int) -> dict:
+    """Build summary statistics for the grouped export."""
+    total_routes = 0
+    total_versions = 0
+    planes: dict = {}
+
+    for _ns, prov_data in providers.items():
+        for _host, host_data in prov_data.get("hosts", {}).items():
+            for _route_key, route in host_data.get("routes", {}).items():
+                total_routes += 1
+                plane = route.get("plane", "unknown")
+                planes[plane] = planes.get(plane, 0) + 1
+                total_versions += len(route.get("versions", {}))
+
+    provider_list = sorted(ns for ns in providers if ns != "unknown")
+
+    return {
+        "total_routes": total_routes,
+        "total_versions": total_versions,
+        "total_spec_files": spec_file_count,
+        "providers": provider_list,
+        "planes": planes,
+        "errors": error_count,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main export logic
 # ---------------------------------------------------------------------------
 
-def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool) -> int:
+def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool, grouped: bool = False) -> int:
     """Execute the full export pipeline.  Returns an exit code (0 = success)."""
 
     print(f"[SpecRecon] Starting API inventory export")
@@ -355,6 +475,32 @@ def run_export(source_dir: Path, output_dir: Path, minified: bool, verbose: bool
             json.dump(payload, fh, separators=(",", ":"), ensure_ascii=False)
         print(f"[SpecRecon] Written: {min_path}")
 
+    # Write grouped / deduplicated JSON (optional)
+    if grouped:
+        grouped_providers = _build_grouped_index(all_operations)
+        grouped_summary = _build_grouped_summary(grouped_providers, len(spec_files), len(errors))
+        grouped_metadata = {
+            **metadata,
+            "schema_version": GROUPED_SCHEMA_VERSION,
+            "export_format": "grouped",
+        }
+        grouped_payload = {
+            "metadata": grouped_metadata,
+            "providers": grouped_providers,
+            "summary": grouped_summary,
+        }
+
+        grouped_path = output_dir / "api-index-grouped.json"
+        with open(grouped_path, "w", encoding="utf-8") as fh:
+            json.dump(grouped_payload, fh, indent=2, ensure_ascii=False)
+        print(f"[SpecRecon] Written: {grouped_path}")
+
+        if minified:
+            grouped_min_path = output_dir / "api-index-grouped.min.json"
+            with open(grouped_min_path, "w", encoding="utf-8") as fh:
+                json.dump(grouped_payload, fh, separators=(",", ":"), ensure_ascii=False)
+            print(f"[SpecRecon] Written: {grouped_min_path}")
+
     # Print summary
     print()
     print("=" * 60)
@@ -395,6 +541,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Also produce a minified api-index.min.json",
     )
     parser.add_argument(
+        "--grouped",
+        action="store_true",
+        help=(
+            "Also produce a grouped/deduplicated api-index-grouped.json "
+            "(schema 3.0.0). Routes are grouped by provider → host → route, "
+            "with version-specific info nested underneath."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print per-file progress messages",
@@ -409,7 +564,7 @@ def main():
     source_dir = Path(args.source).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
 
-    sys.exit(run_export(source_dir, output_dir, args.minified, args.verbose))
+    sys.exit(run_export(source_dir, output_dir, args.minified, args.verbose, args.grouped))
 
 
 if __name__ == "__main__":
