@@ -182,7 +182,12 @@ def _parse_spec_file(file_path: Path, source_dir: Path, verbose: bool) -> tuple:
 
     Each operation is a dict matching the api-index.json schema.
     """
-    rel_path = file_path.relative_to(source_dir.parent) if source_dir.parent in file_path.parents else file_path
+    if file_path == source_dir or source_dir in file_path.parents:
+        # Make spec_file paths relative to the --source directory for consistency
+        rel_path = file_path.relative_to(source_dir)
+    else:
+        # Fallback: keep the original path if it's outside the source tree
+        rel_path = file_path
 
     try:
         with open(file_path, "r", encoding="utf-8", errors="replace") as fh:
