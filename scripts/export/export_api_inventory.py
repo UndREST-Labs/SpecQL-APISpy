@@ -357,6 +357,9 @@ def _build_grouped_index(flat_ops: list) -> dict:
                     "source_kinds": [],
                 }
             ver = route["versions"][api_version]
+            # Combine preview classification across all contributing ops for this version.
+            # If any op for (route_key, api_version) is preview, mark the version as preview.
+            ver["is_preview"] = bool(ver.get("is_preview")) or bool(op["is_preview"])
 
             spec_file = op.get("spec_file", "")
             if spec_file and spec_file not in ver["spec_files"]:
