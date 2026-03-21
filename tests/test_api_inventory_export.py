@@ -608,3 +608,246 @@ class TestGroupedExport:
 
         exp.run_export(source, output, minified=False, verbose=False, grouped=False)
         assert not (output / "api-index-grouped.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Sharded export
+# ---------------------------------------------------------------------------
+
+def _make_two_provider_source(tmp_path: Path) -> tuple:
+    """Create a source tree with two providers and return (source, output)."""
+    source = tmp_path / "spec"
+    for provider, route in (
+        ("Microsoft.Storage", "/providers/Microsoft.Storage/storageAccounts/{name}"),
+        ("Microsoft.Compute", "/providers/Microsoft.Compute/virtualMachines/{name}"),
+    ):
+        v_dir = source / provider / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "spec.json", _minimal_swagger(paths={
+            route: {"get": {"operationId": f"{provider}_Get", "responses": {}}}
+        }))
+    output = tmp_path / "out"
+    return source, output
+
+
+class TestShardedExport:
+    """Tests for the --sharded export mode (per-provider files in shards/)."""
+
+    def test_sharded_flag_creates_shards_dir(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        rc = exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        assert rc == 0
+        assert (output / "shards").is_dir()
+
+    def test_sharded_produces_one_file_per_provider(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        shards_dir = output / "shards"
+        assert (shards_dir / "Microsoft.Storage.json").exists()
+        assert (shards_dir / "Microsoft.Compute.json").exists()
+
+    def test_shard_top_level_structure(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        shard = json.loads((output / "shards" / "Microsoft.Storage.json").read_text())
+        assert "metadata" in shard
+        assert "provider_namespace" in shard
+        assert "hosts" in shard
+        assert "summary" in shard
+
+    def test_shard_metadata_export_format(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        shard = json.loads((output / "shards" / "Microsoft.Storage.json").read_text())
+        assert shard["metadata"]["export_format"] == "sharded"
+        assert shard["metadata"]["schema_version"] == "3.0.0"
+        assert shard["metadata"]["provider_namespace"] == "Microsoft.Storage"
+
+    def test_shard_contains_only_its_provider_routes(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        storage_shard = json.loads((output / "shards" / "Microsoft.Storage.json").read_text())
+        # Compute routes must not appear in the Storage shard
+        for _host, host_data in storage_shard["hosts"].items():
+            for route_key in host_data["routes"]:
+                assert "Microsoft.Compute" not in route_key
+
+    def test_shard_summary_fields_present(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        shard = json.loads((output / "shards" / "Microsoft.Storage.json").read_text())
+        summary = shard["summary"]
+        assert "total_routes" in summary
+        assert "total_versions" in summary
+        assert "total_spec_files" in summary
+        assert "planes" in summary
+        assert "errors" in summary
+        assert summary["total_routes"] >= 1
+
+    def test_sharded_minified_produces_min_files(self, tmp_path):
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=True, verbose=False, sharded=True)
+        assert (output / "shards" / "Microsoft.Storage.min.json").exists()
+        assert (output / "shards" / "Microsoft.Compute.min.json").exists()
+
+    def test_sharded_does_not_require_grouped_flag(self, tmp_path):
+        """--sharded alone should not write api-index-grouped.json."""
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True, grouped=False)
+        assert not (output / "api-index-grouped.json").exists()
+
+    def test_sharded_and_grouped_together(self, tmp_path):
+        """Both --sharded and --grouped can be used simultaneously."""
+        source, output = _make_two_provider_source(tmp_path)
+        rc = exp.run_export(source, output, minified=False, verbose=False, sharded=True, grouped=True)
+        assert rc == 0
+        assert (output / "api-index-grouped.json").exists()
+        assert (output / "shards" / "Microsoft.Storage.json").exists()
+
+    def test_no_shards_dir_without_flag(self, tmp_path):
+        """Without sharded=True, no shards/ directory is created."""
+        source, output = _make_two_provider_source(tmp_path)
+        exp.run_export(source, output, minified=False, verbose=False, sharded=False)
+        assert not (output / "shards").exists()
+
+    def test_unknown_provider_shard_written(self, tmp_path):
+        """Routes with no /providers/ segment produce an 'unknown.json' shard."""
+        source = tmp_path / "spec"
+        v_dir = source / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        spec = {
+            "swagger": "2.0",
+            "info": {"title": "Test", "version": "2023-01-01"},
+            "host": "management.azure.com",
+            "paths": {
+                "/subscriptions/{sub}/resourceGroups": {
+                    "get": {"operationId": "RG_List", "responses": {}}
+                }
+            },
+        }
+        _write_spec(v_dir, "rg.json", spec)
+        output = tmp_path / "out"
+        exp.run_export(source, output, minified=False, verbose=False, sharded=True)
+        assert (output / "shards" / "unknown.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Lookup validation
+# ---------------------------------------------------------------------------
+
+def _build_lookup_index(grouped_index: dict) -> dict:
+    """Build a flat lookup_key → route dict from a grouped index for test use.
+
+    Note: if two routes share the same lookup_key (same host, method, path
+    under different provider namespaces), the last one encountered wins.
+    This is acceptable for test purposes because in the Azure spec corpus
+    each (host, method, path_template) triple belongs to at most one provider.
+    """
+    lookup: dict = {}
+    for _ns, prov_data in grouped_index["providers"].items():
+        for _host, host_data in prov_data["hosts"].items():
+            for _route_key, route in host_data["routes"].items():
+                lookup[route["lookup_key"]] = route
+    return lookup
+
+
+class TestLookupValidation:
+    """Validate the three matching modes described in API_INDEX_SCHEMA.md."""
+
+    def _make_index(self, tmp_path: Path) -> dict:
+        """Return a populated grouped index for lookup tests."""
+        source = tmp_path / "spec"
+        # Stable version
+        stable_dir = source / "Microsoft.Storage" / "stable" / "2023-01-01"
+        stable_dir.mkdir(parents=True)
+        _write_spec(stable_dir, "storage.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Storage/storageAccounts/{name}": {
+                "get": {"operationId": "StorageAccounts_Get", "responses": {}}
+            }
+        }))
+        # Preview version of the same route
+        preview_dir = source / "Microsoft.Storage" / "preview" / "2023-06-01-preview"
+        preview_dir.mkdir(parents=True)
+        _write_spec(preview_dir, "storage-preview.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Storage/storageAccounts/{name}": {
+                "get": {"operationId": "StorageAccounts_Get_Preview", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        return json.loads((output / "api-index-grouped.json").read_text())
+
+    def test_exact_match_stable_version_found(self, tmp_path):
+        """Exact match: host + method + path + api-version → route entry with version present."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        key = "management.azure.com|GET|/providers/Microsoft.Storage/storageAccounts/{name}"
+        assert key in lookup
+        route = lookup[key]
+        assert "2023-01-01" in route["versions"]
+
+    def test_exact_match_preview_version_found(self, tmp_path):
+        """Exact match: preview version is correctly associated with its route."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        key = "management.azure.com|GET|/providers/Microsoft.Storage/storageAccounts/{name}"
+        route = lookup[key]
+        assert "2023-06-01-preview" in route["versions"]
+        assert route["versions"]["2023-06-01-preview"]["is_preview"] is True
+
+    def test_exact_match_unknown_version(self, tmp_path):
+        """Exact match: an unknown api-version is not present in the versions map."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        key = "management.azure.com|GET|/providers/Microsoft.Storage/storageAccounts/{name}"
+        route = lookup[key]
+        assert "1999-01-01" not in route["versions"]
+
+    def test_route_only_match_any_version(self, tmp_path):
+        """Route-only match: the route is found regardless of which version is asked for."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        key = "management.azure.com|GET|/providers/Microsoft.Storage/storageAccounts/{name}"
+        assert key in lookup
+        # Both stable and preview versions are accessible
+        versions = lookup[key]["versions"]
+        assert len(versions) >= 1
+
+    def test_route_not_found_returns_miss(self, tmp_path):
+        """Route-only match: a completely unknown route key is absent from the index."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        missing_key = "management.azure.com|DELETE|/providers/Microsoft.Storage/storageAccounts/{name}"
+        assert missing_key not in lookup
+
+    def test_provider_fallback_match(self, tmp_path):
+        """Provider match: navigate providers[ns] to confirm the provider is known."""
+        index = self._make_index(tmp_path)
+        assert "Microsoft.Storage" in index["providers"]
+
+    def test_unknown_provider_absent_from_summary_providers_list(self, tmp_path):
+        """Summary providers list excludes 'unknown' (only named providers listed)."""
+        index = self._make_index(tmp_path)
+        assert "unknown" not in index["summary"]["providers"]
+
+    def test_stable_version_not_flagged_as_preview(self, tmp_path):
+        """Stable version entry has is_preview == False."""
+        index = self._make_index(tmp_path)
+        route = (
+            index["providers"]["Microsoft.Storage"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Storage/storageAccounts/{name}"]
+        )
+        assert route["versions"]["2023-01-01"]["is_preview"] is False
+
+    def test_lookup_key_format(self, tmp_path):
+        """lookup_key follows the '<host>|<METHOD>|<path_template>' format."""
+        index = self._make_index(tmp_path)
+        lookup = _build_lookup_index(index)
+        for key in lookup:
+            parts = key.split("|")
+            assert len(parts) == 3, f"Expected 3 pipe-separated parts in '{key}'"
+            host, method, path = parts
+            assert host == host.lower()
+            assert method == method.upper()
+            assert path.startswith("/")
