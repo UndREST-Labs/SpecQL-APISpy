@@ -23,6 +23,7 @@ import json
 import os
 import sys
 import zipfile
+from typing import List, Optional, Tuple
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_OUT = os.path.join(REPO_ROOT, "apispy", "extension", "data")
@@ -41,7 +42,7 @@ def find_sharded_zip(inventory_dir: str) -> str:
     return candidates[0]
 
 
-def extract_shards(zip_path: str, out_dir: str, size_limit: int | None) -> tuple[list, list]:
+def extract_shards(zip_path: str, out_dir: str, size_limit: Optional[int]) -> Tuple[List, List]:
     """
     Extract .min.json shards from the zip into out_dir/shards/.
 

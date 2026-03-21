@@ -60,15 +60,7 @@ async function onRequestFinished(req) {
   const method = req.request && req.request.method;
   if (!url) return;
 
-  // Scope check
   const scope = Filters.classifyScope(url);
-  if (!scope.inScope) {
-    // Still record out-of-scope if it passes the URL check — but only record
-    // requests that look like API calls (have a path/query) to avoid flooding.
-    // For v1: skip truly irrelevant traffic entirely.
-    return;
-  }
-
   const norm = Normalizer.normalise(url, method);
   const entry = await buildEntry(req, norm, scope);
   state.requests.push(entry);

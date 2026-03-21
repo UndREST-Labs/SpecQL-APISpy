@@ -34,19 +34,21 @@
 
   /**
    * Given the top-level manifest, find the shard entry for a given provider
-   * namespace.  Matching is case-insensitive.
+   * namespace.  Prefers an exact-case match; falls back to case-insensitive.
    *
    * @param {object} manifest  Loaded manifest object.
    * @param {string} providerNamespace
    * @returns {object|null}  The shard entry or null if not bundled.
    */
   function findShardEntry(manifest, providerNamespace) {
+    const shards = manifest.shards || [];
+    // Prefer exact-case match to avoid misclassifying providers that differ
+    // only by case (e.g. Microsoft.AAD vs Microsoft.Aad).
+    const exact = shards.find((s) => s.provider_namespace === providerNamespace);
+    if (exact) return exact;
+    // Fall back to case-insensitive for resilience against minor casing drifts.
     const lower = providerNamespace.toLowerCase();
-    return (
-      (manifest.shards || []).find(
-        (s) => s.provider_namespace.toLowerCase() === lower
-      ) || null
-    );
+    return shards.find((s) => s.provider_namespace.toLowerCase() === lower) || null;
   }
 
   /**
