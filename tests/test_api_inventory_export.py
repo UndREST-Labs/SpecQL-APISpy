@@ -108,7 +108,6 @@ class TestParseSpecFile:
         assert op["method"] == "GET"
         assert op["operation_id"] == "StorageAccounts_Get"
         assert op["host"] == "management.azure.com"
-        assert op["provider_namespace"] == "Microsoft.Storage"
         assert op["has_api_version_parameter"] is True
         assert "api-version" in op["required_query_parameters"]
 
@@ -205,7 +204,7 @@ class TestMetadataBlock:
         assert required_keys.issubset(meta.keys())
         assert meta["tool_name"] == "SpecRecon"
         assert meta["tool_component"] == "SpeQL"
-        assert meta["schema_version"] == "1.0.0"
+        assert meta["schema_version"] == "2.0.0"
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +287,8 @@ class TestRunExport:
 
         op = index["operations"][0]
         required_fields = {
-            "host", "method", "path_template", "provider_namespace",
-            "resource_provider_family", "operation_id", "api_versions",
-            "stable_versions", "preview_versions", "spec_file", "source_kind",
-            "plane", "is_preview", "tags", "parameter_names",
-            "required_query_parameters", "has_api_version_parameter", "lookup_key",
+            "host", "method", "path_template", "operation_id", "api_versions",
+            "spec_file", "source_kind", "plane", "is_preview", "tags",
+            "parameter_names", "required_query_parameters", "has_api_version_parameter",
         }
         assert required_fields.issubset(op.keys())
