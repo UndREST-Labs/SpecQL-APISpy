@@ -127,17 +127,23 @@ def _extract_parameter_info(parameters: list) -> dict:
         # Parameters may be $ref objects; skip them conservatively
         if "$ref" in param:
             continue
-        name = param.get("name", "")
+        raw_name = param.get("name")
         location = param.get("in", "")
         required = param.get("required", False)
+
+        # Only work with non-empty string parameter names
+        if isinstance(raw_name, str):
+            name = raw_name.strip()
+        else:
+            name = ""
 
         if name:
             names.append(name)
 
-        if name.lower() == "api-version":
+        if name and name.lower() == "api-version":
             has_api_version = True
 
-        if location == "query" and required:
+        if location == "query" and required and name:
             required_query.append(name)
 
     return {
