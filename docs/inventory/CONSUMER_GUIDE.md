@@ -1,6 +1,6 @@
 # Consumer Guide — Using the API Inventory Index
 
-This guide is for developers who want to consume `api-index.json` produced by the
+This guide is for developers who want to consume `api-index-grouped.json` produced by the
 SpecRecon export pipeline, for example to build the **APISpy** browser extension
 or any other tool that performs "spec vs reality" comparison of Azure REST API calls.
 
@@ -8,17 +8,42 @@ or any other tool that performs "spec vs reality" comparison of Azure REST API c
 
 ## Overview
 
-The `api-index.json` file is a normalized catalogue of every Azure REST API
-operation defined in the
-[Azure REST API Specifications](https://github.com/Azure/azure-rest-api-specs)
-repository.
+The export pipeline produces two formats:
 
-Each entry in the `operations` array represents one HTTP method + path template
-combination and includes metadata such as the provider namespace, API version,
-plane (management/data), stability (stable/preview), and a pre-computed lookup
-key.
+| File | Schema | Best for |
+|------|--------|----------|
+| `api-index.json` | `2.1.0` | Tooling that processes every operation individually (analysis scripts, grep, jq) |
+| `api-index-grouped.json` | `3.0.0` | Runtime consumers that need compact, pre-grouped data (browser extensions, proxies) |
 
-See [API_INDEX_SCHEMA.md](./API_INDEX_SCHEMA.md) for the full field reference.
+This guide focuses on the **grouped format** (`api-index-grouped.json`), which is
+the recommended format for size-sensitive consumers.  The flat format is documented
+in [API_INDEX_SCHEMA.md](./API_INDEX_SCHEMA.md) for reference.
+
+---
+
+## Grouped Format Overview
+
+```
+providers
+  └─ provider_namespace
+       └─ hosts
+            └─ host
+                 └─ routes
+                      └─ "METHOD path_template"   ← route_key
+                           ├─ method
+                           ├─ path_template
+                           ├─ provider_namespace
+                           ├─ plane
+                           ├─ lookup_key           ← "host|METHOD|path_template"
+                           └─ versions
+                                └─ api_version
+                                     ├─ is_preview
+                                     ├─ spec_files
+                                     ├─ operation_ids
+                                     └─ source_kinds
+```
+
+See [API_INDEX_SCHEMA.md](./API_INDEX_SCHEMA.md) for a complete field reference.
 
 ---
 
@@ -29,118 +54,100 @@ index can answer:
 
 | Question | How to answer |
 |----------|---------------|
-| Is this API call documented in the specs? | Look up the `lookup_key` in the index |
-| What operation is this call? | Read `operation_id` from the matching entry |
-| Is the call using a preview API version? | Check `is_preview` / `preview_versions` |
-| Is there a version mismatch? | Compare the observed `api-version` against `api_versions` |
-| Is this operation preview-only? | Check `stable_versions` — if empty, it is preview-only |
-| Which Azure service / provider owns this path? | Read `provider_namespace` |
-| Is this a management-plane or data-plane call? | Read `plane` |
+| Is this API call documented in the specs? | Find the route via `lookup_key` |
+| What operation is this call? | Read `operation_ids` from the matching version entry |
+| Is the call using a preview API version? | Check `is_preview` in the version entry |
+| Is there a version mismatch? | Check whether the observed api-version key exists in `versions` |
+| Is this operation preview-only? | If all version entries have `is_preview: true` |
+| Which Azure service owns this path? | Read `provider_namespace` from the route |
+| Is this a management-plane or data-plane call? | Read `plane` from the route |
 
 ---
 
-## Matching Algorithm
+## Matching Algorithm (grouped format)
 
-Given an observed request, follow these steps to find a match in the index:
+Given an observed request, follow these steps:
 
 ### Step 1 — Normalize the observed call
 
 ```
-host        = observed host, lowercased (e.g. "management.azure.com")
-method      = observed HTTP method, uppercased (e.g. "GET")
+host        = observed host, lowercased     (e.g. "management.azure.com")
+method      = observed HTTP method, uppercase (e.g. "GET")
 path        = observed URL path, without query string
+              (concrete values, e.g. /subscriptions/abc-123/providers/Microsoft.Storage/…)
 api_version = extracted from the "api-version" query parameter
 ```
 
-### Step 2 — Build a candidate lookup key
+### Step 2 — Identify the provider namespace
 
-```
-candidate_key = host + "|" + method + "|" + path
-```
-
-**Example:**
-
-```
-management.azure.com|GET|/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myRG/providers/Microsoft.Storage/storageAccounts/myaccount
+```python
+from scripts.export.normalize_api_inventory import extract_provider_namespace
+provider_ns = extract_provider_namespace(path)  # e.g. "Microsoft.Storage"
 ```
 
-### Step 3 — Exact lookup (fast path)
+### Step 3 — Narrow the candidate set
 
-Try an exact match against the `lookup_key` field. This works when the
-observed path perfectly matches the spec path template, which is only the case
-when the path contains no concrete parameter values.
+Use the provider namespace and host to retrieve the subset of routes to match
+against, avoiding a full-index scan:
 
-### Step 4 — Template matching (common case)
+```python
+host_entry = index["providers"].get(provider_ns, {}).get("hosts", {}).get(host, {})
+routes = host_entry.get("routes", {})  # dict of route_key → route
+```
 
-Because observed URLs contain concrete values (e.g. a real subscription GUID,
-resource group name, account name), you need to replace parameter values with
-`{paramName}` placeholders before matching.
+### Step 4 — Template matching (the common case)
 
-The simplest approach is to load all `lookup_key` values that share the same
-`host` and `method`, then:
-
-1. Replace each `{...}` placeholder in the spec path template with a regex
-   that matches one path segment: `[^/]+`
-2. Test the observed path against each compiled regex
+Because observed URLs contain concrete parameter values (GUIDs, resource names),
+match the observed path against each route's `path_template` by converting
+`{paramName}` placeholders to a single-segment regex:
 
 ```python
 import re
 
-def match_operation(host, method, observed_path, operations):
-    candidates = [
-        op for op in operations
-        if op["host"] == host.lower() and op["method"] == method.upper()
-    ]
-    for op in candidates:
-        # re.escape escapes braces too, so replace escaped {param} placeholders with a segment regex
-        pattern = re.sub(r"\\{[^}]+\\}", r"[^/]+", re.escape(op["path_template"]))
-        if re.fullmatch(pattern, observed_path):
-            return op
+def match_route(host, method, observed_path, index):
+    from scripts.export.normalize_api_inventory import extract_provider_namespace
+    provider_ns = extract_provider_namespace(observed_path)
+
+    # Check the identified provider first, fall back to "unknown"
+    for ns in (provider_ns, "unknown"):
+        host_data = index["providers"].get(ns, {}).get("hosts", {}).get(host, {})
+        for route_key, route in host_data.get("routes", {}).items():
+            if route["method"] != method:
+                continue
+            # re.escape escapes braces; un-escape {param} placeholders → [^/]+
+            pattern = re.sub(r"\\{[^}]+\\}", r"[^/]+", re.escape(route["path_template"]))
+            if re.fullmatch(pattern, observed_path):
+                return route
     return None
 ```
 
-### Step 5 — Partial / provider-family match (fallback)
+### Step 5 — Version check
 
-If no template match is found, try a broader match based on the provider
-namespace and resource family extracted from the observed path:
+Once a route is matched, check the version:
 
 ```python
-from scripts.export.normalize_api_inventory import (
-    extract_provider_namespace,
-    extract_resource_provider_family,
-)
-
-provider = extract_provider_namespace(observed_path)
-family   = extract_resource_provider_family(observed_path)
-
-related = [
-    op for op in operations
-    if op["provider_namespace"] == provider
-    and op["resource_provider_family"] == family
-]
+def check_version(route, observed_api_version):
+    versions = route.get("versions", {})
+    if observed_api_version in versions:
+        ver = versions[observed_api_version]
+        return "exact_match", ver["is_preview"]
+    elif versions:
+        return "version_mismatch", None
+    else:
+        return "route_match_no_versions", None
 ```
-
-This tells you: "The call is to a known Azure provider/resource family, but no
-exact operation match was found."
 
 ---
 
-## "Spec vs Reality" Comparison
-
-The key insight behind SpecRecon's "spec vs reality" approach:
-
-> **If an observed Azure API call cannot be matched in the index, it is either
-> undocumented, using a private API endpoint, or the index is out of date.**
-
-Possible outcomes when matching an observed call:
+## "Spec vs Reality" Matching Outcomes
 
 | Outcome | Meaning |
 |---------|---------|
-| Exact match, `is_preview: false` | The call is fully documented and stable |
-| Exact match, `is_preview: true` | The call is documented but preview-only |
-| Template match but version not in `api_versions` | Version mismatch — call uses an undocumented version |
-| Provider/family match only | Partial match — possibly a subresource or unlisted path |
-| No match | Undocumented call — potential shadow API or private endpoint |
+| Route found, version present, `is_preview: false` | Stable, fully documented call |
+| Route found, version present, `is_preview: true` | Documented but preview-only |
+| Route found, version **not** present | Version mismatch — undocumented version |
+| Provider namespace matches but route not found | Provider known, route unknown — possible private/sub-resource path |
+| No match at all | Undocumented call — potential shadow API or private endpoint |
 
 ---
 
@@ -150,14 +157,17 @@ Possible outcomes when matching an observed call:
 
 ```javascript
 // In a service worker or background script:
-const response = await fetch(chrome.runtime.getURL("api-index.min.json"));
+const response = await fetch(chrome.runtime.getURL("api-index-grouped.min.json"));
 const index = await response.json();
 
-// Build a lookup map for fast access by host+method:
-const byHostMethod = {};
-for (const op of index.operations) {
-  const key = `${op.host}|${op.method}`;
-  (byHostMethod[key] ??= []).push(op);
+// Build a fast lookup map: lookup_key → route
+const byLookupKey = {};
+for (const [ns, prov] of Object.entries(index.providers)) {
+  for (const [host, hostData] of Object.entries(prov.hosts)) {
+    for (const [routeKey, route] of Object.entries(hostData.routes)) {
+      byLookupKey[route.lookup_key] = route;
+    }
+  }
 }
 ```
 
@@ -167,38 +177,46 @@ for (const op of index.operations) {
 import json
 from pathlib import Path
 
-index = json.loads(Path("inventory/api-index.json").read_text())
-operations = index["operations"]
+index = json.loads(Path("inventory/api-index-grouped.json").read_text())
 
-# Index by lookup_key for O(1) exact lookup:
-by_key = {op["lookup_key"]: op for op in operations}
+# Build a lookup map for O(1) route access by lookup_key
+by_key = {}
+for ns, prov in index["providers"].items():
+    for host, host_data in prov["hosts"].items():
+        for route_key, route in host_data["routes"].items():
+            by_key[route["lookup_key"]] = route
 ```
 
 ---
 
 ## Versioning and Freshness
 
-- The `metadata.generated_at` field tells you when the index was produced.
-- The `metadata.source_commit` field identifies the exact state of the
-  Azure REST API specs used.
-- Check `metadata.schema_version` before processing; see
-  [API_INDEX_SCHEMA.md](./API_INDEX_SCHEMA.md#schema-evolution) for the
-  evolution policy.
+- `metadata.generated_at` — when the index was produced
+- `metadata.source_commit` — the exact Azure REST API specs commit used
+- `metadata.schema_version` — `"3.0.0"` for the grouped format; check before processing
+- `metadata.export_format` — `"grouped"` (distinguishes from flat format files)
 
-The index is regenerated daily by the SpecRecon CI workflow. Consumers should
-periodically refresh their copy.
+The index is regenerated daily by the SpecRecon CI workflow.
+
+---
+
+## Future Distribution Format
+
+The minified grouped export (`api-index-grouped.min.json`) is the recommended
+input for runtime consumers today.  A separate, more compact runtime-distribution
+artifact (e.g. pre-indexed by lookup key, binary format) may be introduced later
+if further size or lookup-speed improvements are needed, but this is a non-goal
+for the current release.
 
 ---
 
 ## Future Enrichment
 
-The export schema is designed to support future enrichment without breaking
-changes:
+The grouped schema supports future enrichment without breaking changes:
 
-- **CodeQL-backed findings overlay** — SpeQL security findings (SAS URI
-  exposure, missing authentication checks, etc.) could be attached to matching
-  operations as an additional `findings` array.
-- **Deprecation signals** — Azure deprecation notices from the specs could
-  populate a `deprecated` field per operation.
-- **Cross-version delta** — Comparing two index snapshots can surface new,
-  changed, or removed operations between spec versions.
+- **SpeQL findings overlay** — security findings (SAS URI exposure, missing auth)
+  could be attached to matching routes as an additional `findings` array.
+- **Deprecation signals** — Azure deprecation notices could populate a
+  `deprecated` field per version entry.
+- **Cross-version delta** — comparing two index snapshots can surface new,
+  changed, or removed routes between spec versions.

@@ -203,7 +203,7 @@ class TestMetadataBlock:
         assert required_keys.issubset(meta.keys())
         assert meta["tool_name"] == "SpecRecon"
         assert meta["tool_component"] == "SpeQL"
-        assert meta["schema_version"] == "2.0.0"
+        assert meta["schema_version"] == "2.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +287,324 @@ class TestRunExport:
         op = index["operations"][0]
         required_fields = {
             "host", "method", "path_template", "operation_id", "api_versions",
-            "spec_file", "plane", "is_preview", "lookup_key",
+            "spec_file", "source_kind", "plane", "is_preview", "lookup_key",
         }
         assert required_fields.issubset(op.keys())
+
+
+# ---------------------------------------------------------------------------
+# Grouped export
+# ---------------------------------------------------------------------------
+
+class TestGroupedExport:
+    """Tests for the --grouped / grouped=True export mode (schema 3.0.0)."""
+
+    def test_grouped_flag_produces_grouped_file(self, tmp_path):
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        rc = exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        assert rc == 0
+        assert (output / "api-index-grouped.json").exists()
+
+    def test_grouped_top_level_structure(self, tmp_path):
+        source = tmp_path / "spec"
+        source.mkdir()
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        assert "metadata" in index
+        assert "providers" in index
+        assert "summary" in index
+
+    def test_grouped_metadata_schema_version(self, tmp_path):
+        source = tmp_path / "spec"
+        source.mkdir()
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        assert index["metadata"]["schema_version"] == "3.0.0"
+        assert index["metadata"]["export_format"] == "grouped"
+
+    def test_flat_index_still_produced_with_grouped(self, tmp_path):
+        source = tmp_path / "spec"
+        source.mkdir()
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        # Both flat and grouped files should exist
+        assert (output / "api-index.json").exists()
+        assert (output / "api-index-grouped.json").exists()
+
+    def test_grouping_by_provider_host_route(self, tmp_path):
+        """Same route in two different API versions → one route entry with two version keys."""
+        source = tmp_path / "spec"
+        for version in ("2022-01-01", "2023-01-01"):
+            v_dir = source / "Microsoft.Storage" / "stable" / version
+            v_dir.mkdir(parents=True)
+            _write_spec(v_dir, "storage.json", _minimal_swagger(paths={
+                "/providers/Microsoft.Storage/storageAccounts/{name}": {
+                    "get": {"operationId": "StorageAccounts_Get", "responses": {}}
+                }
+            }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        prov = index["providers"]["Microsoft.Storage"]
+        host_entry = prov["hosts"]["management.azure.com"]
+        route_key = "GET /providers/Microsoft.Storage/storageAccounts/{name}"
+        assert route_key in host_entry["routes"]
+
+        route = host_entry["routes"][route_key]
+        assert len(route["versions"]) == 2
+        assert "2022-01-01" in route["versions"]
+        assert "2023-01-01" in route["versions"]
+
+    def test_deduplication_same_route_same_version(self, tmp_path):
+        """Parsing one spec file should yield exactly one version entry per route."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Storage" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "storage.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Storage/storageAccounts/{name}": {
+                "get": {"operationId": "StorageAccounts_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        route = (
+            index["providers"]["Microsoft.Storage"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Storage/storageAccounts/{name}"]
+        )
+        assert len(route["versions"]) == 1
+
+    def test_version_nesting_structure(self, tmp_path):
+        """Each version entry must have is_preview, spec_files, operation_ids, source_kinds."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        ver = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Test/things/{name}"]
+            ["versions"]["2023-01-01"]
+        )
+        assert "is_preview" in ver
+        assert "spec_files" in ver
+        assert "operation_ids" in ver
+        assert "source_kinds" in ver
+
+    def test_route_common_fields(self, tmp_path):
+        """Each route entry must have method, path_template, provider_namespace, plane, lookup_key."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        route = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Test/things/{name}"]
+        )
+        required = {"method", "path_template", "provider_namespace", "plane", "lookup_key", "versions"}
+        assert required.issubset(route.keys())
+        assert route["method"] == "GET"
+        assert route["provider_namespace"] == "Microsoft.Test"
+        assert route["plane"] == "management"
+
+    def test_exact_match_viability_via_lookup_key(self, tmp_path):
+        """lookup_key on each route should support host|METHOD|path exact matching."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        route = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Test/things/{name}"]
+        )
+        expected_key = "management.azure.com|GET|/providers/Microsoft.Test/things/{name}"
+        assert route["lookup_key"] == expected_key
+
+    def test_preview_version_flagged(self, tmp_path):
+        """is_preview in the version entry is True for a preview spec."""
+        source = tmp_path / "spec"
+        prev_dir = source / "Microsoft.Test" / "preview" / "2023-01-01-preview"
+        prev_dir.mkdir(parents=True)
+        _write_spec(prev_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        ver = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Test/things/{name}"]
+            ["versions"]["2023-01-01-preview"]
+        )
+        assert ver["is_preview"] is True
+
+    def test_source_kind_captured_in_version(self, tmp_path):
+        """source_kinds in the version entry reflects the paths block key."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        ver = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"]["GET /providers/Microsoft.Test/things/{name}"]
+            ["versions"]["2023-01-01"]
+        )
+        assert "paths" in ver["source_kinds"]
+
+    def test_x_ms_paths_source_kind(self, tmp_path):
+        """Routes from x-ms-paths are captured with source_kind 'x-ms-paths'."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(
+            paths={},
+            x_ms_paths={
+                "/providers/Microsoft.Test/things/{name}?api-version=2023-01-01": {
+                    "get": {"operationId": "Things_GetExt", "responses": {}}
+                }
+            },
+        ))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        route_key = "GET /providers/Microsoft.Test/things/{name}?api-version=2023-01-01"
+        ver = (
+            index["providers"]["Microsoft.Test"]
+            ["hosts"]["management.azure.com"]
+            ["routes"][route_key]
+            ["versions"]["2023-01-01"]
+        )
+        assert "x-ms-paths" in ver["source_kinds"]
+
+    def test_unknown_provider_grouped_under_unknown(self, tmp_path):
+        """Routes with no /providers/ segment go under 'unknown' provider namespace."""
+        source = tmp_path / "spec"
+        v_dir = source / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        spec = {
+            "swagger": "2.0",
+            "info": {"title": "Test", "version": "2023-01-01"},
+            "host": "management.azure.com",
+            "paths": {
+                "/subscriptions/{sub}/resourceGroups": {
+                    "get": {"operationId": "ResourceGroups_List", "responses": {}}
+                }
+            },
+        }
+        _write_spec(v_dir, "rg.json", spec)
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        assert "unknown" in index["providers"]
+
+    def test_grouped_summary_fields(self, tmp_path):
+        """Grouped summary has total_routes, total_versions, providers, planes, errors."""
+        source = tmp_path / "spec"
+        v_dir = source / "Microsoft.Test" / "stable" / "2023-01-01"
+        v_dir.mkdir(parents=True)
+        _write_spec(v_dir, "test.json", _minimal_swagger(paths={
+            "/providers/Microsoft.Test/things/{name}": {
+                "get": {"operationId": "Things_Get", "responses": {}}
+            }
+        }))
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=True)
+        index = json.loads((output / "api-index-grouped.json").read_text())
+
+        summary = index["summary"]
+        assert "total_routes" in summary
+        assert "total_versions" in summary
+        assert "total_spec_files" in summary
+        assert "providers" in summary
+        assert "planes" in summary
+        assert "errors" in summary
+        assert summary["total_routes"] >= 1
+        assert summary["total_versions"] >= 1
+
+    def test_grouped_minified_file_produced(self, tmp_path):
+        """--grouped + --minified writes api-index-grouped.min.json."""
+        source = tmp_path / "spec"
+        source.mkdir()
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=True, verbose=False, grouped=True)
+        assert (output / "api-index-grouped.min.json").exists()
+
+    def test_no_grouped_file_without_flag(self, tmp_path):
+        """Without grouped=True, no grouped file is written."""
+        source = tmp_path / "spec"
+        source.mkdir()
+        output = tmp_path / "out"
+
+        exp.run_export(source, output, minified=False, verbose=False, grouped=False)
+        assert not (output / "api-index-grouped.json").exists()

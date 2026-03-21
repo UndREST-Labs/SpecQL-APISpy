@@ -41,6 +41,7 @@ jobs:
           python3 scripts/export/export_api_inventory.py \
             --source "azure-rest-api-specs/${SCOPE}" \
             --output-dir inventory/ \
+            --grouped \
             --minified \
             --verbose
 

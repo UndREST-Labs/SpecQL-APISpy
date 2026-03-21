@@ -7,25 +7,19 @@ Azure REST API spec corpus.
 
 ## What the Export Is For
 
-The export pipeline produces a machine-readable JSON index (`api-index.json`) that
-catalogues every HTTP operation defined in the
+The export pipeline produces a machine-readable JSON index that catalogues every
+HTTP operation defined in the
 [Azure REST API Specifications](https://github.com/Azure/azure-rest-api-specs)
 repository.
 
-The index is the **ground truth** for "spec vs reality" comparison: given an
-observed API call (host + method + path + api-version), a consumer can look up
-whether the call is:
-- Known to the Azure REST API specs
-- Mapped to a specific `operationId`
-- A stable or preview-only operation
-- Possibly a version mismatch
+Two complementary formats are produced:
 
-This is the foundation for the future **APISpy** browser extension, which will
-intercept live Azure API traffic and compare it against this index.
-
-The export pipeline is **separate and additive** — it does not modify or replace
-the existing SpeQL security analysis workflows (`analyze.py`, `SpeQL.py`,
-`run-queries.sh`, `refresh-database.sh`).
+- **`api-index.json`** — flat array, one entry per HTTP operation (schema `2.1.0`).
+  Suitable for tooling that iterates over every operation individually.
+- **`api-index-grouped.json`** — grouped/deduplicated structure (schema `3.0.0`).
+  Routes are nested by provider namespace → host → route → version, so shared
+  fields are stored only once.  This is the preferred format for size-sensitive
+  consumers such as the future **APISpy** browser extension.
 
 ---
 
@@ -63,14 +57,15 @@ python3 scripts/export/export_api_inventory.py
 This uses the defaults:
 - Source: `azure-rest-api-specs/specification`
 - Output: `inventory/`
-- No minified file
+- No minified file, no grouped file
 
-For a full run with all options:
+For a full run with all options including the grouped format:
 
 ```bash
 python3 scripts/export/export_api_inventory.py \
     --source azure-rest-api-specs/specification \
     --output-dir inventory/ \
+    --grouped \
     --minified \
     --verbose
 ```
@@ -83,19 +78,22 @@ python3 scripts/export/export_api_inventory.py \
 |-----------------|----------------------------------------|------------------------------------------------|
 | `--source`      | `azure-rest-api-specs/specification`   | Path to the specifications directory to walk   |
 | `--output-dir`  | `inventory/`                           | Directory where output files are written       |
-| `--minified`    | _(off)_                                | Also write `api-index.min.json` (no indentation) |
+| `--minified`    | _(off)_                                | Also write minified variants (no indentation)  |
+| `--grouped`     | _(off)_                                | Also write grouped/deduplicated `api-index-grouped.json` (schema 3.0.0) |
 | `--verbose`     | _(off)_                                | Print per-file progress messages               |
 
 ---
 
 ## Output Files
 
-| File                        | Description                                                              |
-|-----------------------------|--------------------------------------------------------------------------|
-| `inventory/api-index.json`  | Full pretty-printed JSON index (human-readable, suitable for inspection) |
-| `inventory/api-index.min.json` | Minified JSON (same data, smaller file, for runtime consumers)        |
+| File                              | Requires     | Description |
+|-----------------------------------|--------------|-------------|
+| `inventory/api-index.json`        | _(always)_   | Flat pretty-printed index (schema 2.1.0, human-readable) |
+| `inventory/api-index.min.json`    | `--minified` | Flat minified index (same data, no indentation) |
+| `inventory/api-index-grouped.json`    | `--grouped`  | Grouped/deduplicated index (schema 3.0.0, recommended for runtime consumers) |
+| `inventory/api-index-grouped.min.json` | `--grouped --minified` | Grouped minified index |
 
-Both files are listed in `.gitignore` and are not committed to the repository.
+All files are listed in `.gitignore` and are not committed to the repository.
 They are produced as build artifacts by the CI workflow and uploaded as GitHub
 Actions artifacts.
 
