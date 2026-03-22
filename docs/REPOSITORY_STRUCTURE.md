@@ -9,6 +9,7 @@ The root directory contains only essential files for quick access:
 - **README.md** - Main project documentation
 - **CONTRIBUTING.md** - Contributing guidelines
 - **LICENSE** - License information
+- **SpeQL.py** - CLI entry point for the SpeQL query engine
 - **setup.sh** - Automated setup script
 - **refresh-database.sh** - Bash script to refresh database from Azure specs
 - **refresh_database.py** - Cross-platform Python script for database refresh
@@ -19,6 +20,14 @@ The root directory contains only essential files for quick access:
 
 ```
 SpeQL/
+├── apispy/              # APISpy Chrome/Edge DevTools extension
+│   ├── extension/       # Unpacked extension (load this in Chrome)
+│   │   ├── data/        # Bundled provider shards (302 providers)
+│   │   ├── lib/         # filters, normalizer, loader, matcher modules
+│   │   └── icons/
+│   ├── scripts/
+│   │   └── prepare_data.py  # Re-bundles shards from SpecRecon zip export
+│   └── tests/           # Node.js unit tests for extension modules
 ├── config/               # Configuration files
 │   └── SpeQL.yml        # CodeQL database configuration
 ├── docs/                # Documentation (kept separate from root)
@@ -29,6 +38,8 @@ SpeQL/
 │   ├── QUICK_REFERENCE.md
 │   ├── REPOSITORY_STRUCTURE.md
 │   └── SARIF_ANALYSIS_QUICKSTART.md
+├── inventory/           # SpecRecon export artifacts (generated, not tracked)
+│   └── api-index-sharded-<run-id>.zip
 ├── queries/             # CodeQL security queries
 │   └── azure-security/
 │       ├── SasUriInResponse.ql  # Detects SAS URIs in API responses

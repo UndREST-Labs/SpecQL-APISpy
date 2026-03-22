@@ -237,3 +237,33 @@ chmod +x analyze.py run-queries.sh
 - Check EXAMPLE_OUTPUT.md for detailed examples
 - Review README.md for comprehensive documentation
 - Open an issue on GitHub for bugs or feature requests
+
+---
+
+## 🔭 APISpy — DevTools Extension
+
+### Load the extension
+
+1. Open **chrome://extensions** (or **edge://extensions**) and enable **Developer mode**.
+2. Click **Load unpacked** and select `apispy/extension/`.
+3. Open DevTools (**F12**) on any page — look for the **APISpy** tab.
+
+### Run APISpy tests
+```bash
+# From the repository root (Node.js required, no extra packages)
+node apispy/tests/test_filters.js
+node apispy/tests/test_normalizer.js
+node apispy/tests/test_matcher.js
+```
+
+### Re-bundle provider shards
+```bash
+# Populate from a SpecRecon zip export (all shards, no size limit)
+python3 apispy/scripts/prepare_data.py --zip inventory/api-index-sharded-<run-id>.zip
+
+# Optional: exclude shards larger than N KB
+python3 apispy/scripts/prepare_data.py --zip inventory/api-index-sharded-<run-id>.zip --size-limit 100
+```
+
+Reload the unpacked extension in Chrome after re-bundling to pick up new data.  
+See [apispy/extension/README.md](../apispy/extension/README.md) for full details.
