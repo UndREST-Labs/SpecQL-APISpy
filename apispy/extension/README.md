@@ -7,15 +7,17 @@ It adds a custom panel to Chromium-based browser developer tools that watches ou
 
 ## What does it do?
 
-For every Azure/Microsoft API request observed in the DevTools network inspector, APISpy classifies the request into one of five states:
+For every Azure/Microsoft API request observed in the DevTools network inspector, APISpy classifies the request into one of four states:
 
 | Status | Meaning |
 |---|---|
 | ✅ **Exact match** | Host + method + path template + `api-version` exist in the bundled index |
 | ⚠️ **Version mismatch** | Route found, but the requested `api-version` is not in the spec |
 | 🔶 **Unknown route** | Provider namespace is known; route not found in bundled shard |
-| ❌ **No spec match** | No provider namespace inferred, or provider shard not bundled |
-| — **Out of scope** | Request does not appear to be Azure/Microsoft API traffic |
+| ❌ **No spec match** | No provider namespace inferred from the request URL |
+
+Only requests for which a provider namespace can be inferred are shown in the panel.  
+Out-of-scope traffic (non-Azure/Microsoft hosts, URLs with no recognisable provider path) is silently dropped.
 
 ---
 
@@ -64,6 +66,49 @@ apispy/
 
 ---
 
+## Panel features
+
+### Status filter pills
+
+The toolbar contains multi-select filter pills: **All** · **✅ Exact** · **⚠️ Version** · **🔶 Route** · **❌ No match**.  
+Each pill can be toggled independently to show only the desired classification(s).  Clicking **All** resets all filters.
+
+### ARM batch inspection
+
+`POST management.azure.com/batch` requests are automatically unpacked.  Each sub-request in the batch body is classified independently and shown as an indented `↳` row beneath the parent entry.
+
+### Autoscroll
+
+The **Scroll** button in the toolbar toggles autoscroll.  When enabled, the panel automatically scrolls to the newest row as requests arrive.
+
+### Detail panel and draggable divider
+
+Selecting any row opens a detail panel below the request list.  The divider bar at the top of the detail panel can be dragged up or down to resize the split.
+
+### Copy to clipboard
+
+- **Copy list** (toolbar) — copies all currently visible rows as tab-separated values (TSV).
+- **Copy** (detail panel toolbar) — copies the selected entry's details to the clipboard.
+
+### Save CSV
+
+**Save CSV** (toolbar) downloads all recorded requests as a quoted CSV file with 16 columns, suitable for offline analysis.
+
+### URL deep link
+
+The full request URL is shown as a clickable link in the detail panel and is included in both CSV and clipboard exports.
+
+### Find in Network
+
+The **Find in Network** button in the detail panel toolbar copies the request URL to the clipboard and displays guidance:  
+> *URL copied — open the Network panel, press Ctrl/Cmd+F and paste to locate this entry.*
+
+### Shard load error surfacing
+
+If a provider shard fails to load at runtime, the affected entry is shown as a red **Load error** row in the detail panel, with `reason: "shard_load_failed"` and an `error` field describing the cause.
+
+---
+
 ## How the static bundled index works
 
 The extension ships with pre-extracted shard files in `data/shards/`.  
@@ -72,24 +117,24 @@ These are `.min.json` files derived from the SpecRecon grouped/sharded export
 
 A top-level `data/manifest.json` is read once on startup.  When a request arrives
 for a provider like `Microsoft.Storage`, only the `Microsoft.Storage.min.json`
-shard is fetched — nothing else is loaded.
+shard is fetched — nothing else is loaded.  Shard lookup tries an exact-case match
+first, then falls back to a case-insensitive search.
 
-Shards larger than 50 KB (minified) are **not** bundled in the repository to keep
-the extension directory a manageable size.  The bundled shards cover 169 providers.
+All 302 available provider shards are bundled; there is no size cap.
 
-### Adding more shards
+### Re-bundling shards
 
-To include all 302 available shards (including larger ones):
+To re-populate from a fresh SpecRecon export:
 
 ```bash
 # From the repository root — requires the sharded zip in inventory/
-python3 apispy/scripts/prepare_data.py --all
+python3 apispy/scripts/prepare_data.py --zip inventory/api-index-sharded-<run-id>.zip
 ```
 
-To re-populate from a fresh export:
+To cap shard size (e.g. exclude shards larger than 100 KB):
 
 ```bash
-python3 apispy/scripts/prepare_data.py --zip inventory/api-index-sharded-<run-id>.zip
+python3 apispy/scripts/prepare_data.py --zip inventory/api-index-sharded-<run-id>.zip --size-limit 100
 ```
 
 After running, reload the unpacked extension in Chrome to pick up the new data.
@@ -110,23 +155,18 @@ node apispy/tests/test_matcher.js
 
 ---
 
-## v1 known limitations
+## Known limitations
 
 - **Path template matching is conservative.**  
   The normalizer only replaces GUID-shaped path segments (`{guid}`) and pure
   numeric IDs (`{id}`).  Arbitrary resource names (e.g. `myStorageAccount`) are
-  not mapped to spec path template parameters in v1.  This means most ARM routes
-  will appear as *Unknown route* or *No spec match* even when the provider shard
-  is bundled.  Improving the template-matching heuristic is the primary v2 task.
-
-- **Providers with large shards are not bundled.**  
-  133 providers (e.g. `Microsoft.Compute`, `Microsoft.Network`) have shards
-  larger than 50 KB and are excluded from the repository bundle.  Run
-  `prepare_data.py --all` to include them locally.
+  not mapped to spec path template parameters.  This means many ARM routes
+  will appear as *Unknown route* even when the provider shard is bundled.
+  Improving the template-matching heuristic is the primary v2 task.
 
 - **No background sync.**  
   The bundled index is a point-in-time snapshot.  There is no automatic update
-  mechanism in v1.
+  mechanism.
 
 - **Graph and non-ARM APIs.**  
   `graph.microsoft.com` is recognised as in-scope, but the bundled index currently
@@ -138,10 +178,9 @@ node apispy/tests/test_matcher.js
 
 1. **Better path template matching** — fuzzy segment matching against spec templates.
 2. **Remote artifact updates** — pull latest shards from GitHub Pages / artifact store.
-3. **Full shard bundle** — serve large shards on demand rather than bundling all.
-4. **Graph API support** — add Microsoft Graph spec shards.
-5. **Export timestamp display** — show index freshness in the panel.
-6. **Filter persistence** — remember the last-used filter across panel opens.
+3. **Graph API support** — add Microsoft Graph spec shards.
+4. **Export timestamp display** — show index freshness in the panel.
+5. **Filter persistence** — remember the last-used filter across panel opens.
 
 ---
 

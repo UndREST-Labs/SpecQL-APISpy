@@ -733,6 +733,14 @@ SAS tokens grant time-limited access to Azure resources. When control-plane APIs
 - [Azure SAS Overview](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
 - [Azure Silent Reaper Disclosure](https://cirriustech.co.uk/blog/azure-silent-reaper/)
 
+## APISpy — DevTools Browser Extension
+
+**AP👁️Spy** is a Chrome/Edge DevTools extension bundled in this repository (`apispy/`) that provides real-time observation of Azure/Microsoft API calls directly in the browser.  It classifies every outgoing request against the SpecRecon API inventory — flagging exact matches, version mismatches, and unknown routes without leaving the browser.  The extension ships with all 302 provider shards pre-bundled and supports ARM batch inspection, multi-select status filters, clipboard/CSV export, and more.
+
+Load the unpacked extension from `apispy/extension/` via **chrome://extensions → Developer mode → Load unpacked**.  See [apispy/extension/README.md](apispy/extension/README.md) for full installation and usage details.
+
+---
+
 ## References
 
 - [Azure Silent Reaper Vulnerability](https://cirriustech.co.uk/blog/azure-silent-reaper/)
