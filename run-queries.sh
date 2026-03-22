@@ -140,11 +140,18 @@ for query in "${QUERIES[@]}"; do
     echo -e "${YELLOW}► Running: $query_name${NC}"
     
     output_file="$RESULTS_PATH/${query_name}-results.sarif"
+    bqrs_file="$RESULTS_PATH/${query_name}-results.bqrs"
     
     # Run the query
     # Apply memory limit option if available (for databases with >50K JSON files)
     # Using --ram flag which is the correct CodeQL option for memory limits
     error_log="$RESULTS_PATH/${query_name}-errors.log"
+
+    # First try codeql database analyze (preferred path)
+    # Fall back to codeql query run + bqrs interpret for compatibility with
+    # CodeQL 2.23+ which has issues finalizing JavaScript-only databases that
+    # only contain JSON files (the JS extractor treats them as empty JS).
+    analyze_success=false
     if codeql database analyze "$DATABASE_PATH" \
         "$QUERIES_PATH/$query" \
         --format=sarif-latest \
@@ -153,16 +160,64 @@ for query in "${QUERIES[@]}"; do
         $MEMORY_OPTION \
         --rerun 2>"$error_log"; then
         
-        # Count issues found
-        if [ -f "$output_file" ]; then
-            issues=$(grep -o '"ruleId":' "$output_file" | wc -l 2>/dev/null || echo "0")
-            total_issues=$((total_issues + issues))
-            
-            if [ "$issues" -gt 0 ]; then
-                echo -e "  ${RED}✗ Found $issues issue(s)${NC}"
+        # Check if we actually got results (CodeQL 2.23+ may produce empty SARIF for JSON-only DBs)
+        issues_from_analyze=$(grep -o '"ruleId":' "$output_file" 2>/dev/null | wc -l || echo "0")
+        issues_from_analyze=$(echo "$issues_from_analyze" | tr -d '[:space:]')
+        if [ "${issues_from_analyze}" -gt 0 ] 2>/dev/null; then
+            analyze_success=true
+        else
+            echo -e "  ${YELLOW}⚠ database analyze returned 0 results — trying query run fallback${NC}"
+        fi
+    fi
+
+    if [ "$analyze_success" = "false" ]; then
+        # Fallback: use codeql query run + bqrs interpret
+        # This works even when database analyze fails due to CodeQL 2.23+ JSON compatibility issues
+        echo -e "  ${YELLOW}Using codeql query run (CodeQL 2.23+ compatibility mode)...${NC}"
+        if codeql query run \
+            --database="$DATABASE_PATH" \
+            --output="$bqrs_file" \
+            $SEARCH_PATH \
+            $MEMORY_OPTION \
+            "$QUERIES_PATH/$query" 2>>"$error_log"; then
+
+            # Get query metadata for SARIF interpretation
+            QUERY_ID=$(grep '@id' "$QUERIES_PATH/$query" | head -1 | sed 's/.*@id //')
+            QUERY_NAME=$(grep '@name' "$QUERIES_PATH/$query" | head -1 | sed 's/.*@name //')
+            QUERY_KIND=$(grep '@kind' "$QUERIES_PATH/$query" | head -1 | sed 's/.*@kind //')
+
+            if codeql bqrs interpret \
+                --format=sarif-latest \
+                --output="$output_file" \
+                -t "kind=${QUERY_KIND:-problem}" \
+                -t "id=${QUERY_ID:-unknown}" \
+                -t "name=${QUERY_NAME:-Security Query}" \
+                -t "problem.severity=error" \
+                "$bqrs_file" 2>>"$error_log"; then
+                echo -e "  ${GREEN}✓ Query run and SARIF generated${NC}"
             else
-                echo -e "  ${GREEN}✓ No issues found${NC}"
+                echo -e "  ${YELLOW}⚠ SARIF generation failed${NC}"
+                if [ -f "$error_log" ] && [ -s "$error_log" ]; then
+                    cat "$error_log" | head -10
+                fi
             fi
+        else
+            echo -e "  ${YELLOW}⚠ Query run failed${NC}"
+            if [ -f "$error_log" ] && [ -s "$error_log" ]; then
+                cat "$error_log" | head -10
+            fi
+        fi
+    fi
+
+    if [ -f "$output_file" ]; then
+        issues=$(grep -o '"ruleId":' "$output_file" | wc -l 2>/dev/null || echo "0")
+        issues=$(echo "$issues" | tr -d '[:space:]')
+        total_issues=$((total_issues + issues))
+        
+        if [ "${issues}" -gt 0 ] 2>/dev/null; then
+            echo -e "  ${RED}✗ Found ${issues} issue(s)${NC}"
+        else
+            echo -e "  ${GREEN}✓ No issues found${NC}"
         fi
     else
         echo -e "  ${YELLOW}⚠ Query completed with warnings/errors${NC}"

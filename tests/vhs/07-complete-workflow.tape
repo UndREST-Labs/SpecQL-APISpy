@@ -12,6 +12,10 @@ Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
 Hide
+Type "export PATH=\"/opt/hostedtoolcache/CodeQL/2.24.3/x64/codeql:$PATH\""
+Enter 1
+Type "export CODEQL_DIST=\"/opt/hostedtoolcache/CodeQL/2.24.3/x64/codeql\""
+Enter 1
 Type "cd /home/runner/work/SpecRecon/SpecRecon"
 Enter 1
 Show
@@ -20,7 +24,7 @@ Type "python3 refresh_database.py --path specification/logic --skip-db-build"
 Enter 1
 Sleep 8s
 
-Type "python3 analyze.py"
+Type "python3 analyze.py --source azure-rest-api-specs/specification/logic"
 Enter 1
 Sleep 8s
 

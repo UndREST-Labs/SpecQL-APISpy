@@ -151,7 +151,7 @@ TEMP_JSON=$(cat "$SARIF_FILE" | jq -r '
 .priority = (
     if (.file | test("Microsoft\\.Storage/.*(blob|queue|file|table)")) and (.file | test("resource-manager|management")) then
         "CRITICAL"
-    elif (.file | test("Microsoft\\.Logic/.*workflows")) and (.operation | test("run|trigger|callback")) then
+    elif (.file | test("Microsoft\\.Logic"; "i")) and (.operation | test("Workflow|workflow|callback|Callback|run|trigger"; "")) then
         "CRITICAL"
     elif (.file | test("resource-manager|management")) and (.file | test("Microsoft\\.(Compute|KeyVault|Web|Storage)")) then
         "HIGH"
