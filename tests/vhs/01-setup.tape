@@ -12,15 +12,17 @@ Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
 Hide
+Type "rm -rf /tmp/SpecRecon"
+Enter 1
 Type "cd /tmp"
 Enter 1
 Show
 
-Type "git clone https://github.com/SpeQLSec/SpeQL.git"
+Type "git clone https://github.com/SpecRecon/SpecRecon.git"
 Enter 1
 Sleep 3s
 
-Type "cd SpeQL"
+Type "cd SpecRecon"
 Enter 1
 Sleep 500ms
 
