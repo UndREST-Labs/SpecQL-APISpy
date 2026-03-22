@@ -16,6 +16,6 @@ Type "cd /home/runner/work/SpecRecon/SpecRecon"
 Enter 1
 Show
 
-Type "python3 refresh_database.py --path specification/logic --skip-db-build"
+Type "python3 refresh_database.py --path specification/logic"
 Enter 1
-Sleep 15s
+Sleep 30s
