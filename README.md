@@ -1,6 +1,13 @@
-# SpeQL - API Spec Query Analyser
+# SpecRecon — API Spec & Request Reconnaissance Suite
 
-SpeQL is an API Spec Query Analyser that uses CodeQL to analyze API specifications. Currently supporting the Azure REST API, SpeQL is designed to identify APIs that might be vulnerable to SilentReaper. A SilentReaper vulnerability is characterized by emitting a SAS URI in API responses, which becomes dangerous when there is improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
+**SpecRecon** is a suite of API spec and API request reconnaissance tools. It helps security researchers and developers discover, analyse, and monitor Azure REST API behaviour — both statically (through spec analysis) and dynamically (through live request observation in the browser).
+
+The suite currently consists of two components:
+
+- **SpeQL** — an API Spec Query Analyser that uses CodeQL and a built-in Python analyzer to scan Azure REST API specifications for security vulnerabilities such as SilentReaper patterns, Key Vault misconfigurations, missing access control, and exposed credentials.
+- **APISpy** — a Chrome/Edge DevTools browser extension that observes live Azure/Microsoft API requests in real time, classifying each one against the SpecRecon inventory to surface exact matches, version mismatches, and unknown routes.
+
+> **SilentReaper** is a vulnerability class characterized by an API emitting a SAS URI in its response, which becomes dangerous when combined with improper RBAC or inadequate control/data plane isolation.
 
 ## Table of Contents
 
@@ -21,7 +28,7 @@ SpeQL is an API Spec Query Analyser that uses CodeQL to analyze API specificatio
 
 ## Quick Start with CLI Menu
 
-SpeQL now includes an interactive command-line menu system for easy navigation and execution of all available actions:
+The SpeQL component includes an interactive command-line menu system for easy navigation and execution of all available actions:
 
 ```bash
 # Install dependencies (only pyfiglet needed for the CLI)
@@ -68,17 +75,30 @@ python3 refresh_database.py
 
 ## Components Overview
 
-SpeQL is composed of several integrated components. The table below provides a brief introduction to each; detailed documentation follows in the sections below.
+SpecRecon is composed of two main components, each with its own set of tools and scripts. The table below provides a brief introduction; detailed documentation follows in the sections below.
 
-| Component | Entry Point | Description |
-|-----------|-------------|-------------|
+### SpeQL — API Spec Query Analyser
+
+SpeQL analyses the Azure REST API spec corpus for security vulnerabilities. It currently supports the Azure REST API and is designed to identify APIs that might be vulnerable to SilentReaper and related vulnerability classes.
+
+| Tool | Entry Point | Description |
+|------|-------------|-------------|
 | **Interactive CLI** | `SpeQL.py` | Menu-driven interface providing access to all SpeQL actions — security analysis, database management, CodeQL queries, SARIF tools, and setup |
 | **Python Security Analyzer** | `analyze.py` | Standalone scanner for Azure REST API specs; no CodeQL required; detects SilentReaper patterns, Key Vault misconfigurations, missing access control, and hardcoded credentials |
 | **CodeQL Query** | `queries/azure-security/SasUriInResponse.ql` | Advanced static analysis query that detects Azure SAS tokens exposed in API example responses — the defining characteristic of SilentReaper vulnerabilities |
 | **Database Refresh Scripts** | `refresh-database.sh` · `refresh_database.py` | Clone and build a CodeQL database from the Azure REST API spec corpus, with options to target specific Azure services |
 | **SARIF Analysis Tools** | `scripts/sarif-analysis/` | Shell scripts for deduplicating, parsing, and prioritizing CodeQL findings from SARIF output files |
-| **Export Pipeline** | `scripts/export/export_api_inventory.py` | Walks the spec corpus and produces a JSON index of every Azure REST API operation in flat and grouped/sharded formats, suitable for tools like APISpy |
-| **APISpy DevTools Extension** | `apispy/extension/` | Chrome/Edge DevTools panel that classifies live Azure API requests against the SpecRecon inventory in real time |
+| **Export Pipeline** | `scripts/export/export_api_inventory.py` | Walks the spec corpus and produces a JSON index of every Azure REST API operation in flat and grouped/sharded formats, consumed by APISpy |
+
+### APISpy — DevTools Browser Extension
+
+APISpy provides dynamic, real-time observation of live API requests from within the browser, complementing SpeQL's static spec analysis.
+
+| Tool | Entry Point | Description |
+|------|-------------|-------------|
+| **DevTools Extension** | `apispy/extension/` | Chrome/Edge DevTools panel that classifies live Azure API requests against the SpecRecon inventory — surfacing exact matches, version mismatches, and unknown routes |
+| **Shard Bundler** | `apispy/scripts/prepare_data.py` | Re-bundles provider shards from a SpecRecon export zip into the extension's `data/` directory |
+| **Unit Tests** | `apispy/tests/` | Node.js unit tests for the extension's filters, normalizer, and matcher modules |
 
 Each component is introduced briefly above and covered in detail in the sections that follow.
 

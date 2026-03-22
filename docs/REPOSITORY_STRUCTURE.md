@@ -1,6 +1,8 @@
 # Repository Structure Guide
 
-This document describes the organization of the SpeQL repository.
+This document describes the organization of the SpecRecon repository.
+
+SpecRecon is a suite of API spec and API request reconnaissance tools. The two current components are **SpeQL** (API Spec Query Analyser) and **APISpy** (DevTools browser extension).
 
 ## Root Directory
 
