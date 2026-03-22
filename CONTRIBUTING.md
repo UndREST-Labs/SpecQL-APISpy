@@ -1,8 +1,11 @@
-# Contributing to SpeQL
+# Contributing to SpecRecon
 
-Thank you for your interest in contributing to SpeQL! This guide will help you add new security queries and improve the tool.
+Thank you for your interest in contributing to SpecRecon! This guide will help you add new security queries and improve the tool.
 
-SpeQL is an API Spec Query Analyser that currently supports the Azure REST API and is designed to identify APIs that might be vulnerable to SilentReaper. A SilentReaper vulnerability is characterized by emitting a SAS URI in API responses, which becomes dangerous when there is improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
+SpecRecon is a suite of API spec and API request reconnaissance tools. It currently consists of two components:
+
+- **SpeQL** — an API Spec Query Analyser that supports the Azure REST API and identifies APIs that might be vulnerable to SilentReaper and related vulnerability classes. A SilentReaper vulnerability is characterized by emitting a SAS URI in API responses, which becomes dangerous when there is improper RBAC (Role-Based Access Control) or inadequate control/data plane isolation.
+- **APISpy** — a Chrome/Edge DevTools extension that observes and classifies live Azure/Microsoft API requests against the SpecRecon inventory in real time.
 
 ## 🎯 Ways to Contribute
 
