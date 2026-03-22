@@ -12,10 +12,6 @@ Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
 Hide
-Type "export PATH=\"/opt/hostedtoolcache/CodeQL/2.24.3/x64/codeql:$PATH\""
-Enter 1
-Type "export CODEQL_DIST=\"/opt/hostedtoolcache/CodeQL/2.24.3/x64/codeql\""
-Enter 1
 Type "cd /home/runner/work/SpecRecon/SpecRecon"
 Enter 1
 Show

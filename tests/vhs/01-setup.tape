@@ -12,12 +12,6 @@ Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
 Hide
-Type "export PATH=\"/opt/hostedtoolcache/CodeQL/2.24.3/x64/codeql:$PATH\""
-Enter 1
-Type "git config --global credential.helper store"
-Enter 1
-Type "echo \"https://x-access-token:${GITHUB_TOKEN}@github.com\" > ~/.git-credentials"
-Enter 1
 Type "rm -rf /tmp/SpecRecon"
 Enter 1
 Type "cd /tmp"
