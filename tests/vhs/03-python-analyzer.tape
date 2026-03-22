@@ -12,7 +12,7 @@ Set TypingSpeed 80ms
 Set WindowBar ColorfulRight
 
 Hide
-Type "cd /home/runner/work/SpeQL/SpeQL"
+Type "cd /home/runner/work/SpecRecon/SpecRecon"
 Enter 1
 Show
 
