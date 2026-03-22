@@ -101,7 +101,7 @@ The full request URL is shown as a clickable link in the detail panel and is inc
 ### Find in Network
 
 The **Find in Network** button in the detail panel toolbar copies the request URL to the clipboard and displays guidance:  
-> *URL copied — open the Network panel, press Ctrl/Cmd+F and paste to locate this entry.*
+> *URL copied — open the Network panel, press Ctrl+F (Windows/Linux) or Cmd+F (macOS) and paste to locate this entry.*
 
 ### Shard load error surfacing
 
