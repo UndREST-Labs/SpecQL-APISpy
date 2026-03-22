@@ -34,10 +34,15 @@ SpeQL/
 │   ├── CODEQL_WORKFLOW.md
 │   ├── DATABASE_REFRESH.md
 │   ├── EXAMPLE_OUTPUT.md
+│   ├── MEMORY_MANAGEMENT.md
 │   ├── QUICKSTART.md
 │   ├── QUICK_REFERENCE.md
 │   ├── REPOSITORY_STRUCTURE.md
-│   └── SARIF_ANALYSIS_QUICKSTART.md
+│   ├── SARIF_ANALYSIS_QUICKSTART.md
+│   └── inventory/       # Export format and consumer documentation
+│       ├── API_INDEX_SCHEMA.md
+│       ├── CONSUMER_GUIDE.md
+│       └── EXPORT_PIPELINE.md
 ├── inventory/           # SpecRecon export artifacts (generated, not tracked)
 │   └── api-index-sharded-<run-id>.zip
 ├── queries/             # CodeQL security queries
@@ -46,6 +51,9 @@ SpeQL/
 │       ├── qlpack.yml
 │       └── codeql-pack.lock.yml
 ├── scripts/             # Analysis scripts
+│   ├── export/          # API inventory export pipeline
+│   │   ├── export_api_inventory.py   # Produces api-index.json and grouped/sharded variants
+│   │   └── normalize_api_inventory.py
 │   └── sarif-analysis/  # SARIF processing and threat hunting tools
 ├── database/            # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/    # Not tracked in Git (generated)
@@ -99,5 +107,14 @@ SpeQL/
 - [docs/EXAMPLE_OUTPUT.md](EXAMPLE_OUTPUT.md) - Sample output
 - [docs/SARIF_ANALYSIS_QUICKSTART.md](SARIF_ANALYSIS_QUICKSTART.md) - SARIF tools
 
+### Export Pipeline and API Inventory
+- [docs/inventory/EXPORT_PIPELINE.md](inventory/EXPORT_PIPELINE.md) - How to run the export
+- [docs/inventory/API_INDEX_SCHEMA.md](inventory/API_INDEX_SCHEMA.md) - Schema reference
+- [docs/inventory/CONSUMER_GUIDE.md](inventory/CONSUMER_GUIDE.md) - Consuming the index
+
+### APISpy DevTools Extension
+- [apispy/extension/README.md](../apispy/extension/README.md) - Extension installation and usage
+
 ### Reference
 - [docs/QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Command reference
+- [docs/MEMORY_MANAGEMENT.md](MEMORY_MANAGEMENT.md) - CodeQL memory management
