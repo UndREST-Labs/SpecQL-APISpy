@@ -14,6 +14,15 @@ const ALL_STATUSES = Object.freeze([
   "out_of_scope",
 ]);
 
+const DEFAULT_DETAIL_HEIGHT = 220; // px
+
+/** CSV column headers (must match entryToCsvRow order). */
+const CSV_HEADER = [
+  "Time", "Batch Sub", "Batch Name", "Method", "Host", "Path",
+  "Normalised Path", "api-version", "Status", "Reason",
+  "Provider Namespace", "Matched Route", "Available Versions", "Shard", "Load Error",
+].join(",");
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 const state = {
@@ -27,37 +36,62 @@ const state = {
   activeFilters: new Set(ALL_STATUSES),
   /** @type {number|null} Index of the selected row (for detail panel). */
   selectedIdx: null,
+  /** @type {boolean} Whether newly added rows should be scrolled into view. */
+  autoscroll: true,
+  /** @type {number} Current height of the detail panel in px. */
+  detailHeight: DEFAULT_DETAIL_HEIGHT,
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
-const tbody        = document.getElementById("request-tbody");
-const statusText   = document.getElementById("status-text");
-const requestCount = document.getElementById("request-count");
-const filterGroup  = document.getElementById("filter-group");
-const btnClear     = document.getElementById("btn-clear");
-const emptyState   = document.getElementById("empty-state");
-const detailPanel  = document.getElementById("detail-panel");
-const detailClose  = document.getElementById("detail-close");
-const detailFields = document.getElementById("detail-fields");
-const detailHeading = document.getElementById("detail-heading");
+const tbody          = document.getElementById("request-tbody");
+const statusText     = document.getElementById("status-text");
+const requestCount   = document.getElementById("request-count");
+const filterGroup    = document.getElementById("filter-group");
+const btnClear       = document.getElementById("btn-clear");
+const btnAutoscroll  = document.getElementById("btn-autoscroll");
+const btnCopyAll     = document.getElementById("btn-copy-all");
+const btnCsv         = document.getElementById("btn-csv");
+const emptyState     = document.getElementById("empty-state");
+const detailPanel    = document.getElementById("detail-panel");
+const detailResizer  = document.getElementById("detail-resizer");
+const detailClose    = document.getElementById("detail-close");
+const detailCopy     = document.getElementById("detail-copy");
+const detailFields   = document.getElementById("detail-fields");
+const detailHeading  = document.getElementById("detail-heading");
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 
 async function init() {
-  setStatus("Loading index…");
+  setStatus("Loading index...");
 
   try {
     const meta = await Loader.getSourceMetadata();
     const providers = await Loader.listBundledProviders();
     const stamp = meta.generated_at ? new Date(meta.generated_at).toLocaleDateString() : "unknown";
-    setStatus("Ready — " + providers.length + " providers bundled (export " + stamp + ")");
+    setStatus(providers.length + " providers bundled (export " + stamp + ")");
   } catch (err) {
-    setStatus("⚠️ Failed to load data manifest: " + err.message);
+    setStatus("Failed to load data manifest: " + err.message);
   }
 
+  updateTbodyHeight();
   attachNetworkObserver();
   attachUIListeners();
+}
+
+// ── Layout / sizing ───────────────────────────────────────────────────────────
+
+/**
+ * Recalculate and apply the tbody height so it fills the space above the
+ * detail panel (or all remaining space when the panel is hidden).
+ */
+function updateTbodyHeight() {
+  const toolbarEl = document.querySelector(".toolbar");
+  const theadEl   = document.querySelector(".request-table thead");
+  const toolbarH  = toolbarEl ? toolbarEl.offsetHeight : 42;
+  const theadH    = theadEl   ? theadEl.offsetHeight   : 28;
+  const detailH   = detailPanel.classList.contains("hidden") ? 0 : state.detailHeight;
+  tbody.style.height = Math.max(60, window.innerHeight - toolbarH - theadH - detailH) + "px";
 }
 
 // ── Network observation ───────────────────────────────────────────────────────
@@ -221,6 +255,10 @@ function renderRow(entry, idx) {
   tr.addEventListener("keydown", (e) => { if (e.key === "Enter") selectRow(idx, tr); });
   tbody.appendChild(tr);
 
+  if (state.autoscroll) {
+    tbody.scrollTop = tbody.scrollHeight;
+  }
+
   toggleEmptyState();
 }
 
@@ -238,7 +276,7 @@ function batchPathCell(entry) {
   const safe = escHtml(entry.pathname);
   if (entry.isBatchSub) {
     const name = entry.batchName != null ? " [" + escHtml(entry.batchName) + "]" : "";
-    return `<td class="col-path" title="${safe}"><span class="batch-sub-indicator">↳</span>${safe}${name}</td>`;
+    return `<td class="col-path" title="${safe}"><span class="batch-sub-indicator">&#x21B3;</span>${safe}${name}</td>`;
   }
   return `<td class="col-path" title="${safe}">${safe}</td>`;
 }
@@ -294,7 +332,7 @@ function selectRow(idx, tr) {
 
 function showDetail(entry) {
   const r = entry.result;
-  const heading = (entry.isBatchSub ? "↳ [batch] " : "") + entry.method + " " + entry.host + entry.pathname;
+  const heading = (entry.isBatchSub ? "[batch] " : "") + entry.method + " " + entry.host + entry.pathname;
   detailHeading.textContent = heading;
   detailFields.innerHTML = "";
 
@@ -305,13 +343,13 @@ function showDetail(entry) {
     ["Host",                entry.host],
     ["Path",                entry.pathname],
     ["Normalised path",     entry.normPath],
-    ["api-version",         entry.apiVersion || "—"],
+    ["api-version",         entry.apiVersion || ""],
     ["Status",              r.label || r.status, "status-text"],
-    ["Provider namespace",  r.provider_namespace || "—"],
-    ["Matched route",       r.matched_route_key || "—"],
-    ["Available versions",  (r.matched_versions && r.matched_versions.join(", ")) || "—"],
-    ["Shard / source",      r.shard_name || "—"],
-    ["Reason",              r.reason || "—"],
+    ["Provider namespace",  r.provider_namespace || ""],
+    ["Matched route",       r.matched_route_key || ""],
+    ["Available versions",  (r.matched_versions && r.matched_versions.join(", ")) || ""],
+    ["Shard / source",      r.shard_name || ""],
+    ["Reason",              r.reason || ""],
     ...(r.error ? [["Load error", r.error, "load-error"]] : []),
   ];
 
@@ -325,13 +363,16 @@ function showDetail(entry) {
     detailFields.appendChild(dd);
   });
 
+  detailPanel.style.height = state.detailHeight + "px";
   detailPanel.classList.remove("hidden");
+  updateTbodyHeight();
 }
 
 function closeDetail() {
   detailPanel.classList.add("hidden");
   tbody.querySelectorAll("tr.selected").forEach((r) => r.classList.remove("selected"));
   state.selectedIdx = null;
+  updateTbodyHeight();
 }
 
 // ── Filtering ─────────────────────────────────────────────────────────────────
@@ -345,6 +386,168 @@ function passesFilter(entry) {
   return state.activeFilters.has(entry.result.status);
 }
 
+// ── Clipboard / export ────────────────────────────────────────────────────────
+
+/**
+ * Write text to the clipboard using the Clipboard API with an execCommand fallback.
+ * @param {string} text
+ */
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => execCommandCopy(text));
+  } else {
+    execCommandCopy(text);
+  }
+}
+
+function execCommandCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch (_) {}
+  document.body.removeChild(ta);
+}
+
+/**
+ * Build a CSV row for a single entry.  All fields are double-quoted.
+ * @param {RequestEntry} entry
+ * @returns {string}
+ */
+function entryToCsvRow(entry) {
+  const r = entry.result;
+  const cols = [
+    entry.time,
+    entry.isBatchSub ? "yes" : "no",
+    entry.batchName || "",
+    entry.method,
+    entry.host,
+    entry.pathname,
+    entry.normPath,
+    entry.apiVersion || "",
+    r.status,
+    r.reason || "",
+    r.provider_namespace || "",
+    r.matched_route_key || "",
+    (r.matched_versions && r.matched_versions.join("; ")) || "",
+    r.shard_name || "",
+    r.error || "",
+  ];
+  return cols.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(",");
+}
+
+/** Copy all currently visible rows as tab-separated text. */
+function copyAllVisible() {
+  const headerCols = [
+    "Time", "Batch Sub", "Batch Name", "Method", "Host", "Path",
+    "Normalised Path", "api-version", "Status", "Reason",
+    "Provider Namespace", "Matched Route", "Available Versions", "Shard", "Load Error",
+  ];
+  const visible = state.requests.filter((e) => passesFilter(e));
+  const rows = [headerCols.join("\t")];
+  visible.forEach((e) => {
+    const r = e.result;
+    rows.push([
+      e.time,
+      e.isBatchSub ? "yes" : "no",
+      e.batchName || "",
+      e.method,
+      e.host,
+      e.pathname,
+      e.normPath,
+      e.apiVersion || "",
+      r.status,
+      r.reason || "",
+      r.provider_namespace || "",
+      r.matched_route_key || "",
+      (r.matched_versions && r.matched_versions.join("; ")) || "",
+      r.shard_name || "",
+      r.error || "",
+    ].join("\t"));
+  });
+  copyToClipboard(rows.join("\n"));
+}
+
+/** Copy the selected entry's detail as plain text. */
+function copyEntryDetail(entry) {
+  const r = entry.result;
+  const lines = [
+    "Time: "               + entry.time,
+    "Method: "             + entry.method,
+    "Host: "               + entry.host,
+    "Path: "               + entry.pathname,
+    "Normalised Path: "    + entry.normPath,
+    "api-version: "        + (entry.apiVersion || ""),
+    "Status: "             + (r.label || r.status),
+    "Reason: "             + (r.reason || ""),
+    "Provider Namespace: " + (r.provider_namespace || ""),
+    "Matched Route: "      + (r.matched_route_key || ""),
+    "Available Versions: " + ((r.matched_versions && r.matched_versions.join(", ")) || ""),
+    "Shard: "              + (r.shard_name || ""),
+  ];
+  if (entry.isBatchSub) {
+    lines.splice(1, 0, "Batch Sub-Request: " + (entry.batchName != null ? "#" + entry.batchName : "yes"));
+  }
+  if (r.error) {
+    lines.push("Load Error: " + r.error);
+  }
+  copyToClipboard(lines.join("\n"));
+}
+
+/** Trigger a CSV download of all requests. */
+function saveCSV() {
+  if (state.requests.length === 0) return;
+  const lines = [CSV_HEADER];
+  state.requests.forEach((e) => lines.push(entryToCsvRow(e)));
+  const csv = lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const ts   = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+  a.href     = url;
+  a.download = "apispy-" + ts + ".csv";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Draggable detail panel resize ────────────────────────────────────────────
+
+function attachDetailResizer() {
+  detailResizer.addEventListener("mousedown", (e) => {
+    const startY = e.clientY;
+    const startH = state.detailHeight;
+
+    detailResizer.classList.add("dragging");
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+
+    function onMouseMove(ev) {
+      const delta = startY - ev.clientY; // drag up = taller
+      const minH = 80;
+      const maxH = Math.floor(window.innerHeight * 0.8);
+      state.detailHeight = Math.min(maxH, Math.max(minH, startH + delta));
+      detailPanel.style.height = state.detailHeight + "px";
+      updateTbodyHeight();
+    }
+
+    function onMouseUp() {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      detailResizer.classList.remove("dragging");
+    }
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    e.preventDefault();
+  });
+}
+
 // ── UI event listeners ────────────────────────────────────────────────────────
 
 function attachUIListeners() {
@@ -355,7 +558,7 @@ function attachUIListeners() {
     const status = btn.dataset.status;
 
     if (status === "all") {
-      // Reset — activate all individual status filters
+      // Reset: activate all individual status filters
       ALL_STATUSES.forEach((s) => state.activeFilters.add(s));
       filterGroup.querySelectorAll(".filter-btn[data-status]").forEach((b) => b.classList.add("active"));
     } else {
@@ -376,6 +579,19 @@ function attachUIListeners() {
     rerender();
   });
 
+  // Autoscroll toggle
+  btnAutoscroll.addEventListener("click", () => {
+    state.autoscroll = !state.autoscroll;
+    btnAutoscroll.classList.toggle("active", state.autoscroll);
+  });
+
+  // Copy all visible rows
+  btnCopyAll.addEventListener("click", copyAllVisible);
+
+  // Save CSV
+  btnCsv.addEventListener("click", saveCSV);
+
+  // Clear
   btnClear.addEventListener("click", () => {
     state.requests = [];
     state.selectedIdx = null;
@@ -385,7 +601,19 @@ function attachUIListeners() {
     toggleEmptyState();
   });
 
+  // Detail panel buttons
   detailClose.addEventListener("click", closeDetail);
+  detailCopy.addEventListener("click", () => {
+    if (state.selectedIdx != null && state.requests[state.selectedIdx]) {
+      copyEntryDetail(state.requests[state.selectedIdx]);
+    }
+  });
+
+  // Draggable resize handle
+  attachDetailResizer();
+
+  // Keep layout correct when the DevTools window is resized
+  window.addEventListener("resize", updateTbodyHeight);
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

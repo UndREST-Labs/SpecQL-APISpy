@@ -33,7 +33,7 @@
     [STATUS.ROUTE_MISMATCH]:          "⚠️ Version mismatch",
     [STATUS.PROVIDER_KNOWN_NO_ROUTE]: "🔶 Unknown route",
     [STATUS.NO_SPEC_MATCH]:           "❌ No spec match",
-    [STATUS.OUT_OF_SCOPE]:            "— Out of scope",
+    [STATUS.OUT_OF_SCOPE]:            "Out of scope",
   });
 
   /**

@@ -14,18 +14,21 @@
       <span class="filter-label">Show:</span>
       <div id="filter-group" class="filter-group" role="group" aria-label="Filter by status">
         <button class="filter-btn active" data-status="all" title="Show all statuses">All</button>
-        <button class="filter-btn active" data-status="exact_match" title="Exact match">✅ Exact</button>
-        <button class="filter-btn active" data-status="route_match_version_mismatch" title="Version mismatch">⚠️ Version</button>
-        <button class="filter-btn active" data-status="provider_known_route_unknown" title="Unknown route">🔶 Route</button>
-        <button class="filter-btn active" data-status="no_spec_match" title="No spec match">❌ No match</button>
-        <button class="filter-btn active" data-status="out_of_scope" title="Out of scope">— Scope</button>
+        <button class="filter-btn active" data-status="exact_match" title="Exact match">&#x2705; Exact</button>
+        <button class="filter-btn active" data-status="route_match_version_mismatch" title="Version mismatch">&#x26A0;&#xFE0F; Version</button>
+        <button class="filter-btn active" data-status="provider_known_route_unknown" title="Unknown route">&#x1F536; Route</button>
+        <button class="filter-btn active" data-status="no_spec_match" title="No spec match">&#x274C; No match</button>
+        <button class="filter-btn active" data-status="out_of_scope" title="Out of scope">Scope</button>
       </div>
 
+      <button id="btn-autoscroll" class="btn-toggle active" title="Auto-scroll to newest request (click to toggle)">Scroll</button>
+      <button id="btn-copy-all" title="Copy all visible rows to clipboard">Copy list</button>
+      <button id="btn-csv" title="Save all results to CSV file">Save CSV</button>
       <button id="btn-clear" title="Clear all observed requests">Clear</button>
     </div>
 
     <div class="status-bar">
-      <span id="status-text">Initialising…</span>
+      <span id="status-text">Initialising...</span>
       <span id="request-count" class="count-badge">0</span>
     </div>
   </header>
@@ -53,8 +56,12 @@
     </div>
 
     <section id="detail-panel" class="detail-panel hidden" aria-live="polite">
-      <button id="detail-close" class="detail-close" title="Close detail">&times;</button>
-      <h2 id="detail-heading">Request detail</h2>
+      <div id="detail-resizer" class="detail-resizer" title="Drag to resize panel"></div>
+      <div class="detail-toolbar">
+        <h2 id="detail-heading">Request detail</h2>
+        <button id="detail-copy" class="detail-action-btn" title="Copy entry to clipboard">Copy</button>
+        <button id="detail-close" class="detail-close" title="Close detail">&times;</button>
+      </div>
       <dl id="detail-fields" class="detail-fields"></dl>
     </section>
   </main>
