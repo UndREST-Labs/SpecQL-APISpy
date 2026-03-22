@@ -60,6 +60,7 @@ const detailPanel    = document.getElementById("detail-panel");
 const detailResizer  = document.getElementById("detail-resizer");
 const detailClose    = document.getElementById("detail-close");
 const detailCopy     = document.getElementById("detail-copy");
+const detailNetwork  = document.getElementById("detail-find-network");
 const detailFields   = document.getElementById("detail-fields");
 const detailHeading  = document.getElementById("detail-heading");
 
@@ -330,6 +331,24 @@ function updateCountBadge() {
 
 function setStatus(msg) {
   statusText.textContent = msg;
+}
+
+/** Temporarily show a message in the status bar, then restore the previous text. */
+let _flashTimer = null;
+let _flashBaseText = null;
+function flashStatus(msg, durationMs) {
+  // Capture the base text only on the first call (not mid-flash).
+  if (!_flashTimer) {
+    _flashBaseText = statusText.textContent;
+  } else {
+    clearTimeout(_flashTimer);
+  }
+  statusText.textContent = msg;
+  _flashTimer = setTimeout(() => {
+    statusText.textContent = _flashBaseText;
+    _flashTimer = null;
+    _flashBaseText = null;
+  }, durationMs || 3000);
 }
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
@@ -632,6 +651,18 @@ function attachUIListeners() {
   detailCopy.addEventListener("click", () => {
     if (state.selectedIdx != null && state.requests[state.selectedIdx]) {
       copyEntryDetail(state.requests[state.selectedIdx]);
+    }
+  });
+  detailNetwork.addEventListener("click", () => {
+    if (state.selectedIdx != null && state.requests[state.selectedIdx]) {
+      const url = state.requests[state.selectedIdx].url;
+      if (url) {
+        copyToClipboard(url);
+        flashStatus(
+          "URL copied \u2014 open the Network panel, press Ctrl/Cmd+F and paste to locate this entry",
+          4000
+        );
+      }
     }
   });
 
