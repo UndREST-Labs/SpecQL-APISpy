@@ -423,6 +423,22 @@ main {
   font-family: var(--font-mono);
 }
 
+.detail-fields dd.url-field {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-fields dd.url-field a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.detail-fields dd.url-field a:hover {
+  text-decoration: underline;
+}
+
 /* ── Batch sub-request rows ──────────────────────────── */
 .batch-sub {
   background: #1e1e3a !important;

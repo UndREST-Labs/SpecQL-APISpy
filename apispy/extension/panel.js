@@ -5,20 +5,23 @@
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** All known result status values — used to drive the multi-select filter. */
+/**
+ * All status values that can appear in the table.
+ * `out_of_scope` and requests with no inferred provider are never recorded,
+ * so only provider-matched statuses are listed here.
+ */
 const ALL_STATUSES = Object.freeze([
   "exact_match",
   "route_match_version_mismatch",
   "provider_known_route_unknown",
   "no_spec_match",
-  "out_of_scope",
 ]);
 
 const DEFAULT_DETAIL_HEIGHT = 220; // px
 
 /** CSV column headers (must match entryToCsvRow order). */
 const CSV_HEADER = [
-  "Time", "Batch Sub", "Batch Name", "Method", "Host", "Path",
+  "Time", "URL", "Batch Sub", "Batch Name", "Method", "Host", "Path",
   "Normalised Path", "api-version", "Status", "Reason",
   "Provider Namespace", "Matched Route", "Available Versions", "Shard", "Load Error",
 ].join(",");
@@ -112,11 +115,16 @@ async function onRequestFinished(req) {
   const scope = Filters.classifyScope(url);
   const norm = Normalizer.normalise(url, method);
   const entry = await buildEntry(req, norm, scope);
-  state.requests.push(entry);
-  renderRow(entry, state.requests.length - 1);
-  updateCountBadge();
 
-  // Expand ARM batch requests: classify each sub-request independently.
+  // Only record entries where a provider namespace was identified; skip
+  // out-of-scope hosts and paths with no /providers/ segment entirely.
+  if (entry.result.provider_namespace !== null) {
+    state.requests.push(entry);
+    renderRow(entry, state.requests.length - 1);
+    updateCountBadge();
+  }
+
+  // Always expand ARM batch requests even if the parent row was filtered out.
   if (Filters.isBatchRequest(url, method)) {
     await expandBatchSubRequests(req);
   }
@@ -156,6 +164,8 @@ async function expandBatchSubRequests(req) {
     entry.isBatchSub = true;
     entry.batchName  = sub.name != null ? String(sub.name) : null;
 
+    if (entry.result.provider_namespace === null) continue;
+
     state.requests.push(entry);
     renderRow(entry, state.requests.length - 1);
     updateCountBadge();
@@ -166,6 +176,7 @@ async function expandBatchSubRequests(req) {
  * @typedef {object} RequestEntry
  * @property {number}  idx
  * @property {string}  time
+ * @property {string|null} url  Full original request URL (for deep-linking).
  * @property {string}  method
  * @property {string}  host
  * @property {string}  pathname
@@ -214,6 +225,7 @@ async function buildEntry(req, norm, scope) {
   return {
     idx,
     time,
+    url:        (req.request && req.request.url) || null,
     method:     norm.ok ? norm.method : (req.request && req.request.method || "?").toUpperCase(),
     host:       norm.ok ? norm.host : "?",
     pathname:   norm.ok ? norm.pathname : "?",
@@ -336,7 +348,9 @@ function showDetail(entry) {
   detailHeading.textContent = heading;
   detailFields.innerHTML = "";
 
+  // Fields: [label, value, cssClass?, isLink?]
   const fields = [
+    ["URL",                 entry.url || "",                             "url-field", true],
     ["Time",                entry.time],
     ...(entry.isBatchSub ? [["Batch sub-request", entry.batchName != null ? "#" + entry.batchName : "yes"]] : []),
     ["Method",              entry.method],
@@ -353,11 +367,20 @@ function showDetail(entry) {
     ...(r.error ? [["Load error", r.error, "load-error"]] : []),
   ];
 
-  fields.forEach(([label, value, extraClass]) => {
+  fields.forEach(([label, value, extraClass, isLink]) => {
     const dt = document.createElement("dt");
     dt.textContent = label;
     const dd = document.createElement("dd");
-    dd.textContent = value;
+    if (isLink && value) {
+      const a = document.createElement("a");
+      a.href = value;
+      a.textContent = value;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      dd.appendChild(a);
+    } else {
+      dd.textContent = value;
+    }
     if (extraClass) dd.classList.add(extraClass);
     detailFields.appendChild(dt);
     detailFields.appendChild(dd);
@@ -419,6 +442,7 @@ function entryToCsvRow(entry) {
   const r = entry.result;
   const cols = [
     entry.time,
+    entry.url || "",
     entry.isBatchSub ? "yes" : "no",
     entry.batchName || "",
     entry.method,
@@ -440,7 +464,7 @@ function entryToCsvRow(entry) {
 /** Copy all currently visible rows as tab-separated text. */
 function copyAllVisible() {
   const headerCols = [
-    "Time", "Batch Sub", "Batch Name", "Method", "Host", "Path",
+    "Time", "URL", "Batch Sub", "Batch Name", "Method", "Host", "Path",
     "Normalised Path", "api-version", "Status", "Reason",
     "Provider Namespace", "Matched Route", "Available Versions", "Shard", "Load Error",
   ];
@@ -450,6 +474,7 @@ function copyAllVisible() {
     const r = e.result;
     rows.push([
       e.time,
+      e.url || "",
       e.isBatchSub ? "yes" : "no",
       e.batchName || "",
       e.method,
@@ -473,6 +498,7 @@ function copyAllVisible() {
 function copyEntryDetail(entry) {
   const r = entry.result;
   const lines = [
+    "URL: "                + (entry.url || ""),
     "Time: "               + entry.time,
     "Method: "             + entry.method,
     "Host: "               + entry.host,
@@ -487,7 +513,7 @@ function copyEntryDetail(entry) {
     "Shard: "              + (r.shard_name || ""),
   ];
   if (entry.isBatchSub) {
-    lines.splice(1, 0, "Batch Sub-Request: " + (entry.batchName != null ? "#" + entry.batchName : "yes"));
+    lines.splice(2, 0, "Batch Sub-Request: " + (entry.batchName != null ? "#" + entry.batchName : "yes"));
   }
   if (r.error) {
     lines.push("Load Error: " + r.error);
