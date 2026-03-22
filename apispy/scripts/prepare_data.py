@@ -4,14 +4,15 @@ prepare_data.py — Populate apispy/extension/data/ from the SpecRecon inventory
 
 Usage
 ─────
-  python3 apispy/scripts/prepare_data.py [--all] [--zip PATH] [--out DIR]
+  python3 apispy/scripts/prepare_data.py [--zip PATH] [--out DIR] [--size-limit KB]
 
 Options
-  --all        Include ALL shards (default: only shards ≤ 50 KB minified)
-  --zip PATH   Path to the sharded inventory zip
-               (default: auto-detected from inventory/)
-  --out DIR    Output directory for data/shards/
-               (default: apispy/extension/data/)
+  --zip PATH        Path to the sharded inventory zip
+                    (default: auto-detected from inventory/)
+  --out DIR         Output directory for data/shards/
+                    (default: apispy/extension/data/)
+  --size-limit KB   Only bundle shards up to this size in KB
+                    (default: no limit — all shards are included)
 
 This script is intended to be run from the repository root.
 It does NOT modify any existing SpecRecon export code.
@@ -27,7 +28,6 @@ from typing import List, Optional, Tuple
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_OUT = os.path.join(REPO_ROOT, "apispy", "extension", "data")
-DEFAULT_SIZE_LIMIT = 50_000  # bytes (minified)
 
 
 def find_sharded_zip(inventory_dir: str) -> str:
@@ -126,8 +126,7 @@ def write_manifest(out_dir: str, bundled: list, skipped: list, zip_path: str) ->
         "total_bundled_shards": len(bundled),
         "total_skipped_shards": len(skipped),
         "note_skipped": (
-            "Shards exceeding the size threshold were omitted. "
-            "Re-run with --all to include all shards."
+            "Shards that could not be parsed were omitted."
         ),
         "shards": sorted(bundled, key=lambda s: s["provider_namespace"].lower()),
         "skipped_shards": sorted(s["filename"] for s in skipped),
@@ -141,7 +140,8 @@ def write_manifest(out_dir: str, bundled: list, skipped: list, zip_path: str) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--all", action="store_true", help="Include all shards regardless of size")
+    parser.add_argument("--size-limit", metavar="KB", type=int, default=None,
+                        help="Only bundle shards up to this size in KB (default: no limit)")
     parser.add_argument("--zip", metavar="PATH", help="Path to sharded inventory zip")
     parser.add_argument("--out", metavar="DIR", default=DEFAULT_OUT, help="Output data directory")
     args = parser.parse_args()
@@ -151,11 +151,11 @@ def main() -> None:
     print(f"Source zip:  {zip_path}")
     print(f"Output dir:  {args.out}")
 
-    size_limit = None if args.all else DEFAULT_SIZE_LIMIT
+    size_limit = args.size_limit * 1024 if args.size_limit else None
     if size_limit:
-        print(f"Size limit:  {size_limit // 1024} KB per shard (use --all to override)")
+        print(f"Size limit:  {args.size_limit} KB per shard")
     else:
-        print("Size limit:  none (--all specified)")
+        print("Size limit:  none (all shards included)")
 
     bundled, skipped = extract_shards(zip_path, args.out, size_limit)
     print(f"\n  ✅ Bundled {len(bundled)} shards")

@@ -3,13 +3,28 @@
 
 "use strict";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** All known result status values — used to drive the multi-select filter. */
+const ALL_STATUSES = Object.freeze([
+  "exact_match",
+  "route_match_version_mismatch",
+  "provider_known_route_unknown",
+  "no_spec_match",
+  "out_of_scope",
+]);
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 const state = {
   /** @type {Array<RequestEntry>} All observed requests. */
   requests: [],
-  /** @type {string} Active filter key. */
-  filter: "all",
+  /**
+   * Set of status values currently visible.
+   * An entry is shown when its status is in this set.
+   * @type {Set<string>}
+   */
+  activeFilters: new Set(ALL_STATUSES),
   /** @type {number|null} Index of the selected row (for detail panel). */
   selectedIdx: null,
 };
@@ -19,7 +34,7 @@ const state = {
 const tbody        = document.getElementById("request-tbody");
 const statusText   = document.getElementById("status-text");
 const requestCount = document.getElementById("request-count");
-const filterSelect = document.getElementById("filter-select");
+const filterGroup  = document.getElementById("filter-group");
 const btnClear     = document.getElementById("btn-clear");
 const emptyState   = document.getElementById("empty-state");
 const detailPanel  = document.getElementById("detail-panel");
@@ -66,6 +81,51 @@ async function onRequestFinished(req) {
   state.requests.push(entry);
   renderRow(entry, state.requests.length - 1);
   updateCountBadge();
+
+  // Expand ARM batch requests: classify each sub-request independently.
+  if (Filters.isBatchRequest(url, method)) {
+    await expandBatchSubRequests(req);
+  }
+}
+
+/**
+ * Parse an ARM batch request body and add a row for each contained sub-request.
+ * Sub-request bodies are read from req.request.postData.text.
+ * @param {object} req  HAR-style request object.
+ */
+async function expandBatchSubRequests(req) {
+  const bodyText = req.request && req.request.postData && req.request.postData.text;
+  if (!bodyText) return;
+
+  let body;
+  try {
+    body = JSON.parse(bodyText);
+  } catch (_) {
+    return;
+  }
+
+  const subRequests = Array.isArray(body.requests) ? body.requests : [];
+  for (const sub of subRequests) {
+    const subUrl    = sub.url    || sub.Url    || sub.URL;
+    const subMethod = sub.httpMethod || sub.method || "GET";
+    if (!subUrl) continue;
+
+    // Build a minimal synthetic HAR-like object so buildEntry can process it.
+    const syntheticReq = {
+      startedDateTime: req.startedDateTime,
+      request: { url: subUrl, method: subMethod, postData: null },
+    };
+
+    const scope = Filters.classifyScope(subUrl);
+    const norm  = Normalizer.normalise(subUrl, subMethod);
+    const entry = await buildEntry(syntheticReq, norm, scope);
+    entry.isBatchSub = true;
+    entry.batchName  = sub.name != null ? String(sub.name) : null;
+
+    state.requests.push(entry);
+    renderRow(entry, state.requests.length - 1);
+    updateCountBadge();
+  }
 }
 
 /**
@@ -76,6 +136,8 @@ async function onRequestFinished(req) {
  * @property {string}  host
  * @property {string}  pathname
  * @property {string|null} apiVersion
+ * @property {boolean} [isBatchSub]  True when this row originated from a batch sub-request.
+ * @property {string|null} [batchName]  Name/index of the sub-request within the batch.
  * @property {object}  norm
  * @property {object}  result
  * @property {object}  raw
@@ -144,12 +206,13 @@ function renderRow(entry, idx) {
   tr.setAttribute("role", "button");
   tr.setAttribute("tabindex", "0");
   tr.setAttribute("aria-label", entry.method + " " + entry.pathname);
+  if (entry.isBatchSub) tr.classList.add("batch-sub");
 
   tr.innerHTML = [
     cell(entry.time,                              "col-time"),
     methodCell(entry.method),
     cell(entry.host,                              "col-host"),
-    cell(entry.pathname,                          "col-path"),
+    batchPathCell(entry),
     cell(entry.apiVersion || "",                  "col-version"),
     statusCell(entry.result),
   ].join("");
@@ -164,6 +227,20 @@ function renderRow(entry, idx) {
 function cell(text, cls) {
   const safe = escHtml(text);
   return `<td class="${cls}" title="${safe}">${safe}</td>`;
+}
+
+/**
+ * Render the path cell, prefixing batch sub-requests with a visual indicator.
+ * @param {RequestEntry} entry
+ * @returns {string}
+ */
+function batchPathCell(entry) {
+  const safe = escHtml(entry.pathname);
+  if (entry.isBatchSub) {
+    const name = entry.batchName != null ? " [" + escHtml(entry.batchName) + "]" : "";
+    return `<td class="col-path" title="${safe}"><span class="batch-sub-indicator">↳</span>${safe}${name}</td>`;
+  }
+  return `<td class="col-path" title="${safe}">${safe}</td>`;
 }
 
 function methodCell(method) {
@@ -217,11 +294,13 @@ function selectRow(idx, tr) {
 
 function showDetail(entry) {
   const r = entry.result;
-  detailHeading.textContent = entry.method + " " + entry.host + entry.pathname;
+  const heading = (entry.isBatchSub ? "↳ [batch] " : "") + entry.method + " " + entry.host + entry.pathname;
+  detailHeading.textContent = heading;
   detailFields.innerHTML = "";
 
   const fields = [
     ["Time",                entry.time],
+    ...(entry.isBatchSub ? [["Batch sub-request", entry.batchName != null ? "#" + entry.batchName : "yes"]] : []),
     ["Method",              entry.method],
     ["Host",                entry.host],
     ["Path",                entry.pathname],
@@ -258,20 +337,42 @@ function closeDetail() {
 // ── Filtering ─────────────────────────────────────────────────────────────────
 
 /**
- * Returns true if the entry should be shown given the current filter.
+ * Returns true if the entry should be shown given the current active filters.
  * @param {RequestEntry} entry
  * @returns {boolean}
  */
 function passesFilter(entry) {
-  if (state.filter === "all") return true;
-  return entry.result.status === state.filter;
+  return state.activeFilters.has(entry.result.status);
 }
 
 // ── UI event listeners ────────────────────────────────────────────────────────
 
 function attachUIListeners() {
-  filterSelect.addEventListener("change", () => {
-    state.filter = filterSelect.value;
+  // Multi-select filter toggle buttons
+  filterGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-btn[data-status]");
+    if (!btn) return;
+    const status = btn.dataset.status;
+
+    if (status === "all") {
+      // Reset — activate all individual status filters
+      ALL_STATUSES.forEach((s) => state.activeFilters.add(s));
+      filterGroup.querySelectorAll(".filter-btn[data-status]").forEach((b) => b.classList.add("active"));
+    } else {
+      // Toggle the clicked status
+      if (state.activeFilters.has(status)) {
+        state.activeFilters.delete(status);
+        btn.classList.remove("active");
+      } else {
+        state.activeFilters.add(status);
+        btn.classList.add("active");
+      }
+      // Keep the "All" button highlighted only when every status is active
+      const allBtn = filterGroup.querySelector(".filter-btn[data-status='all']");
+      if (allBtn) {
+        allBtn.classList.toggle("active", state.activeFilters.size === ALL_STATUSES.length);
+      }
+    }
     rerender();
   });
 

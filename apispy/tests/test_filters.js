@@ -53,6 +53,18 @@ const badUrl = Filters.classifyScope("not-a-url");
 assert(badUrl.inScope === false,         "bad URL → inScope=false");
 assert(badUrl.reason === "unparseable_url", "bad URL → reason=unparseable_url");
 
+console.log("\n=== Filters.isBatchRequest ===");
+assert(Filters.isBatchRequest("https://management.azure.com/batch?api-version=2020-06-01", "POST"),
+  "ARM batch URL + POST → true");
+assert(!Filters.isBatchRequest("https://management.azure.com/batch?api-version=2020-06-01", "GET"),
+  "ARM batch URL + GET → false");
+assert(!Filters.isBatchRequest("https://management.azure.com/subscriptions/abc", "POST"),
+  "non-batch path → false");
+assert(!Filters.isBatchRequest("https://example.com/batch", "POST"),
+  "wrong host → false");
+assert(!Filters.isBatchRequest("", "POST"),
+  "empty URL → false");
+
 // Summary
 console.log(`\nFilters: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

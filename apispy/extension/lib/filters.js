@@ -92,11 +92,32 @@
     return { inScope: false, reason: "not_azure_microsoft" };
   }
 
+  /**
+   * Returns true if this is an ARM batch request (POST to management.azure.com/batch).
+   * When detected, the request body should be inspected to extract sub-requests.
+   * @param {string} url     Full request URL.
+   * @param {string} method  HTTP method.
+   * @returns {boolean}
+   */
+  function isBatchRequest(url, method) {
+    if (!url || (method || "").toUpperCase() !== "POST") return false;
+    try {
+      const parsed = new URL(url);
+      return (
+        parsed.hostname.toLowerCase() === "management.azure.com" &&
+        parsed.pathname === "/batch"
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
   // Export
   exports.Filters = {
     isInScopeHost,
     isInScopePath,
     classifyScope,
+    isBatchRequest,
     // Expose lists for testing / extension
     EXACT_HOSTS,
     HOST_SUFFIXES,

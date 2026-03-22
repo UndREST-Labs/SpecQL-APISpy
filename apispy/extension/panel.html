@@ -11,15 +11,15 @@
     <span class="brand-sub">SpecRecon DevTools</span>
 
     <div class="toolbar-controls">
-      <label for="filter-select">Filter:</label>
-      <select id="filter-select">
-        <option value="all">All</option>
-        <option value="exact_match">Exact matches</option>
-        <option value="route_match_version_mismatch">Version mismatch</option>
-        <option value="provider_known_route_unknown">Unknown route</option>
-        <option value="no_spec_match">No spec match</option>
-        <option value="out_of_scope">Out of scope</option>
-      </select>
+      <span class="filter-label">Show:</span>
+      <div id="filter-group" class="filter-group" role="group" aria-label="Filter by status">
+        <button class="filter-btn active" data-status="all" title="Show all statuses">All</button>
+        <button class="filter-btn active" data-status="exact_match" title="Exact match">✅ Exact</button>
+        <button class="filter-btn active" data-status="route_match_version_mismatch" title="Version mismatch">⚠️ Version</button>
+        <button class="filter-btn active" data-status="provider_known_route_unknown" title="Unknown route">🔶 Route</button>
+        <button class="filter-btn active" data-status="no_spec_match" title="No spec match">❌ No match</button>
+        <button class="filter-btn active" data-status="out_of_scope" title="Out of scope">— Scope</button>
+      </div>
 
       <button id="btn-clear" title="Clear all observed requests">Clear</button>
     </div>

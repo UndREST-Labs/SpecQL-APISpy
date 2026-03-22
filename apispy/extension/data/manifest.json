@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0.0",
   "description": "APISpy bundled shard manifest \u2014 generated from SpecRecon export",
+  "source_zip": "api-index-sharded-23390552485.zip",
   "source_metadata": {
     "generated_at": "2026-03-21T22:51:41Z",
     "source_repo": "Azure/azure-rest-api-specs",
@@ -9,9 +10,9 @@
     "tool_name": "SpecRecon",
     "schema_version": "3.0.0"
   },
-  "total_bundled_shards": 169,
-  "total_skipped_shards": 133,
-  "note_skipped": "Shards >50 KB were omitted from this bundle. Run apispy/scripts/prepare_data.py to include them.",
+  "total_bundled_shards": 302,
+  "total_skipped_shards": 0,
+  "note_skipped": "Shards that could not be parsed were omitted.",
   "shards": [
     {
       "filename": "ArizeAi.ObservabilityEval.min.json",
@@ -113,6 +114,33 @@
       "size_bytes": 5371
     },
     {
+      "filename": "Microsoft.ADHybridHealthService.min.json",
+      "provider_namespace": "Microsoft.ADHybridHealthService",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 77,
+      "size_bytes": 54951
+    },
+    {
+      "filename": "Microsoft.Advisor.min.json",
+      "provider_namespace": "Microsoft.Advisor",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 37,
+      "size_bytes": 64700
+    },
+    {
+      "filename": "Microsoft.AgFoodPlatform.min.json",
+      "provider_namespace": "Microsoft.AgFoodPlatform",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 52,
+      "size_bytes": 50294
+    },
+    {
       "filename": "Microsoft.AgriculturePlatform.min.json",
       "provider_namespace": "Microsoft.AgriculturePlatform",
       "hosts": [
@@ -120,6 +148,15 @@
       ],
       "route_count": 8,
       "size_bytes": 6833
+    },
+    {
+      "filename": "Microsoft.AlertsManagement.min.json",
+      "provider_namespace": "Microsoft.AlertsManagement",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 58,
+      "size_bytes": 55774
     },
     {
       "filename": "microsoft.AlertsManagement.min.json",
@@ -149,6 +186,33 @@
       "size_bytes": 23529
     },
     {
+      "filename": "Microsoft.ApiCenter.min.json",
+      "provider_namespace": "Microsoft.ApiCenter",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 54,
+      "size_bytes": 67458
+    },
+    {
+      "filename": "Microsoft.ApiManagement.min.json",
+      "provider_namespace": "Microsoft.ApiManagement",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 732,
+      "size_bytes": 2742078
+    },
+    {
+      "filename": "Microsoft.App.min.json",
+      "provider_namespace": "Microsoft.App",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 222,
+      "size_bytes": 621678
+    },
+    {
       "filename": "Microsoft.AppComplianceAutomation.min.json",
       "provider_namespace": "Microsoft.AppComplianceAutomation",
       "hosts": [
@@ -156,6 +220,15 @@
       ],
       "route_count": 34,
       "size_bytes": 25102
+    },
+    {
+      "filename": "Microsoft.AppConfiguration.min.json",
+      "provider_namespace": "Microsoft.AppConfiguration",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 33,
+      "size_bytes": 122560
     },
     {
       "filename": "Microsoft.AppLink.min.json",
@@ -167,6 +240,15 @@
       "size_bytes": 10794
     },
     {
+      "filename": "Microsoft.AppPlatform.min.json",
+      "provider_namespace": "Microsoft.AppPlatform",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 183,
+      "size_bytes": 669846
+    },
+    {
       "filename": "Microsoft.Attestation.min.json",
       "provider_namespace": "Microsoft.Attestation",
       "hosts": [
@@ -174,6 +256,16 @@
       ],
       "route_count": 14,
       "size_bytes": 20022
+    },
+    {
+      "filename": "Microsoft.Authorization.min.json",
+      "provider_namespace": "Microsoft.Authorization",
+      "hosts": [
+        "unknown",
+        "management.azure.com"
+      ],
+      "route_count": 228,
+      "size_bytes": 360167
     },
     {
       "filename": "Microsoft.Automanage.min.json",
@@ -185,6 +277,33 @@
       "size_bytes": 29420
     },
     {
+      "filename": "Microsoft.Automation.min.json",
+      "provider_namespace": "Microsoft.Automation",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 197,
+      "size_bytes": 360057
+    },
+    {
+      "filename": "Microsoft.AVS.min.json",
+      "provider_namespace": "Microsoft.AVS",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 125,
+      "size_bytes": 252084
+    },
+    {
+      "filename": "Microsoft.AwsConnector.min.json",
+      "provider_namespace": "Microsoft.AwsConnector",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 671,
+      "size_bytes": 500072
+    },
+    {
       "filename": "Microsoft.AzureActiveDirectory.min.json",
       "provider_namespace": "Microsoft.AzureActiveDirectory",
       "hosts": [
@@ -192,6 +311,15 @@
       ],
       "route_count": 21,
       "size_bytes": 27234
+    },
+    {
+      "filename": "Microsoft.AzureArcData.min.json",
+      "provider_namespace": "Microsoft.AzureArcData",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 74,
+      "size_bytes": 165736
     },
     {
       "filename": "Microsoft.AzureBridge.min.json",
@@ -210,6 +338,15 @@
       ],
       "route_count": 11,
       "size_bytes": 11928
+    },
+    {
+      "filename": "Microsoft.AzureDataTransfer.min.json",
+      "provider_namespace": "Microsoft.AzureDataTransfer",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 46,
+      "size_bytes": 111741
     },
     {
       "filename": "Microsoft.AzureFleet.min.json",
@@ -257,6 +394,15 @@
       "size_bytes": 36299
     },
     {
+      "filename": "Microsoft.AzureStackHCI.min.json",
+      "provider_namespace": "Microsoft.AzureStackHCI",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 274,
+      "size_bytes": 756886
+    },
+    {
       "filename": "Microsoft.AzureStackHci.min.json",
       "provider_namespace": "Microsoft.AzureStackHci",
       "hosts": [
@@ -293,6 +439,24 @@
       "size_bytes": 30388
     },
     {
+      "filename": "Microsoft.Batch.min.json",
+      "provider_namespace": "Microsoft.Batch",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 57,
+      "size_bytes": 189493
+    },
+    {
+      "filename": "Microsoft.Billing.min.json",
+      "provider_namespace": "Microsoft.Billing",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 409,
+      "size_bytes": 432885
+    },
+    {
       "filename": "microsoft.Billing.min.json",
       "provider_namespace": "microsoft.Billing",
       "hosts": [
@@ -300,6 +464,15 @@
       ],
       "route_count": 17,
       "size_bytes": 15858
+    },
+    {
+      "filename": "Microsoft.BillingBenefits.min.json",
+      "provider_namespace": "Microsoft.BillingBenefits",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 67,
+      "size_bytes": 79803
     },
     {
       "filename": "microsoft.BillingBenefits.min.json",
@@ -320,6 +493,33 @@
       "size_bytes": 17785
     },
     {
+      "filename": "Microsoft.BotService.min.json",
+      "provider_namespace": "Microsoft.BotService",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 46,
+      "size_bytes": 74491
+    },
+    {
+      "filename": "Microsoft.Cache.min.json",
+      "provider_namespace": "Microsoft.Cache",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 105,
+      "size_bytes": 279874
+    },
+    {
+      "filename": "Microsoft.Capacity.min.json",
+      "provider_namespace": "Microsoft.Capacity",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 36,
+      "size_bytes": 67959
+    },
+    {
       "filename": "microsoft.Capacity.min.json",
       "provider_namespace": "microsoft.Capacity",
       "hosts": [
@@ -338,6 +538,24 @@
       "size_bytes": 2096
     },
     {
+      "filename": "Microsoft.Cdn.min.json",
+      "provider_namespace": "Microsoft.Cdn",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 182,
+      "size_bytes": 558788
+    },
+    {
+      "filename": "Microsoft.CertificateRegistration.min.json",
+      "provider_namespace": "Microsoft.CertificateRegistration",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 31,
+      "size_bytes": 133246
+    },
+    {
       "filename": "Microsoft.ChangeAnalysis.min.json",
       "provider_namespace": "Microsoft.ChangeAnalysis",
       "hosts": [
@@ -345,6 +563,15 @@
       ],
       "route_count": 9,
       "size_bytes": 7669
+    },
+    {
+      "filename": "Microsoft.Chaos.min.json",
+      "provider_namespace": "Microsoft.Chaos",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 45,
+      "size_bytes": 94970
     },
     {
       "filename": "Microsoft.CloudHealth.min.json",
@@ -365,6 +592,15 @@
       "size_bytes": 16771
     },
     {
+      "filename": "Microsoft.CognitiveServices.min.json",
+      "provider_namespace": "Microsoft.CognitiveServices",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 144,
+      "size_bytes": 373832
+    },
+    {
       "filename": "Microsoft.Commerce.min.json",
       "provider_namespace": "Microsoft.Commerce",
       "hosts": [
@@ -374,6 +610,15 @@
       "size_bytes": 3560
     },
     {
+      "filename": "Microsoft.Communication.min.json",
+      "provider_namespace": "Microsoft.Communication",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 42,
+      "size_bytes": 122161
+    },
+    {
       "filename": "Microsoft.Community.min.json",
       "provider_namespace": "Microsoft.Community",
       "hosts": [
@@ -381,6 +626,24 @@
       ],
       "route_count": 7,
       "size_bytes": 5609
+    },
+    {
+      "filename": "Microsoft.Compute.min.json",
+      "provider_namespace": "Microsoft.Compute",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 412,
+      "size_bytes": 1461484
+    },
+    {
+      "filename": "microsoft.Compute.min.json",
+      "provider_namespace": "microsoft.Compute",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 7,
+      "size_bytes": 75715
     },
     {
       "filename": "microsoft.compute.min.json",
@@ -410,6 +673,15 @@
       "size_bytes": 6895
     },
     {
+      "filename": "Microsoft.ComputeSchedule.min.json",
+      "provider_namespace": "Microsoft.ComputeSchedule",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 34,
+      "size_bytes": 54746
+    },
+    {
       "filename": "Microsoft.ConfidentialLedger.min.json",
       "provider_namespace": "Microsoft.ConfidentialLedger",
       "hosts": [
@@ -419,6 +691,15 @@
       "size_bytes": 42372
     },
     {
+      "filename": "Microsoft.Confluent.min.json",
+      "provider_namespace": "Microsoft.Confluent",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 43,
+      "size_bytes": 74985
+    },
+    {
       "filename": "Microsoft.ConnectedCache.min.json",
       "provider_namespace": "Microsoft.ConnectedCache",
       "hosts": [
@@ -426,6 +707,51 @@
       ],
       "route_count": 43,
       "size_bytes": 44572
+    },
+    {
+      "filename": "Microsoft.ConnectedVMwarevSphere.min.json",
+      "provider_namespace": "Microsoft.ConnectedVMwarevSphere",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 99,
+      "size_bytes": 163505
+    },
+    {
+      "filename": "Microsoft.Consumption.min.json",
+      "provider_namespace": "Microsoft.Consumption",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 39,
+      "size_bytes": 75816
+    },
+    {
+      "filename": "Microsoft.ContainerInstance.min.json",
+      "provider_namespace": "Microsoft.ContainerInstance",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 36,
+      "size_bytes": 116687
+    },
+    {
+      "filename": "Microsoft.ContainerRegistry.min.json",
+      "provider_namespace": "Microsoft.ContainerRegistry",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 121,
+      "size_bytes": 426829
+    },
+    {
+      "filename": "Microsoft.ContainerService.min.json",
+      "provider_namespace": "Microsoft.ContainerService",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 177,
+      "size_bytes": 1569696
     },
     {
       "filename": "microsoft.ContainerService.min.json",
@@ -455,6 +781,24 @@
       "size_bytes": 6705
     },
     {
+      "filename": "Microsoft.CostManagement.min.json",
+      "provider_namespace": "Microsoft.CostManagement",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 107,
+      "size_bytes": 234836
+    },
+    {
+      "filename": "Microsoft.CustomerInsights.min.json",
+      "provider_namespace": "Microsoft.CustomerInsights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 66,
+      "size_bytes": 69555
+    },
+    {
       "filename": "Microsoft.CustomerLockbox.min.json",
       "provider_namespace": "Microsoft.CustomerLockbox",
       "hosts": [
@@ -471,6 +815,15 @@
       ],
       "route_count": 11,
       "size_bytes": 8538
+    },
+    {
+      "filename": "Microsoft.Dashboard.min.json",
+      "provider_namespace": "Microsoft.Dashboard",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 36,
+      "size_bytes": 68861
     },
     {
       "filename": "Microsoft.DatabaseFleetManager.min.json",
@@ -491,6 +844,33 @@
       "size_bytes": 33886
     },
     {
+      "filename": "Microsoft.DataBox.min.json",
+      "provider_namespace": "Microsoft.DataBox",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 19,
+      "size_bytes": 72309
+    },
+    {
+      "filename": "Microsoft.DataBoxEdge.min.json",
+      "provider_namespace": "Microsoft.DataBoxEdge",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 85,
+      "size_bytes": 323765
+    },
+    {
+      "filename": "Microsoft.Databricks.min.json",
+      "provider_namespace": "Microsoft.Databricks",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 24,
+      "size_bytes": 69998
+    },
+    {
       "filename": "Microsoft.DataCatalog.min.json",
       "provider_namespace": "Microsoft.DataCatalog",
       "hosts": [
@@ -498,6 +878,24 @@
       ],
       "route_count": 6,
       "size_bytes": 4742
+    },
+    {
+      "filename": "Microsoft.Datadog.min.json",
+      "provider_namespace": "Microsoft.Datadog",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 36,
+      "size_bytes": 86739
+    },
+    {
+      "filename": "Microsoft.DataFactory.min.json",
+      "provider_namespace": "Microsoft.DataFactory",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 104,
+      "size_bytes": 98869
     },
     {
       "filename": "microsoft.DataFactory.min.json",
@@ -527,6 +925,51 @@
       "size_bytes": 25478
     },
     {
+      "filename": "Microsoft.DataMigration.min.json",
+      "provider_namespace": "Microsoft.DataMigration",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 58,
+      "size_bytes": 167231
+    },
+    {
+      "filename": "Microsoft.DataProtection.min.json",
+      "provider_namespace": "Microsoft.DataProtection",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 77,
+      "size_bytes": 525977
+    },
+    {
+      "filename": "Microsoft.DataReplication.min.json",
+      "provider_namespace": "Microsoft.DataReplication",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 62,
+      "size_bytes": 68442
+    },
+    {
+      "filename": "Microsoft.DataShare.min.json",
+      "provider_namespace": "Microsoft.DataShare",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 53,
+      "size_bytes": 90256
+    },
+    {
+      "filename": "Microsoft.DBforMariaDB.min.json",
+      "provider_namespace": "Microsoft.DBforMariaDB",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 60,
+      "size_bytes": 67098
+    },
+    {
       "filename": "Microsoft.DBForMySql.min.json",
       "provider_namespace": "Microsoft.DBForMySql",
       "hosts": [
@@ -534,6 +977,33 @@
       ],
       "route_count": 30,
       "size_bytes": 31046
+    },
+    {
+      "filename": "Microsoft.DBforMySQL.min.json",
+      "provider_namespace": "Microsoft.DBforMySQL",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 131,
+      "size_bytes": 256059
+    },
+    {
+      "filename": "Microsoft.DBForPostgreSql.min.json",
+      "provider_namespace": "Microsoft.DBForPostgreSql",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 52,
+      "size_bytes": 53371
+    },
+    {
+      "filename": "Microsoft.DBforPostgreSQL.min.json",
+      "provider_namespace": "Microsoft.DBforPostgreSQL",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 193,
+      "size_bytes": 345722
     },
     {
       "filename": "Microsoft.DelegatedNetwork.min.json",
@@ -563,6 +1033,24 @@
       "size_bytes": 23005
     },
     {
+      "filename": "Microsoft.DesktopVirtualization.min.json",
+      "provider_namespace": "Microsoft.DesktopVirtualization",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 107,
+      "size_bytes": 711797
+    },
+    {
+      "filename": "Microsoft.DevCenter.min.json",
+      "provider_namespace": "Microsoft.DevCenter",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 149,
+      "size_bytes": 522156
+    },
+    {
       "filename": "Microsoft.DevHub.min.json",
       "provider_namespace": "Microsoft.DevHub",
       "hosts": [
@@ -570,6 +1058,24 @@
       ],
       "route_count": 28,
       "size_bytes": 36399
+    },
+    {
+      "filename": "Microsoft.DeviceRegistry.min.json",
+      "provider_namespace": "Microsoft.DeviceRegistry",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 84,
+      "size_bytes": 151931
+    },
+    {
+      "filename": "Microsoft.Devices.min.json",
+      "provider_namespace": "Microsoft.Devices",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 61,
+      "size_bytes": 309027
     },
     {
       "filename": "Microsoft.DeviceUpdate.min.json",
@@ -608,6 +1114,15 @@
       "size_bytes": 6794
     },
     {
+      "filename": "Microsoft.DevTestLab.min.json",
+      "provider_namespace": "Microsoft.DevTestLab",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 138,
+      "size_bytes": 142620
+    },
+    {
       "filename": "Microsoft.DigitalTwins.min.json",
       "provider_namespace": "Microsoft.DigitalTwins",
       "hosts": [
@@ -615,6 +1130,33 @@
       ],
       "route_count": 22,
       "size_bytes": 44286
+    },
+    {
+      "filename": "Microsoft.Discovery.min.json",
+      "provider_namespace": "Microsoft.Discovery",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 63,
+      "size_bytes": 50570
+    },
+    {
+      "filename": "Microsoft.DocumentDB.min.json",
+      "provider_namespace": "Microsoft.DocumentDB",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 393,
+      "size_bytes": 2328322
+    },
+    {
+      "filename": "Microsoft.DomainRegistration.min.json",
+      "provider_namespace": "Microsoft.DomainRegistration",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 22,
+      "size_bytes": 94111
     },
     {
       "filename": "Microsoft.DurableTask.min.json",
@@ -651,6 +1193,15 @@
       ],
       "route_count": 13,
       "size_bytes": 12044
+    },
+    {
+      "filename": "Microsoft.Edge.min.json",
+      "provider_namespace": "Microsoft.Edge",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 165,
+      "size_bytes": 166446
     },
     {
       "filename": "Microsoft.EdgeMarketplace.min.json",
@@ -698,6 +1249,24 @@
       "size_bytes": 3142
     },
     {
+      "filename": "Microsoft.Elastic.min.json",
+      "provider_namespace": "Microsoft.Elastic",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 45,
+      "size_bytes": 158993
+    },
+    {
+      "filename": "Microsoft.ElasticSan.min.json",
+      "provider_namespace": "Microsoft.ElasticSan",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 31,
+      "size_bytes": 59674
+    },
+    {
       "filename": "Microsoft.EngagementFabric.min.json",
       "provider_namespace": "Microsoft.EngagementFabric",
       "hosts": [
@@ -716,6 +1285,15 @@
       "size_bytes": 6038
     },
     {
+      "filename": "Microsoft.EventGrid.min.json",
+      "provider_namespace": "Microsoft.EventGrid",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 186,
+      "size_bytes": 606807
+    },
+    {
       "filename": "microsoft.EventGrid.min.json",
       "provider_namespace": "microsoft.EventGrid",
       "hosts": [
@@ -725,6 +1303,15 @@
       "size_bytes": 8940
     },
     {
+      "filename": "Microsoft.EventHub.min.json",
+      "provider_namespace": "Microsoft.EventHub",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 90,
+      "size_bytes": 221785
+    },
+    {
       "filename": "Microsoft.ExtendedLocation.min.json",
       "provider_namespace": "Microsoft.ExtendedLocation",
       "hosts": [
@@ -732,6 +1319,15 @@
       ],
       "route_count": 14,
       "size_bytes": 16386
+    },
+    {
+      "filename": "Microsoft.Fabric.min.json",
+      "provider_namespace": "Microsoft.Fabric",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 77,
+      "size_bytes": 70121
     },
     {
       "filename": "Microsoft.Features.min.json",
@@ -816,6 +1412,15 @@
       "size_bytes": 39786
     },
     {
+      "filename": "Microsoft.HDInsight.min.json",
+      "provider_namespace": "Microsoft.HDInsight",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 57,
+      "size_bytes": 118891
+    },
+    {
       "filename": "Microsoft.HealthBot.min.json",
       "provider_namespace": "Microsoft.HealthBot",
       "hosts": [
@@ -823,6 +1428,15 @@
       ],
       "route_count": 14,
       "size_bytes": 24881
+    },
+    {
+      "filename": "Microsoft.HealthcareApis.min.json",
+      "provider_namespace": "Microsoft.HealthcareApis",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 51,
+      "size_bytes": 210873
     },
     {
       "filename": "Microsoft.HealthDataAIServices.min.json",
@@ -852,6 +1466,15 @@
       "size_bytes": 11235
     },
     {
+      "filename": "Microsoft.HybridCompute.min.json",
+      "provider_namespace": "Microsoft.HybridCompute",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 102,
+      "size_bytes": 399131
+    },
+    {
       "filename": "Microsoft.HybridConnectivity.min.json",
       "provider_namespace": "Microsoft.HybridConnectivity",
       "hosts": [
@@ -859,6 +1482,24 @@
       ],
       "route_count": 33,
       "size_bytes": 31404
+    },
+    {
+      "filename": "Microsoft.HybridContainerService.min.json",
+      "provider_namespace": "Microsoft.HybridContainerService",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 73,
+      "size_bytes": 81262
+    },
+    {
+      "filename": "Microsoft.HybridNetwork.min.json",
+      "provider_namespace": "Microsoft.HybridNetwork",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 114,
+      "size_bytes": 134584
     },
     {
       "filename": "Microsoft.Impact.min.json",
@@ -888,6 +1529,24 @@
       "size_bytes": 10186
     },
     {
+      "filename": "Microsoft.Insights.min.json",
+      "provider_namespace": "Microsoft.Insights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 195,
+      "size_bytes": 239504
+    },
+    {
+      "filename": "microsoft.insights.min.json",
+      "provider_namespace": "microsoft.insights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 71,
+      "size_bytes": 65414
+    },
+    {
       "filename": "Microsoft.IntegrationSpaces.min.json",
       "provider_namespace": "Microsoft.IntegrationSpaces",
       "hosts": [
@@ -915,6 +1574,24 @@
       "size_bytes": 16789
     },
     {
+      "filename": "Microsoft.IoTFirmwareDefense.min.json",
+      "provider_namespace": "Microsoft.IoTFirmwareDefense",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 40,
+      "size_bytes": 53037
+    },
+    {
+      "filename": "Microsoft.IoTOperations.min.json",
+      "provider_namespace": "Microsoft.IoTOperations",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 55,
+      "size_bytes": 109906
+    },
+    {
       "filename": "Microsoft.IoTOperationsDataProcessor.min.json",
       "provider_namespace": "Microsoft.IoTOperationsDataProcessor",
       "hosts": [
@@ -922,6 +1599,15 @@
       ],
       "route_count": 17,
       "size_bytes": 15037
+    },
+    {
+      "filename": "Microsoft.IoTOperationsMQ.min.json",
+      "provider_namespace": "Microsoft.IoTOperationsMQ",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 62,
+      "size_bytes": 54094
     },
     {
       "filename": "Microsoft.IoTOperationsOrchestrator.min.json",
@@ -933,6 +1619,15 @@
       "size_bytes": 15267
     },
     {
+      "filename": "Microsoft.KeyVault.min.json",
+      "provider_namespace": "Microsoft.KeyVault",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 51,
+      "size_bytes": 194321
+    },
+    {
       "filename": "Microsoft.Kubernetes.min.json",
       "provider_namespace": "Microsoft.Kubernetes",
       "hosts": [
@@ -940,6 +1635,15 @@
       ],
       "route_count": 15,
       "size_bytes": 36310
+    },
+    {
+      "filename": "Microsoft.KubernetesConfiguration.min.json",
+      "provider_namespace": "Microsoft.KubernetesConfiguration",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 44,
+      "size_bytes": 92331
     },
     {
       "filename": "Microsoft.KubernetesRuntime.min.json",
@@ -951,6 +1655,24 @@
       "size_bytes": 15876
     },
     {
+      "filename": "Microsoft.Kusto.min.json",
+      "provider_namespace": "Microsoft.Kusto",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 90,
+      "size_bytes": 272249
+    },
+    {
+      "filename": "Microsoft.LabServices.min.json",
+      "provider_namespace": "Microsoft.LabServices",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 95,
+      "size_bytes": 101953
+    },
+    {
       "filename": "Microsoft.LoadTestService.min.json",
       "provider_namespace": "Microsoft.LoadTestService",
       "hosts": [
@@ -960,6 +1682,24 @@
       "size_bytes": 43316
     },
     {
+      "filename": "Microsoft.Logic.min.json",
+      "provider_namespace": "Microsoft.Logic",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 119,
+      "size_bytes": 146849
+    },
+    {
+      "filename": "Microsoft.M365SecurityAndCompliance.min.json",
+      "provider_namespace": "Microsoft.M365SecurityAndCompliance",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 74,
+      "size_bytes": 77751
+    },
+    {
       "filename": "Microsoft.MachineLearning.min.json",
       "provider_namespace": "Microsoft.MachineLearning",
       "hosts": [
@@ -967,6 +1707,25 @@
       ],
       "route_count": 28,
       "size_bytes": 26162
+    },
+    {
+      "filename": "Microsoft.MachineLearningServices.min.json",
+      "provider_namespace": "Microsoft.MachineLearningServices",
+      "hosts": [
+        "unknown",
+        "management.azure.com"
+      ],
+      "route_count": 417,
+      "size_bytes": 1818386
+    },
+    {
+      "filename": "Microsoft.Maintenance.min.json",
+      "provider_namespace": "Microsoft.Maintenance",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 53,
+      "size_bytes": 103911
     },
     {
       "filename": "Microsoft.ManagedIdentity.min.json",
@@ -987,6 +1746,15 @@
       "size_bytes": 16327
     },
     {
+      "filename": "Microsoft.ManagedNetworkFabric.min.json",
+      "provider_namespace": "Microsoft.ManagedNetworkFabric",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 208,
+      "size_bytes": 290956
+    },
+    {
       "filename": "Microsoft.ManagedOps.min.json",
       "provider_namespace": "Microsoft.ManagedOps",
       "hosts": [
@@ -1003,6 +1771,15 @@
       ],
       "route_count": 14,
       "size_bytes": 26783
+    },
+    {
+      "filename": "Microsoft.Management.min.json",
+      "provider_namespace": "Microsoft.Management",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 179,
+      "size_bytes": 327852
     },
     {
       "filename": "microsoft.management.min.json",
@@ -1032,6 +1809,24 @@
       "size_bytes": 7164
     },
     {
+      "filename": "Microsoft.Maps.min.json",
+      "provider_namespace": "Microsoft.Maps",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 31,
+      "size_bytes": 58363
+    },
+    {
+      "filename": "Microsoft.Marketplace.min.json",
+      "provider_namespace": "Microsoft.Marketplace",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 67,
+      "size_bytes": 92711
+    },
+    {
       "filename": "Microsoft.MarketplaceNotifications.min.json",
       "provider_namespace": "Microsoft.MarketplaceNotifications",
       "hosts": [
@@ -1050,6 +1845,34 @@
       "size_bytes": 7793
     },
     {
+      "filename": "Microsoft.Migrate.min.json",
+      "provider_namespace": "Microsoft.Migrate",
+      "hosts": [
+        "management.azure.com",
+        "unknown"
+      ],
+      "route_count": 349,
+      "size_bytes": 511676
+    },
+    {
+      "filename": "Microsoft.Mission.min.json",
+      "provider_namespace": "Microsoft.Mission",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 67,
+      "size_bytes": 74516
+    },
+    {
+      "filename": "Microsoft.Monitor.min.json",
+      "provider_namespace": "Microsoft.Monitor",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 55,
+      "size_bytes": 61225
+    },
+    {
       "filename": "Microsoft.MySQLDiscovery.min.json",
       "provider_namespace": "Microsoft.MySQLDiscovery",
       "hosts": [
@@ -1059,6 +1882,34 @@
       "size_bytes": 13797
     },
     {
+      "filename": "Microsoft.NetApp.min.json",
+      "provider_namespace": "Microsoft.NetApp",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 192,
+      "size_bytes": 991438
+    },
+    {
+      "filename": "Microsoft.Network.min.json",
+      "provider_namespace": "Microsoft.Network",
+      "hosts": [
+        "management.azure.com",
+        "unknown"
+      ],
+      "route_count": 985,
+      "size_bytes": 6253972
+    },
+    {
+      "filename": "Microsoft.NetworkCloud.min.json",
+      "provider_namespace": "Microsoft.NetworkCloud",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 143,
+      "size_bytes": 278000
+    },
+    {
       "filename": "Microsoft.NetworkFunction.min.json",
       "provider_namespace": "Microsoft.NetworkFunction",
       "hosts": [
@@ -1066,6 +1917,24 @@
       ],
       "route_count": 12,
       "size_bytes": 19408
+    },
+    {
+      "filename": "Microsoft.NotificationHubs.min.json",
+      "provider_namespace": "Microsoft.NotificationHubs",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 51,
+      "size_bytes": 80425
+    },
+    {
+      "filename": "Microsoft.OffAzure.min.json",
+      "provider_namespace": "Microsoft.OffAzure",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 255,
+      "size_bytes": 388635
     },
     {
       "filename": "Microsoft.OffAzureSpringBoot.min.json",
@@ -1095,6 +1964,15 @@
       "size_bytes": 10556
     },
     {
+      "filename": "Microsoft.OperationalInsights.min.json",
+      "provider_namespace": "Microsoft.OperationalInsights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 295,
+      "size_bytes": 1504359
+    },
+    {
       "filename": "Microsoft.OperationsManagement.min.json",
       "provider_namespace": "Microsoft.OperationsManagement",
       "hosts": [
@@ -1111,6 +1989,24 @@
       ],
       "route_count": 48,
       "size_bytes": 44509
+    },
+    {
+      "filename": "Microsoft.Peering.min.json",
+      "provider_namespace": "Microsoft.Peering",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 46,
+      "size_bytes": 110411
+    },
+    {
+      "filename": "Microsoft.PolicyInsights.min.json",
+      "provider_namespace": "Microsoft.PolicyInsights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 80,
+      "size_bytes": 113753
     },
     {
       "filename": "Microsoft.Portal.min.json",
@@ -1176,6 +2072,15 @@
       "size_bytes": 16309
     },
     {
+      "filename": "Microsoft.ProviderHub.min.json",
+      "provider_namespace": "Microsoft.ProviderHub",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 60,
+      "size_bytes": 91550
+    },
+    {
       "filename": "Microsoft.Purview.min.json",
       "provider_namespace": "Microsoft.Purview",
       "hosts": [
@@ -1183,6 +2088,17 @@
       ],
       "route_count": 29,
       "size_bytes": 41460
+    },
+    {
+      "filename": "Microsoft.Quantum.min.json",
+      "provider_namespace": "Microsoft.Quantum",
+      "hosts": [
+        "unknown",
+        "quantum.azure.com",
+        "management.azure.com"
+      ],
+      "route_count": 37,
+      "size_bytes": 59946
     },
     {
       "filename": "Microsoft.Quota.min.json",
@@ -1203,6 +2119,24 @@
       "size_bytes": 22070
     },
     {
+      "filename": "Microsoft.RecoveryServices.min.json",
+      "provider_namespace": "Microsoft.RecoveryServices",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 454,
+      "size_bytes": 2319011
+    },
+    {
+      "filename": "Microsoft.RedHatOpenShift.min.json",
+      "provider_namespace": "Microsoft.RedHatOpenShift",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 34,
+      "size_bytes": 69788
+    },
+    {
       "filename": "Microsoft.Relationships.min.json",
       "provider_namespace": "Microsoft.Relationships",
       "hosts": [
@@ -1210,6 +2144,15 @@
       ],
       "route_count": 7,
       "size_bytes": 4810
+    },
+    {
+      "filename": "Microsoft.Relay.min.json",
+      "provider_namespace": "Microsoft.Relay",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 78,
+      "size_bytes": 85973
     },
     {
       "filename": "Microsoft.ResourceConnector.min.json",
@@ -1229,6 +2172,24 @@
       ],
       "route_count": 12,
       "size_bytes": 17629
+    },
+    {
+      "filename": "Microsoft.ResourceHealth.min.json",
+      "provider_namespace": "Microsoft.ResourceHealth",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 27,
+      "size_bytes": 72199
+    },
+    {
+      "filename": "Microsoft.Resources.min.json",
+      "provider_namespace": "Microsoft.Resources",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 107,
+      "size_bytes": 270565
     },
     {
       "filename": "Microsoft.SaaS.min.json",
@@ -1258,6 +2219,24 @@
       "size_bytes": 16510
     },
     {
+      "filename": "Microsoft.ScVmm.min.json",
+      "provider_namespace": "Microsoft.ScVmm",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 88,
+      "size_bytes": 114479
+    },
+    {
+      "filename": "Microsoft.Search.min.json",
+      "provider_namespace": "Microsoft.Search",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 34,
+      "size_bytes": 78260
+    },
+    {
       "filename": "Microsoft.SecretSyncController.min.json",
       "provider_namespace": "Microsoft.SecretSyncController",
       "hosts": [
@@ -1267,6 +2246,33 @@
       "size_bytes": 11299
     },
     {
+      "filename": "Microsoft.Security.min.json",
+      "provider_namespace": "Microsoft.Security",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 282,
+      "size_bytes": 303413
+    },
+    {
+      "filename": "Microsoft.SecurityAndCompliance.min.json",
+      "provider_namespace": "Microsoft.SecurityAndCompliance",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 74,
+      "size_bytes": 92801
+    },
+    {
+      "filename": "Microsoft.SecurityInsights.min.json",
+      "provider_namespace": "Microsoft.SecurityInsights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 111,
+      "size_bytes": 151286
+    },
+    {
       "filename": "Microsoft.SerialConsole.min.json",
       "provider_namespace": "Microsoft.SerialConsole",
       "hosts": [
@@ -1274,6 +2280,24 @@
       ],
       "route_count": 10,
       "size_bytes": 12580
+    },
+    {
+      "filename": "Microsoft.ServiceBus.min.json",
+      "provider_namespace": "Microsoft.ServiceBus",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 98,
+      "size_bytes": 238362
+    },
+    {
+      "filename": "Microsoft.ServiceFabric.min.json",
+      "provider_namespace": "Microsoft.ServiceFabric",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 120,
+      "size_bytes": 490756
     },
     {
       "filename": "Microsoft.ServiceFabricMesh.min.json",
@@ -1303,6 +2327,15 @@
       "size_bytes": 45480
     },
     {
+      "filename": "Microsoft.SignalRService.min.json",
+      "provider_namespace": "Microsoft.SignalRService",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 89,
+      "size_bytes": 324786
+    },
+    {
       "filename": "Microsoft.SoftwarePlan.min.json",
       "provider_namespace": "Microsoft.SoftwarePlan",
       "hosts": [
@@ -1310,6 +2343,15 @@
       ],
       "route_count": 8,
       "size_bytes": 7147
+    },
+    {
+      "filename": "Microsoft.Solutions.min.json",
+      "provider_namespace": "Microsoft.Solutions",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 38,
+      "size_bytes": 88571
     },
     {
       "filename": "Microsoft.Sovereign.min.json",
@@ -1321,6 +2363,24 @@
       "size_bytes": 18554
     },
     {
+      "filename": "Microsoft.Sql.min.json",
+      "provider_namespace": "Microsoft.Sql",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 602,
+      "size_bytes": 2629892
+    },
+    {
+      "filename": "Microsoft.SqlVirtualMachine.min.json",
+      "provider_namespace": "Microsoft.SqlVirtualMachine",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 27,
+      "size_bytes": 66390
+    },
+    {
       "filename": "Microsoft.StandbyPool.min.json",
       "provider_namespace": "Microsoft.StandbyPool",
       "hosts": [
@@ -1328,6 +2388,15 @@
       ],
       "route_count": 19,
       "size_bytes": 32915
+    },
+    {
+      "filename": "Microsoft.Storage.min.json",
+      "provider_namespace": "Microsoft.Storage",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 152,
+      "size_bytes": 453005
     },
     {
       "filename": "Microsoft.StorageActions.min.json",
@@ -1339,6 +2408,15 @@
       "size_bytes": 10868
     },
     {
+      "filename": "Microsoft.StorageCache.min.json",
+      "provider_namespace": "Microsoft.StorageCache",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 62,
+      "size_bytes": 160554
+    },
+    {
       "filename": "Microsoft.StorageDiscovery.min.json",
       "provider_namespace": "Microsoft.StorageDiscovery",
       "hosts": [
@@ -1348,6 +2426,15 @@
       "size_bytes": 13870
     },
     {
+      "filename": "Microsoft.StorageMover.min.json",
+      "provider_namespace": "Microsoft.StorageMover",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 35,
+      "size_bytes": 75784
+    },
+    {
       "filename": "Microsoft.StoragePool.min.json",
       "provider_namespace": "Microsoft.StoragePool",
       "hosts": [
@@ -1355,6 +2442,24 @@
       ],
       "route_count": 18,
       "size_bytes": 20558
+    },
+    {
+      "filename": "Microsoft.StorageSync.min.json",
+      "provider_namespace": "Microsoft.StorageSync",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 45,
+      "size_bytes": 133077
+    },
+    {
+      "filename": "Microsoft.StreamAnalytics.min.json",
+      "provider_namespace": "Microsoft.StreamAnalytics",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 50,
+      "size_bytes": 67228
     },
     {
       "filename": "Microsoft.Subscription.min.json",
@@ -1375,6 +2480,24 @@
       "size_bytes": 37809
     },
     {
+      "filename": "Microsoft.Support.min.json",
+      "provider_namespace": "Microsoft.Support",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 44,
+      "size_bytes": 61136
+    },
+    {
+      "filename": "Microsoft.Synapse.min.json",
+      "provider_namespace": "Microsoft.Synapse",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 237,
+      "size_bytes": 435767
+    },
+    {
       "filename": "Microsoft.Syntex.min.json",
       "provider_namespace": "Microsoft.Syntex",
       "hosts": [
@@ -1382,6 +2505,24 @@
       ],
       "route_count": 7,
       "size_bytes": 5333
+    },
+    {
+      "filename": "Microsoft.TestBase.min.json",
+      "provider_namespace": "Microsoft.TestBase",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 93,
+      "size_bytes": 100305
+    },
+    {
+      "filename": "Microsoft.TimeSeriesInsights.min.json",
+      "provider_namespace": "Microsoft.TimeSeriesInsights",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 27,
+      "size_bytes": 50637
     },
     {
       "filename": "Microsoft.Update.min.json",
@@ -1438,6 +2579,15 @@
       "size_bytes": 23878
     },
     {
+      "filename": "Microsoft.Web.min.json",
+      "provider_namespace": "Microsoft.Web",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 803,
+      "size_bytes": 3123809
+    },
+    {
       "filename": "microsoft.Web.min.json",
       "provider_namespace": "microsoft.Web",
       "hosts": [
@@ -1492,6 +2642,15 @@
       "size_bytes": 16688
     },
     {
+      "filename": "Microsoft.Workloads.min.json",
+      "provider_namespace": "Microsoft.Workloads",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 94,
+      "size_bytes": 124458
+    },
+    {
       "filename": "MongoDB.Atlas.min.json",
       "provider_namespace": "MongoDB.Atlas",
       "hosts": [
@@ -1499,6 +2658,42 @@
       ],
       "route_count": 7,
       "size_bytes": 6585
+    },
+    {
+      "filename": "NewRelic.Observability.min.json",
+      "provider_namespace": "NewRelic.Observability",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 35,
+      "size_bytes": 72938
+    },
+    {
+      "filename": "Nginx.NginxPlus.min.json",
+      "provider_namespace": "Nginx.NginxPlus",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 26,
+      "size_bytes": 54731
+    },
+    {
+      "filename": "Oracle.Database.min.json",
+      "provider_namespace": "Oracle.Database",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 110,
+      "size_bytes": 318806
+    },
+    {
+      "filename": "PaloAltoNetworks.Cloudngfw.min.json",
+      "provider_namespace": "PaloAltoNetworks.Cloudngfw",
+      "hosts": [
+        "management.azure.com"
+      ],
+      "route_count": 96,
+      "size_bytes": 321846
     },
     {
       "filename": "Pinecone.VectorDb.min.json",
@@ -1535,141 +2730,38 @@
       ],
       "route_count": 8,
       "size_bytes": 8581
+    },
+    {
+      "filename": "unknown.min.json",
+      "provider_namespace": "unknown",
+      "hosts": [
+        "unknown",
+        "acrapi.azurecr.io",
+        "management.azure.com",
+        "digitaltwins-name.digitaltwins.azure.net",
+        "digitaltwins-hostname",
+        "api.playwright-int.io",
+        "batch.core.windows.net",
+        "purview.azure.com",
+        "api.applicationinsights.io",
+        "catalogapi.azure.com",
+        "sentinelus.azure-api.net",
+        "api.ti.sentinel.azure.com",
+        "{endpoint}",
+        "southcentralus.api.cognitive.microsoft.com",
+        "westcentralus.api.cognitive.microsoft.com",
+        "api.cognitive.microsofttranslator.com",
+        "monitoring.azure.com",
+        "your-dps.azure-devices-provisioning.net",
+        "global.azure-devices-provisioning.net",
+        "atlas.microsoft.com",
+        "localhost:19080",
+        "clustername-kafkarest.azurehdinsight.net",
+        "169.254.169.254"
+      ],
+      "route_count": 4811,
+      "size_bytes": 5977804
     }
   ],
-  "skipped_shards": [
-    "Microsoft.ADHybridHealthService.min.json",
-    "Microsoft.AVS.min.json",
-    "Microsoft.Advisor.min.json",
-    "Microsoft.AgFoodPlatform.min.json",
-    "Microsoft.AlertsManagement.min.json",
-    "Microsoft.ApiCenter.min.json",
-    "Microsoft.ApiManagement.min.json",
-    "Microsoft.App.min.json",
-    "Microsoft.AppConfiguration.min.json",
-    "Microsoft.AppPlatform.min.json",
-    "Microsoft.Authorization.min.json",
-    "Microsoft.Automation.min.json",
-    "Microsoft.AwsConnector.min.json",
-    "Microsoft.AzureArcData.min.json",
-    "Microsoft.AzureDataTransfer.min.json",
-    "Microsoft.AzureStackHCI.min.json",
-    "Microsoft.Batch.min.json",
-    "Microsoft.Billing.min.json",
-    "Microsoft.BillingBenefits.min.json",
-    "Microsoft.BotService.min.json",
-    "Microsoft.Cache.min.json",
-    "Microsoft.Capacity.min.json",
-    "Microsoft.Cdn.min.json",
-    "Microsoft.CertificateRegistration.min.json",
-    "Microsoft.Chaos.min.json",
-    "Microsoft.CognitiveServices.min.json",
-    "Microsoft.Communication.min.json",
-    "Microsoft.Compute.min.json",
-    "Microsoft.ComputeSchedule.min.json",
-    "Microsoft.Confluent.min.json",
-    "Microsoft.ConnectedVMwarevSphere.min.json",
-    "Microsoft.Consumption.min.json",
-    "Microsoft.ContainerInstance.min.json",
-    "Microsoft.ContainerRegistry.min.json",
-    "Microsoft.ContainerService.min.json",
-    "Microsoft.CostManagement.min.json",
-    "Microsoft.CustomerInsights.min.json",
-    "Microsoft.DBForPostgreSql.min.json",
-    "Microsoft.DBforMariaDB.min.json",
-    "Microsoft.DBforMySQL.min.json",
-    "Microsoft.DBforPostgreSQL.min.json",
-    "Microsoft.Dashboard.min.json",
-    "Microsoft.DataBox.min.json",
-    "Microsoft.DataBoxEdge.min.json",
-    "Microsoft.DataFactory.min.json",
-    "Microsoft.DataMigration.min.json",
-    "Microsoft.DataProtection.min.json",
-    "Microsoft.DataReplication.min.json",
-    "Microsoft.DataShare.min.json",
-    "Microsoft.Databricks.min.json",
-    "Microsoft.Datadog.min.json",
-    "Microsoft.DesktopVirtualization.min.json",
-    "Microsoft.DevCenter.min.json",
-    "Microsoft.DevTestLab.min.json",
-    "Microsoft.DeviceRegistry.min.json",
-    "Microsoft.Devices.min.json",
-    "Microsoft.Discovery.min.json",
-    "Microsoft.DocumentDB.min.json",
-    "Microsoft.DomainRegistration.min.json",
-    "Microsoft.Edge.min.json",
-    "Microsoft.Elastic.min.json",
-    "Microsoft.ElasticSan.min.json",
-    "Microsoft.EventGrid.min.json",
-    "Microsoft.EventHub.min.json",
-    "Microsoft.Fabric.min.json",
-    "Microsoft.HDInsight.min.json",
-    "Microsoft.HealthcareApis.min.json",
-    "Microsoft.HybridCompute.min.json",
-    "Microsoft.HybridContainerService.min.json",
-    "Microsoft.HybridNetwork.min.json",
-    "Microsoft.Insights.min.json",
-    "Microsoft.IoTFirmwareDefense.min.json",
-    "Microsoft.IoTOperations.min.json",
-    "Microsoft.IoTOperationsMQ.min.json",
-    "Microsoft.KeyVault.min.json",
-    "Microsoft.KubernetesConfiguration.min.json",
-    "Microsoft.Kusto.min.json",
-    "Microsoft.LabServices.min.json",
-    "Microsoft.Logic.min.json",
-    "Microsoft.M365SecurityAndCompliance.min.json",
-    "Microsoft.MachineLearningServices.min.json",
-    "Microsoft.Maintenance.min.json",
-    "Microsoft.ManagedNetworkFabric.min.json",
-    "Microsoft.Management.min.json",
-    "Microsoft.Maps.min.json",
-    "Microsoft.Marketplace.min.json",
-    "Microsoft.Migrate.min.json",
-    "Microsoft.Mission.min.json",
-    "Microsoft.Monitor.min.json",
-    "Microsoft.NetApp.min.json",
-    "Microsoft.Network.min.json",
-    "Microsoft.NetworkCloud.min.json",
-    "Microsoft.NotificationHubs.min.json",
-    "Microsoft.OffAzure.min.json",
-    "Microsoft.OperationalInsights.min.json",
-    "Microsoft.Peering.min.json",
-    "Microsoft.PolicyInsights.min.json",
-    "Microsoft.ProviderHub.min.json",
-    "Microsoft.Quantum.min.json",
-    "Microsoft.RecoveryServices.min.json",
-    "Microsoft.RedHatOpenShift.min.json",
-    "Microsoft.Relay.min.json",
-    "Microsoft.ResourceHealth.min.json",
-    "Microsoft.Resources.min.json",
-    "Microsoft.ScVmm.min.json",
-    "Microsoft.Search.min.json",
-    "Microsoft.Security.min.json",
-    "Microsoft.SecurityAndCompliance.min.json",
-    "Microsoft.SecurityInsights.min.json",
-    "Microsoft.ServiceBus.min.json",
-    "Microsoft.ServiceFabric.min.json",
-    "Microsoft.SignalRService.min.json",
-    "Microsoft.Solutions.min.json",
-    "Microsoft.Sql.min.json",
-    "Microsoft.SqlVirtualMachine.min.json",
-    "Microsoft.Storage.min.json",
-    "Microsoft.StorageCache.min.json",
-    "Microsoft.StorageMover.min.json",
-    "Microsoft.StorageSync.min.json",
-    "Microsoft.StreamAnalytics.min.json",
-    "Microsoft.Support.min.json",
-    "Microsoft.Synapse.min.json",
-    "Microsoft.TestBase.min.json",
-    "Microsoft.TimeSeriesInsights.min.json",
-    "Microsoft.Web.min.json",
-    "Microsoft.Workloads.min.json",
-    "NewRelic.Observability.min.json",
-    "Nginx.NginxPlus.min.json",
-    "Oracle.Database.min.json",
-    "PaloAltoNetworks.Cloudngfw.min.json",
-    "microsoft.Compute.min.json",
-    "microsoft.insights.min.json",
-    "unknown.min.json"
-  ]
+  "skipped_shards": []
 }
