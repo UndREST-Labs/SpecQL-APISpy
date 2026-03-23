@@ -54,6 +54,43 @@ apispy/
 
 ---
 
+## Screenshots
+
+The following screenshots were captured automatically using the Playwright script
+at `apispy/scripts/generate_screenshots.py` (headless Chromium, 1280×720).
+
+### Empty state — waiting for requests
+
+![APISpy empty state](../../demos/apispy-empty.png)
+
+### Requests table — mixed classification results
+
+The table shows six observed requests spanning all four status types, including
+an ARM batch sub-request (↳ row).
+
+![APISpy requests table](../../demos/apispy-requests.png)
+
+### Detail panel — selected row breakdown
+
+Clicking any row opens the detail panel, which shows the full classification
+breakdown: matched route key, available spec versions, provider namespace, and
+reason code.
+
+![APISpy detail panel](../../demos/apispy-detail.png)
+
+To regenerate these screenshots after making changes to the extension:
+
+```bash
+# Install dependencies (one-time)
+pip install playwright
+python3 -m playwright install chromium
+
+# Regenerate — output goes to demos/
+python3 apispy/scripts/generate_screenshots.py
+```
+
+---
+
 ## How to load in Chrome / Edge
 
 1. Open **chrome://extensions** (or **edge://extensions**).

@@ -1,6 +1,6 @@
-# SpeQL Demo GIFs
+# SpeQL Demo GIFs & Extension Screenshots
 
-This directory contains animated GIF demonstrations of all major SpeQL use cases. These demos showcase the tool's capabilities and provide visual guides for users.
+This directory contains animated GIF demonstrations of all major SpeQL use cases, as well as static PNG screenshots of the APISpy DevTools browser extension. These visuals showcase the tool's capabilities and provide visual guides for users.
 
 ## Available Demos
 
@@ -54,7 +54,7 @@ End-to-end demonstration from setup to results:
 
 ## Generating Demos
 
-To regenerate all demos, use the provided script:
+To regenerate all VHS terminal demos, use the provided script:
 
 ```bash
 cd /path/to/SpeQL
@@ -66,13 +66,56 @@ This requires:
 - ffmpeg for video processing
 - ttyd for terminal recording
 
+To regenerate the APISpy extension screenshots:
+
+```bash
+# Install dependencies (one-time)
+pip install playwright
+python3 -m playwright install chromium
+
+# Regenerate screenshots
+python3 apispy/scripts/generate_screenshots.py
+```
+
+## APISpy Extension Screenshots
+
+Static PNG screenshots of the [APISpy DevTools extension](../apispy/extension/README.md) captured
+in an automated agent environment using Playwright.
+
+### Empty state (`apispy-empty.png`)
+
+Initial panel state — no Azure/Microsoft API requests have been observed yet.
+
+![APISpy empty state](apispy-empty.png)
+
+### Requests table (`apispy-requests.png`)
+
+Panel populated with observed requests, showing all four classification statuses:
+✅ Exact match, ⚠️ Version mismatch, 🔶 Unknown route, and an ARM batch sub-request (↳).
+
+![APISpy requests table](apispy-requests.png)
+
+### Detail panel (`apispy-detail.png`)
+
+A row is selected, opening the detail panel with the full request breakdown: matched
+route key, available spec versions, provider namespace, and reason code.
+
+![APISpy detail panel](apispy-detail.png)
+
 ## Technical Details
 
+**Terminal GIF demos**
 - **Format**: Animated GIF
 - **Size**: 1000x600 pixels
 - **Theme**: Catppuccin Mocha
 - **Font Size**: 13pt
 - **Tool**: VHS (Video Hype Script) by Charm
+
+**Extension screenshots**
+- **Format**: PNG
+- **Size**: 1280×720 pixels
+- **Tool**: Playwright (headless Chromium)
+- **Script**: `apispy/scripts/generate_screenshots.py`
 
 ## Usage in Documentation
 
