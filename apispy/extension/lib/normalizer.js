@@ -28,6 +28,166 @@
     },
   ];
 
+  // ─── Azure ARM structural templating ────────────────────────────────────────
+
+  /**
+   * Allowlist of known ARM path segments that should remain literal even when
+   * they appear in a structural "name" position within a resource path.
+   *
+   * These are typically singleton sub-resources, action verbs, or fixed
+   * collection names that appear verbatim in Azure REST API spec path templates.
+   * They should NOT be replaced with {name} even though they sit in what is
+   * structurally a resource-name slot after a type segment.
+   *
+   * Extend this set conservatively — add only segments that are confirmed
+   * singletons or actions in Azure ARM specs, not arbitrary resource names.
+   *
+   * Based on common patterns across Azure REST API specs:
+   * https://learn.microsoft.com/en-us/rest/api/azure/
+   */
+  const ARM_LITERAL_SEGMENTS = new Set([
+    "default",
+    "listKeys",
+    "listConnectionStrings",
+    "regenerateKey",
+    "start",
+    "stop",
+    "restart",
+    "validate",
+    "sync",
+    "operations",
+    "usages",
+    "metrics",
+  ]);
+
+  /**
+   * Maps ARM scope-level segment keywords to the semantic placeholder to use
+   * for the value segment immediately following each keyword.
+   *
+   * Based on Azure ARM resource ID scope conventions:
+   * https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/template-functions-scope
+   * https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/error-invalid-name-segments
+   */
+  const ARM_SCOPE_RULES = Object.freeze({
+    subscriptions:    "{subscriptionId}",
+    resourceGroups:   "{resourceGroupName}",
+    tenants:          "{tenantId}",
+    locations:        "{location}",
+    managementGroups: "{managementGroupId}",
+  });
+
+  /**
+   * Returns true if `seg` is a known literal ARM segment that should remain
+   * unchanged even when it appears in a structural name position.
+   *
+   * @param {string} seg
+   * @returns {boolean}
+   */
+  function isLiteralArmSegment(seg) {
+    return ARM_LITERAL_SEGMENTS.has(seg);
+  }
+
+  /**
+   * Apply Azure ARM structural templating to a path that has already been
+   * through normalisePath().
+   *
+   * This is NOT fuzzy matching.  It only substitutes segments in structurally
+   * justified positions defined by the ARM resource ID grammar:
+   *
+   *   /subscriptions/{subscriptionId}
+   *   /resourceGroups/{resourceGroupName}
+   *   /tenants/{tenantId}
+   *   /locations/{location}
+   *   /managementGroups/{managementGroupId}
+   *   /providers/{Namespace}/{type}/{name}/{childType}/{childName}/...
+   *
+   * Scope keywords (subscriptions, resourceGroups, etc.) are recognised only
+   * before the /providers/ segment.  After /providers/{Namespace}, ARM paths
+   * follow a strict type/name alternation:
+   *   - Even positions (0, 2, 4, …) → resource type — always kept literal.
+   *   - Odd positions  (1, 3, 5, …) → resource name  — replaced with {name}
+   *     unless the segment is already a placeholder (starts with "{") or
+   *     appears in the ARM_LITERAL_SEGMENTS allowlist.
+   *
+   * This reduces false "provider_known_route_unknown" results caused by literal
+   * Azure resource names (vault names, site names, storage account names, etc.)
+   * that would never appear literally in spec path templates.
+   *
+   * @param {string} normalisedPath  Output of normalisePath() — generic
+   *   normalization (GUID/integer replacement) has already been applied.
+   * @returns {string}  ARM-templated path, or the input unchanged if no
+   *   structural rules apply.
+   */
+  function templateAzureArmPath(normalisedPath) {
+    const segments = normalisedPath.split("/");
+    const result = [];
+    let i = 0;
+    // resourcePosition counts segments within the provider resource path:
+    // even = resource type (keep literal), odd = resource name (template).
+    let inProviderResourcePath = false;
+    let resourcePosition = 0;
+
+    while (i < segments.length) {
+      const seg = segments[i];
+
+      // ── Scope-level keywords (only before /providers/) ──────────────────────
+      // e.g. subscriptions, resourceGroups, tenants, locations, managementGroups
+      // The segment immediately after each keyword is the scope-parameter value.
+      if (!inProviderResourcePath &&
+          Object.prototype.hasOwnProperty.call(ARM_SCOPE_RULES, seg)) {
+        result.push(seg);
+        i++;
+        if (i < segments.length) {
+          // Replace the scope-value segment with the semantic placeholder,
+          // regardless of its literal value (resource group names, tenant IDs,
+          // etc. can be arbitrary strings that generic normalisation misses).
+          result.push(ARM_SCOPE_RULES[seg]);
+          i++;
+        }
+        continue;
+      }
+
+      // ── /providers/{Namespace} ───────────────────────────────────────────────
+      // Keep the provider namespace literal (e.g. "Microsoft.KeyVault").
+      // Everything after the namespace follows the type/name alternation.
+      if (!inProviderResourcePath && seg === "providers") {
+        result.push(seg);
+        i++;
+        if (i < segments.length) {
+          // Provider namespace — always keep literal, never template.
+          result.push(segments[i]);
+          i++;
+          inProviderResourcePath = true;
+          resourcePosition = 0;
+        }
+        continue;
+      }
+
+      // ── Provider resource path: strict type/name alternation ─────────────────
+      // After /providers/{Namespace}, ARM paths alternate:
+      //   type / name / childType / childName / ...
+      // We only replace name positions, never type positions.
+      if (inProviderResourcePath) {
+        const isNamePosition = (resourcePosition % 2 === 1);
+        if (isNamePosition && !seg.startsWith("{") && !isLiteralArmSegment(seg)) {
+          // Name position: replace with conservative structural placeholder.
+          result.push("{name}");
+        } else {
+          result.push(seg);
+        }
+        resourcePosition++;
+        i++;
+        continue;
+      }
+
+      // ── Default: keep segment unchanged ─────────────────────────────────────
+      result.push(seg);
+      i++;
+    }
+
+    return result.join("/");
+  }
+
   /**
    * Attempt to identify the api-version query parameter from a parsed URL.
    * Returns null if absent.
@@ -45,7 +205,8 @@
    * - Replace known-shape segments (GUIDs, pure integers) with placeholders
    *
    * We do NOT attempt to match arbitrary resource-name segments to spec
-   * path templates in v1 — the matcher will handle that separately.
+   * path templates here — that is the job of templateAzureArmPath(), which
+   * is applied as a second stage after this function.
    *
    * @param {string} rawPath  The raw URL pathname.
    * @returns {string}  Normalised path.
@@ -78,6 +239,18 @@
   /**
    * Parse and normalise all relevant fields from a raw request URL + method.
    *
+   * Normalisation is applied in two stages:
+   *   1. Generic normalisation (normalisePath): replaces GUIDs and integers
+   *      with {guid} and {id} — output is `normalisedPath`.
+   *   2. Azure ARM structural templating (templateAzureArmPath): replaces
+   *      scope-level segments (subscriptionId, resourceGroupName, etc.) and
+   *      resource-name positions after /providers/{Namespace} with semantic
+   *      placeholders — output is `armPath`.
+   *
+   * The matcher prefers `armPath` for route-key lookup to reduce false
+   * "provider_known_route_unknown" results caused by literal resource names.
+   * Both paths are returned so the UI/debug layer can display either.
+   *
    * @param {string} rawUrl     Full request URL string.
    * @param {string} rawMethod  HTTP method string (may be mixed case).
    * @returns {{
@@ -87,6 +260,7 @@
    *   host: string,
    *   pathname: string,
    *   normalisedPath: string,
+   *   armPath: string,
    *   apiVersion: string|null,
    *   fullUrl: string,
    * }}
@@ -103,6 +277,7 @@
     const host   = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
     const normalisedPath = normalisePath(pathname);
+    const armPath = templateAzureArmPath(normalisedPath);
     const apiVersion = extractApiVersion(parsed);
 
     return {
@@ -111,6 +286,7 @@
       host,
       pathname,
       normalisedPath,
+      armPath,
       apiVersion,
       fullUrl: rawUrl,
     };
@@ -120,8 +296,12 @@
   exports.Normalizer = {
     normalise,
     normalisePath,
+    templateAzureArmPath,
+    isLiteralArmSegment,
     extractApiVersion,
     TEMPLATE_RULES,
+    ARM_LITERAL_SEGMENTS,
+    ARM_SCOPE_RULES,
   };
 
 }(typeof window !== "undefined" ? window : exports));

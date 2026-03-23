@@ -156,5 +156,133 @@ Object.values(Matcher.STATUS).forEach((s) => {
   assert(Matcher.STATUS_LABELS[s], "label defined for status: " + s);
 });
 
+// ── ARM-templated route matching ──────────────────────────────────────────────
+//
+// These tests verify that the matcher uses norm.armPath (ARM-templated path)
+// for route lookup, enabling requests with literal Azure resource names to
+// match spec routes that use semantic placeholders like {name}.
+//
+// The shard below uses ARM-style placeholder keys as they appear in real
+// SpecRecon shards derived from Azure REST API specs.
+
+const ARM_MOCK_SHARD = {
+  metadata: { provider_namespace: "Microsoft.KeyVault" },
+  provider_namespace: "Microsoft.KeyVault",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // KeyVault vault — spec route uses {subscriptionId}/{resourceGroupName}/{name}
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{name}": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}",
+          provider_namespace: "Microsoft.KeyVault",
+          versions: {
+            "2023-07-01": { is_preview: false, spec_files: ["keyvault/2023-07-01/vaults.json"] },
+            "2022-07-01": { is_preview: false, spec_files: ["keyvault/2022-07-01/vaults.json"] },
+          },
+        },
+        // Storage blobServices/default — 'default' singleton preserved in spec key
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{name}/blobServices/default": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices/default",
+          provider_namespace: "Microsoft.Storage",
+          versions: {
+            "2023-01-01": { is_preview: false, spec_files: ["storage/2023-01-01/blob.json"] },
+          },
+        },
+        // Web app slots — two levels of resource names → {name}/{name}
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/slots/{name}": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/slots/{slotName}",
+          provider_namespace: "Microsoft.Web",
+          versions: {
+            "2023-12-01": { is_preview: false, spec_files: ["web/2023-12-01/sites.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — ARM-templated path: vault name → exact match ===");
+{
+  // Live request carries literal vault name "myvault".
+  // Generic normaliser leaves it as-is; ARM templater replaces it with {name}.
+  // The match succeeds via the ARM-templated path.
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg-prod/providers/Microsoft.KeyVault/vaults/myvault?api-version=2023-07-01",
+    "GET"
+  );
+  assert(n.normalisedPath.includes("myvault"),    "normalisedPath retains literal vault name");
+  assert(!n.normalisedPath.includes("{name}"),    "normalisedPath does NOT have {name}");
+  assert(n.armPath.includes("{name}"),            "armPath replaces vault name with {name}");
+  assert(n.armPath.includes("{subscriptionId}"),  "armPath has {subscriptionId}");
+  assert(n.armPath.includes("{resourceGroupName}"), "armPath has {resourceGroupName}");
+
+  const r = Matcher.classify(n, ARM_MOCK_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH, "exact_match via ARM-templated path");
+  eq(r.matched_version, "2023-07-01",      "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.KeyVault", "correct provider_namespace");
+}
+
+console.log("\n=== Matcher.classify — ARM-templated path: version mismatch via ARM path ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg-prod/providers/Microsoft.KeyVault/vaults/myvault?api-version=2099-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, ARM_MOCK_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH, "route found via ARM path but version absent → mismatch");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2023-07-01"),
+    "matched_versions lists known versions");
+}
+
+console.log("\n=== Matcher.classify — ARM-templated path: 'default' singleton preserved ===");
+{
+  // blobServices/default — 'default' must remain literal (it's in allowlist)
+  // so the ARM path matches the spec key which also uses 'default' literally.
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/mystorage/blobServices/default?api-version=2023-01-01",
+    "GET"
+  );
+  assert(n.armPath.includes("blobServices/default"), "armPath preserves 'default' literal");
+  assert(!n.armPath.includes("blobServices/{name}"), "armPath does NOT template 'default'");
+
+  const r = Matcher.classify(n, ARM_MOCK_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH, "exact_match with 'default' singleton preserved");
+}
+
+console.log("\n=== Matcher.classify — ARM-templated path: Web app slot → exact match ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.Web/sites/mysite/slots/staging?api-version=2023-12-01",
+    "GET"
+  );
+  eq(
+    n.armPath,
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/slots/{name}",
+    "armPath templates both site name and slot name"
+  );
+  const r = Matcher.classify(n, ARM_MOCK_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH, "exact_match for web app slot via ARM path");
+}
+
+console.log("\n=== Matcher.classify — ARM fallback: generic normalisedPath still works ===");
+{
+  // MOCK_SHARD uses the old-style {guid} key — the matcher must fall back to
+  // normalisedPath when armPath doesn't match, preserving backward compatibility.
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/providers/Microsoft.FakeProvider/operations?api-version=2024-01-01",
+    "GET"
+  );
+  // armPath uses {subscriptionId}, MOCK_SHARD key uses {guid} — no arm match.
+  // normalisedPath uses {guid} — matches MOCK_SHARD key.
+  assert(n.armPath.includes("{subscriptionId}"),  "armPath has {subscriptionId}");
+  assert(n.normalisedPath.includes("{guid}"),     "normalisedPath has {guid}");
+
+  const r = Matcher.classify(n, MOCK_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH, "exact_match via normalisedPath fallback when armPath misses");
+}
+
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

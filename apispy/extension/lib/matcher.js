@@ -8,6 +8,19 @@
 //   no_spec_match              — no provider namespace inferred or provider unknown
 //   out_of_scope               — request is not Azure/Microsoft API traffic
 //
+// Route lookup strategy (v2 — ARM-aware)
+// ────────────────────────────────────────
+//   Route keys are tried in order of specificity:
+//     1. norm.armPath  — ARM-structurally-templated path (subscriptionId,
+//        resourceGroupName, {name}, etc.) — preferred because spec route keys
+//        use semantic placeholders, not literal resource names.
+//     2. norm.normalisedPath — generic-normalised path ({guid}, {id}) — kept as
+//        a fallback to preserve backward compatibility with any shard whose
+//        keys were generated from generic-normalised paths.
+//   Using the ARM-templated path first reduces false "provider_known_route_unknown"
+//   results caused by literal Azure resource names that the generic normaliser
+//   does not replace (vault names, site names, storage account names, etc.).
+//
 // All results are returned as plain objects (never booleans).
 
 "use strict";
@@ -72,12 +85,17 @@
   /**
    * Attempt to match a normalised request against a loaded shard.
    *
-   * Strategy (v1 — conservative):
-   *   1. Look for an exact route key (method + normalised path).
-   *   2. If found, check whether the api-version exists in that route's versions.
-   *   3. If no exact key, report provider_known_route_unknown.
+   * Strategy (v2 — ARM-aware):
+   *   1. Build candidate route keys from norm.armPath (ARM-templated) and
+   *      norm.normalisedPath (generic-normalised), in that priority order.
+   *   2. Try each candidate in order; use the first matching route key.
+   *   3. If found, check whether the api-version exists in that route's versions.
+   *   4. If no key matches, report provider_known_route_unknown.
    *
-   * Future versions may add fuzzy path-template matching.
+   * Trying norm.armPath first reduces false "provider_known_route_unknown"
+   * results caused by literal Azure resource names (vault names, site names,
+   * storage account names, etc.) that the generic normaliser does not replace
+   * but the ARM structural templating stage does.
    *
    * @param {object} norm    Output of Normalizer.normalise().
    * @param {object} shard   Loaded shard JSON for the inferred provider.
@@ -98,9 +116,19 @@
 
     const routes = hostData.routes || {};
 
-    // Exact route key lookup
-    const routeKey = buildRouteKey(norm.method, norm.normalisedPath);
-    if (routes[routeKey]) {
+    // Build candidate path list: prefer armPath, fall back to normalisedPath.
+    // armPath equals normalisedPath when no ARM structural rules applied, so
+    // deduplication avoids a redundant lookup in that case.
+    const candidatePaths = [];
+    if (norm.armPath && norm.armPath !== norm.normalisedPath) {
+      candidatePaths.push(norm.armPath);
+    }
+    candidatePaths.push(norm.normalisedPath);
+
+    for (const candidatePath of candidatePaths) {
+      const routeKey = buildRouteKey(norm.method, candidatePath);
+      if (!routes[routeKey]) continue;
+
       const routeDef = routes[routeKey];
       const versions = Object.keys(routeDef.versions || {});
 
@@ -136,7 +164,7 @@
       });
     }
 
-    // Route not found in this provider's shard
+    // No route key matched any candidate path
     return _result(STATUS.PROVIDER_KNOWN_NO_ROUTE, {
       provider_namespace: providerNamespace,
       reason:             "route_not_in_shard",
