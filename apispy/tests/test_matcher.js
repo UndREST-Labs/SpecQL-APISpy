@@ -659,5 +659,112 @@ console.log("\n=== Matcher.classify — {resourceUri}: metricDefinitions via dif
     "correct {resourceUri} route matched for metricDefinitions");
 }
 
+console.log("\n=== Matcher.classify — Pass 3 normalisedPath fallback: eventtypes/management/values ===");
+// The ARM templater converts the literal "management" segment to {name} in armPath.
+// normalisedPath preserves the literal so its canonical form matches the shard.
+{
+  const EVENTTYPES_SHARD = {
+    metadata: { provider_namespace: "Microsoft.Insights" },
+    provider_namespace: "Microsoft.Insights",
+    hosts: {
+      "management.azure.com": {
+        routes: {
+          "GET /subscriptions/{subscriptionId}/providers/Microsoft.Insights/eventtypes/management/values": {
+            path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Insights/eventtypes/management/values",
+            provider_namespace: "Microsoft.Insights",
+            versions: {
+              "2015-04-01": { is_preview: false, spec_files: ["insights/2015-04-01/events.json"] },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/microsoft.insights/eventtypes/management/values?api-version=2015-04-01",
+    "GET"
+  );
+  // armPath over-converts "management" to {name}; normalisedPath preserves it
+  assert(n.armPath.includes("/{name}/values"),
+    "armPath over-converts literal 'management' to {name}");
+  assert(n.normalisedPath.includes("/management/values"),
+    "normalisedPath preserves literal 'management'");
+
+  const r = Matcher.classify(n, EVENTTYPES_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match via normalisedPath canonical fallback");
+  eq(r.matched_version, "2015-04-01", "correct api-version matched");
+  eq(r.matched_route_key,
+    "GET /subscriptions/{subscriptionId}/providers/Microsoft.Insights/eventtypes/management/values",
+    "matched original shard route key with literal 'management'");
+
+  // Wrong api-version → version mismatch, not route unknown
+  const nBad = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/microsoft.insights/eventtypes/management/values?api-version=2099-01-01",
+    "GET"
+  );
+  const rBad = Matcher.classify(nBad, EVENTTYPES_SHARD, { inScope: true });
+  eq(rBad.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "version mismatch (not route_not_in_shard) when api-version absent from spec");
+}
+
+console.log("\n=== Matcher.classify — Pass 5 last-provider-suffix: authorization/permissions on resource ===");
+// Azure spec uses {resourceProviderNamespace}/{parentResourcePath}/{resourceType}/{resourceName}
+// (4 template segments) for the resource ancestry, but the actual request has 3 segments
+// (e.g. Microsoft.Logic/workflows/{name}).  Canonical segment-count matching fails;
+// the last-provider-suffix index must bridge the gap.
+{
+  const AUTH_SHARD = {
+    metadata: { provider_namespace: "Microsoft.Authorization" },
+    provider_namespace: "Microsoft.Authorization",
+    hosts: {
+      "management.azure.com": {
+        routes: {
+          // subscription-level permissions (single /providers/)
+          "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Authorization/permissions": {
+            path_template: "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Authorization/permissions",
+            provider_namespace: "Microsoft.Authorization",
+            versions: {
+              "2022-04-01": { is_preview: false, spec_files: ["authorization/2022-04-01/permissions.json"] },
+            },
+          },
+          // resource-level permissions (two /providers/ segments; {parentResourcePath} is multi-segment)
+          "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{parentResourcePath}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/permissions": {
+            path_template: "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{parentResourcePath}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/permissions",
+            provider_namespace: "Microsoft.Authorization",
+            versions: {
+              "2022-04-01": { is_preview: false, spec_files: ["authorization/2022-04-01/permissions.json"] },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/rg/providers/Microsoft.Logic/workflows/myWorkflow/providers/microsoft.authorization/permissions?api-version=2022-04-01",
+    "GET"
+  );
+
+  const r = Matcher.classify(n, AUTH_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match via Pass 5 last-provider-suffix (resource-level permissions)");
+  eq(r.matched_version, "2022-04-01", "correct api-version matched");
+  assert(
+    r.matched_route_key.includes("{resourceProviderNamespace}"),
+    "matched the resource-level route with multi-segment placeholder ancestry"
+  );
+
+  // Version mismatch on resource-level permissions
+  const nBad = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/rg/providers/Microsoft.Logic/workflows/myWorkflow/providers/microsoft.authorization/permissions?api-version=2099-01-01",
+    "GET"
+  );
+  const rBad = Matcher.classify(nBad, AUTH_SHARD, { inScope: true });
+  eq(rBad.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "version mismatch (not route_not_in_shard) when api-version absent from spec");
+}
+
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

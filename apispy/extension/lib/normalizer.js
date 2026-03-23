@@ -6,6 +6,11 @@
 
 (function (exports) {
 
+  // ── Module-level regex constants ─────────────────────────────────────────────
+
+  /** Matches two or more consecutive forward slashes in a URL path. */
+  const CONSECUTIVE_SLASHES_RE = /\/\/+/g;
+
   /**
    * Known path-segment patterns that represent template parameters in
    * Azure Resource Manager URLs.  A segment is replaced with `{param}` when
@@ -349,7 +354,7 @@
     // Azure Portal occasionally emits paths with multiple consecutive slashes
     // (e.g. "//providers/..." → "/providers/..."); collapsing them makes the
     // path matchable against single-slash spec route keys.
-    path = path.replace(/\/\/+/g, "/");
+    path = path.replace(CONSECUTIVE_SLASHES_RE, "/");
 
     // Replace known-shape segments
     const segments = path.split("/");

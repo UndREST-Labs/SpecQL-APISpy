@@ -8,8 +8,8 @@
 //   no_spec_match              — no provider namespace inferred or provider unknown
 //   out_of_scope               — request is not Azure/Microsoft API traffic
 //
-// Route lookup strategy (v3 — ARM-aware + extension-resource + canonical)
-// ────────────────────────────────────────────────────────────────────────
+// Route lookup strategy (v4 — ARM-aware + extension-resource + canonical + last-provider suffix)
+// ────────────────────────────────────────────────────────────────────────────────────────────────
 //   Route keys are tried in order of specificity:
 //     1. norm.armPath  — ARM-structurally-templated path (subscriptionId,
 //        resourceGroupName, {name}, etc.) — preferred because spec route keys
@@ -21,17 +21,48 @@
 //        slash stripped.  Bridges mismatches caused by spec-specific parameter
 //        names (e.g. {vaultName} vs {name}), mixed-case segment spelling (e.g.
 //        resourcegroups vs resourceGroups in some spec files), and trailing
-//        slashes present in some spec route keys.
+//        slashes present in some spec route keys.  Both armPath and
+//        normalisedPath are tried so literal segments preserved in normalisedPath
+//        (e.g. "management" in eventtypes/management/values) are not missed when
+//        the ARM templater over-converts them to {name}.
 //     4. {resourceUri} suffix matching — for Azure extension-resource routes
 //        whose paths start with /{resourceUri}/…  (e.g.
 //        GET /{resourceUri}/providers/Microsoft.Insights/metrics).  Matches by
 //        checking whether the request's arm path ends with the route suffix.
+//     5. Last-provider-suffix matching — for shard routes with two or more
+//        /providers/ segments where a spec uses multi-segment placeholders
+//        (e.g. {parentResourcePath}) to represent "any parent resource".  Matches
+//        on the terminal /providers/Namespace/route suffix.
 //
 // All results are returned as plain objects (never booleans).
 
 "use strict";
 
 (function (exports) {
+
+  // ── Module-level constants ────────────────────────────────────────────────
+  // Compile regexes once so they are not re-created on every function call.
+
+  /** Matches any {placeholder} token. */
+  const PLACEHOLDER_RE = /\{[^}]+\}/g;
+
+  /**
+   * Matches shard route keys whose path begins with a single placeholder
+   * segment followed by the rest of the path, i.e. routes of the form
+   * "METHOD /{anyPlaceholder}/rest/of/path" — the Azure {resourceUri} pattern.
+   */
+  const RESOURCE_URI_ROUTE_RE = /^([A-Z]+) \/\{[^}]+\}(\/.+)$/;
+
+  /**
+   * WeakMap used to cache the three computed route indices (canonical,
+   * resourceUri suffix, last-provider suffix) per shard routes object.
+   * Since the routes object is part of the loaded shard JSON it has a stable
+   * identity for the lifetime of the extension tab — the cache avoids
+   * rebuilding these indices on every classify() call.
+   *
+   * @type {WeakMap<object, {canonical: object, resourceUri: object, lastProvider: object}>}
+   */
+  const _shardIndexCache = new WeakMap();
 
   /**
    * Result states as a frozen enum-like object.
@@ -161,7 +192,7 @@
    * @private
    */
   function _normalisePlaceholders(str) {
-    return str.replace(/\{[^}]+\}/g, "{name}");
+    return str.replace(PLACEHOLDER_RE, "{name}");
   }
 
   /**
@@ -235,7 +266,6 @@
     const index = Object.create(null);
     // Route key format: "METHOD /{placeholder}/rest/of/path"
     // We capture the method and the suffix (everything after the first /{…}).
-    const RESOURCE_URI_ROUTE_RE = /^([A-Z]+) \/\{[^}]+\}(\/.+)$/;
     for (const routeKey of Object.keys(routes)) {
       const m = RESOURCE_URI_ROUTE_RE.exec(routeKey);
       if (!m) continue;
@@ -250,17 +280,96 @@
   }
 
   /**
+   * Build a secondary route index keyed by the suffix starting at the LAST
+   * `/providers/` segment of the route path, for routes that contain two or more
+   * `/providers/` segments (nested extension-resource routes).
+   *
+   * Azure ARM specs sometimes use multi-segment placeholders such as
+   * `{resourceProviderNamespace}/{parentResourcePath}/{resourceType}/{resourceName}`
+   * to describe "any parent resource".  Because `{parentResourcePath}` can
+   * represent zero or more URL segments, canonical segment-count comparison
+   * fails.  Matching only on the terminal provider suffix avoids this.
+   *
+   * Example route (Authorization shard):
+   *   GET /subscriptions/{s}/resourcegroups/{rg}/providers/{ns}/{parent}/{type}/{name}
+   *       /providers/Microsoft.Authorization/permissions
+   * → suffix key: "get /providers/microsoft.authorization/permissions"
+   *
+   * @param {object} routes  Shard routes map.
+   * @returns {object}  Canonical last-provider suffix → { routeDef, originalKey }.
+   * @private
+   */
+  function _buildLastProviderSuffixIndex(routes) {
+    const index = Object.create(null);
+    for (const routeKey of Object.keys(routes)) {
+      const spaceIdx = routeKey.indexOf(" ");
+      if (spaceIdx < 0) continue;
+      const method    = routeKey.slice(0, spaceIdx).toLowerCase();
+      const path      = routeKey.slice(spaceIdx + 1);
+      const pathLower = path.toLowerCase();
+
+      // Only index routes with a NESTED /providers/ segment (two or more total).
+      const firstProvIdx = pathLower.indexOf("/providers/");
+      if (firstProvIdx < 0) continue;
+      const lastProvIdx = pathLower.lastIndexOf("/providers/");
+      if (lastProvIdx === firstProvIdx) continue;
+
+      const suffix    = path.slice(lastProvIdx); // e.g. "/providers/Microsoft.Authorization/permissions"
+      const canonKey  = method + " " + _normalisePlaceholders(suffix).toLowerCase();
+      if (!index[canonKey]) {
+        index[canonKey] = { routeDef: routes[routeKey], originalKey: routeKey };
+      }
+    }
+    return index;
+  }
+
+  /**
+   * Return (and cache) the three computed route indices for a given routes map.
+   *
+   * Indices are expensive to rebuild on every classify() call but are pure
+   * functions of the routes object.  We cache them in a WeakMap keyed by the
+   * routes object itself so:
+   *   • Each shard's indices are built at most once per loaded shard lifetime.
+   *   • Memory is automatically reclaimed when the shard object is GC'd.
+   *
+   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @returns {{ canonical: object, resourceUri: object, lastProvider: object }}
+   * @private
+   */
+  function _getShardIndices(routes) {
+    let cached = _shardIndexCache.get(routes);
+    if (!cached) {
+      cached = {
+        canonical:    _buildNormalisedRouteIndex(routes),
+        resourceUri:  _buildResourceUriSuffixIndex(routes),
+        lastProvider: _buildLastProviderSuffixIndex(routes),
+      };
+      _shardIndexCache.set(routes, cached);
+    }
+    return cached;
+  }
+
+  /**
    * Attempt to match a normalised request against a loaded shard.
    *
-   * Strategy (v3 — ARM-aware + canonical + resourceUri):
+   * Strategy (v4 — ARM-aware + canonical + resourceUri + last-provider suffix):
    *   1. Exact key from norm.armPath  (ARM-templated path).
    *   2. Exact key from norm.normalisedPath (generic-normalised, backward compat).
    *   3. Canonical-key fallback: all {xxx}→{name}, lowercase, trailing slash
    *      stripped.  Handles spec files with non-canonical casing (resourcegroups
-   *      vs resourceGroups) and trailing slashes in route keys.
+   *      vs resourceGroups) and trailing slashes in route keys.  Both armPath
+   *      and normalisedPath are tried as canonical candidates so that literal
+   *      segments preserved in normalisedPath (e.g. "management" in
+   *      eventtypes/management/values) are not missed when the ARM templater
+   *      over-converts them to {name}.
    *   4. {resourceUri} suffix matching: for Azure extension-resource routes
    *      whose path starts with /{resourceUri}/…  Matches when the arm path
    *      ends with the route's suffix after the {resourceUri} placeholder.
+   *   5. Last-provider-suffix matching: for shard routes with two or more
+   *      /providers/ segments (e.g. …/{parentResourcePath}/…/providers/X/route),
+   *      extracts the terminal /providers/X/route suffix and matches it against
+   *      the tail of the request armPath.  Handles specs that use multi-segment
+   *      placeholders like {parentResourcePath} to describe "any parent resource".
    *
    * @param {object} norm    Output of Normalizer.normalise().
    * @param {object} shard   Loaded shard JSON for the inferred provider.
@@ -329,15 +438,28 @@
     }
 
     // ── Pass 3: canonical-key fallback ───────────────────────────────────────
-    // All {xxx}→{name}, lowercase, trailing slash stripped.
-    // This handles: spec-specific param names ({vaultName} vs {name}),
-    // mixed-case segment spelling (resourcegroups vs resourceGroups in spec
-    // files), and trailing slashes on some spec route keys.
-    if (norm.armPath) {
-      const canonIndex = _buildNormalisedRouteIndex(routes);
-      const canonKey   = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
-      const entry      = canonIndex[canonKey];
-      if (entry) {
+    // All {xxx}→{name}, lowercase, trailing slashes stripped.
+    // Tries both armPath and normalisedPath as canonical candidates.
+    //
+    // normalisedPath is tried because the ARM templater sometimes over-converts
+    // well-known literal segments to {name}.  For example, the Azure Insights
+    // route "eventtypes/management/values" has "management" as a literal path
+    // segment; the ARM templater does not know this and replaces it with {name},
+    // breaking the armPath canonical match.  normalisedPath preserves the literal
+    // so its canonical form matches the shard route correctly.
+    {
+      const canonIndex = _getShardIndices(routes).canonical;
+      // Prefer armPath; fall back to normalisedPath only when armPath fails.
+      const canonCandidates = [];
+      if (norm.armPath) canonCandidates.push(norm.armPath);
+      if (norm.normalisedPath && norm.normalisedPath !== norm.armPath) {
+        canonCandidates.push(norm.normalisedPath);
+      }
+      for (const candidatePath of canonCandidates) {
+        const canonKey = _canonicaliseRouteKey(buildRouteKey(norm.method, candidatePath));
+        const entry    = canonIndex[canonKey];
+        if (!entry) continue;
+
         const { routeDef, originalKey } = entry;
         const versions = Object.keys(routeDef.versions || {});
 
@@ -382,7 +504,7 @@
     //   armPath = /subscriptions/{subscriptionId}/…/vaults/{name}/providers/Microsoft.Insights/metrics
     //   endsWith? YES → match!
     if (norm.armPath) {
-      const suffixIndex = _buildResourceUriSuffixIndex(routes);
+      const suffixIndex = _getShardIndices(routes).resourceUri;
       const canonArmPath = _normalisePlaceholders(norm.armPath).toLowerCase();
       const method = norm.method.toLowerCase();
 
@@ -391,6 +513,68 @@
         const suffix = suffixKey.slice(method.length + 1); // e.g. "/providers/microsoft.insights/metrics"
         if (suffix && canonArmPath.endsWith(suffix)) {
           const { routeDef, originalKey } = suffixIndex[suffixKey];
+          const versions = Object.keys(routeDef.versions || {});
+
+          if (!norm.apiVersion) {
+            return _result(STATUS.ROUTE_MISMATCH, {
+              provider_namespace:  providerNamespace,
+              matched_route_key:   originalKey,
+              matched_versions:    versions,
+              reason:              "no_api_version_in_request",
+              shard_name:          providerNamespace,
+            });
+          }
+
+          if (routeDef.versions[norm.apiVersion]) {
+            return _result(STATUS.EXACT_MATCH, {
+              provider_namespace:  providerNamespace,
+              matched_route_key:   originalKey,
+              matched_versions:    versions,
+              matched_version:     norm.apiVersion,
+              shard_name:          providerNamespace,
+              reason:              "exact",
+            });
+          }
+
+          return _result(STATUS.ROUTE_MISMATCH, {
+            provider_namespace:  providerNamespace,
+            matched_route_key:   originalKey,
+            matched_versions:    versions,
+            reason:              "api_version_not_in_spec",
+            shard_name:          providerNamespace,
+          });
+        }
+      }
+    }
+
+    // ── Pass 5: last-provider-suffix matching ────────────────────────────────
+    // Some Azure specs describe "any parent resource" using multi-segment
+    // placeholders such as:
+    //   {resourceProviderNamespace}/{parentResourcePath}/{resourceType}/{resourceName}
+    // This 4-segment template cannot be matched by segment-count-sensitive
+    // canonical comparison when the actual request has a different number of
+    // segments (e.g. Microsoft.Logic/workflows/{name} = 3 segments).
+    //
+    // Strategy: for shard routes with two or more /providers/ segments, index
+    // them by the terminal /providers/Namespace/suffix.  Then check whether the
+    // request's armPath ends with the same canonical suffix.
+    //
+    // Example:
+    //   shard route suffix: "/providers/Microsoft.Authorization/permissions"
+    //   armPath suffix:     "/providers/microsoft.authorization/permissions"
+    //   → match!
+    if (norm.armPath) {
+      const armPathLower = norm.armPath.toLowerCase();
+      const firstProvIdx = armPathLower.indexOf("/providers/");
+      const lastProvIdx  = armPathLower.lastIndexOf("/providers/");
+      if (firstProvIdx >= 0 && lastProvIdx !== firstProvIdx) {
+        const armSuffix     = norm.armPath.slice(lastProvIdx);
+        const canonArmSuffix = norm.method.toLowerCase() + " " +
+          _normalisePlaceholders(armSuffix).toLowerCase();
+        const lastSuffixIndex = _getShardIndices(routes).lastProvider;
+        const entry = lastSuffixIndex[canonArmSuffix];
+        if (entry) {
+          const { routeDef, originalKey } = entry;
           const versions = Object.keys(routeDef.versions || {});
 
           if (!norm.apiVersion) {
