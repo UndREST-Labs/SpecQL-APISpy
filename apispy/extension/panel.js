@@ -221,6 +221,29 @@ async function buildEntry(req, norm, scope) {
       }
     }
     result = Matcher.classify(norm, shard, { inScope: true, shardLoadError });
+
+    // Extension-resource fallback: for paths with a nested /providers/ segment
+    // (e.g. .../vaults/{name}/providers/Microsoft.Insights/metrics), the route
+    // lives in the EXTENSION provider's shard, not the primary resource's shard.
+    // When the primary shard gives up (route_not_in_shard), try the last provider
+    // namespace's shard with the same matcher logic (which includes {resourceUri}
+    // suffix matching).
+    if (result.status === Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE) {
+      const lastNs = Matcher.inferLastProviderNamespace(norm.pathname);
+      if (lastNs) {
+        try {
+          const extensionShard = await Loader.loadShard(lastNs);
+          if (extensionShard) {
+            const extensionResult = Matcher.classify(norm, extensionShard, { inScope: true });
+            if (extensionResult.status !== Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE) {
+              result = extensionResult;
+            }
+          }
+        } catch (_) {
+          // Extension shard load failure is non-critical; keep the primary result.
+        }
+      }
+    }
   }
 
   return {

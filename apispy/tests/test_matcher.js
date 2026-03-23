@@ -425,5 +425,239 @@ eq(
   "route key string normalised correctly"
 );
 
+// ── canonicaliseRouteKey ──────────────────────────────────────────────────────
+console.log("\n=== Matcher.canonicaliseRouteKey ===");
+eq(
+  Matcher.canonicaliseRouteKey("GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments"),
+  "get /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.resources/deployments",
+  "canonicaliseRouteKey: placeholders→{name}, lowercase, no trailing slash"
+);
+eq(
+  Matcher.canonicaliseRouteKey("GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"),
+  "get /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.resources/deployments",
+  "canonicaliseRouteKey: trailing slash stripped, case-insensitive equality with resourceGroups variant"
+);
+// Demonstrate that resourceGroups and resourcegroups variants canonicalise to same key
+assert(
+  Matcher.canonicaliseRouteKey("GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments") ===
+  Matcher.canonicaliseRouteKey("GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"),
+  "resourceGroups and resourcegroups (+ trailing slash) canonicalise to same key"
+);
+
+// ── inferProviderNamespace — casing normalisation ─────────────────────────────
+console.log("\n=== Matcher.inferProviderNamespace — casing normalisation ===");
+eq(
+  Matcher.inferProviderNamespace("//providers/microsoft.management/getEntities"),
+  "Microsoft.Management",
+  "lowercase 'microsoft.management' normalised to 'Microsoft.Management'"
+);
+eq(
+  Matcher.inferProviderNamespace("/providers/microsoft.insights/metrics"),
+  "Microsoft.Insights",
+  "lowercase 'microsoft.insights' normalised to 'Microsoft.Insights'"
+);
+eq(
+  Matcher.inferProviderNamespace("/subscriptions/abc/providers/Microsoft.KeyVault/vaults/x"),
+  "Microsoft.KeyVault",
+  "already-canonical 'Microsoft.KeyVault' unchanged"
+);
+eq(
+  Matcher.inferProviderNamespace("/providers/Microsoft.AAD/operations"),
+  "Microsoft.AAD",
+  "Microsoft.AAD preserved (only first letter of each segment changed)"
+);
+
+// ── inferLastProviderNamespace ────────────────────────────────────────────────
+console.log("\n=== Matcher.inferLastProviderNamespace ===");
+eq(
+  Matcher.inferLastProviderNamespace("/subscriptions/x/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/v/providers/microsoft.Insights/metrics"),
+  "Microsoft.Insights",
+  "nested provider: last namespace returned and capitalised"
+);
+eq(
+  Matcher.inferLastProviderNamespace("/subscriptions/x/providers/Microsoft.KeyVault/vaults/v"),
+  null,
+  "single provider: returns null (not an extension resource)"
+);
+eq(
+  Matcher.inferLastProviderNamespace("/providers/Microsoft.Management/managementGroups/mg/providers/Microsoft.Quota/groupQuotas/q"),
+  "Microsoft.Quota",
+  "management+quota nested path: last = Microsoft.Quota"
+);
+eq(
+  Matcher.inferLastProviderNamespace("/subscriptions/abc"),
+  null,
+  "no provider: returns null"
+);
+
+// ── shard with resourceGroups/resourcegroups case + trailing slash ────────────
+// Reproduces Issue 3: spec files sometimes spell the path segment as
+// "resourcegroups" (lowercase) and append a trailing slash.
+const CASE_TRAILING_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Lowercase resourcegroups + trailing slash — as seen in real spec files
+        "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2022-09-01": { is_preview: false, spec_files: ["resources/2022-09-01/deployments.json"] },
+            "2022-12-01": { is_preview: false, spec_files: ["resources/2022-12-01/deployments.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — canonical fallback: resourcegroups case + trailing slash ===");
+{
+  // The URL uses capitalised /resourceGroups/ (as Azure Portal always does).
+  // The shard has lowercase /resourcegroups/ with a trailing slash.
+  // Canonical comparison (lowercase + trailing slash strip) bridges the gap.
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/SpecRecon-Demo-RG/providers/Microsoft.Resources/deployments?api-version=2022-12-01",
+    "GET"
+  );
+  eq(
+    n.armPath,
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments",
+    "armPath has resourceGroups (capitalised, no trailing slash)"
+  );
+
+  const r = Matcher.classify(n, CASE_TRAILING_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match: canonical fallback bridges resourceGroups↔resourcegroups and trailing slash");
+  eq(r.matched_version, "2022-12-01", "correct api-version matched");
+}
+
+// ── double-slash path normalisation ──────────────────────────────────────────
+// Reproduces Issue 2: Azure Portal occasionally emits paths starting with "//".
+// The canonical comparison bridges the case difference.
+const MGMT_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Management" },
+  provider_namespace: "Microsoft.Management",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "POST /providers/Microsoft.Management/getEntities": {
+          method: "POST",
+          path_template: "/providers/Microsoft.Management/getEntities",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2018-03-01-preview": { is_preview: true, spec_files: ["management/2018-03-01-preview/entities.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Normalizer + Matcher — double-slash path collapsed ===");
+{
+  const n = norm(
+    "https://management.azure.com//providers/microsoft.management/getEntities?api-version=2018-03-01-preview",
+    "POST"
+  );
+  eq(n.normalisedPath, "/providers/microsoft.management/getEntities",
+    "normalisedPath: double slash collapsed to single slash");
+  eq(n.armPath, "/providers/microsoft.management/getEntities",
+    "armPath: double slash collapsed");
+  eq(Matcher.inferProviderNamespace(n.pathname), "Microsoft.Management",
+    "inferProviderNamespace normalises casing from double-slash path");
+
+  const r = Matcher.classify(n, MGMT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match: double-slash normalised, namespace casing resolved via canonical comparison");
+  eq(r.matched_version, "2018-03-01-preview", "correct api-version matched");
+}
+
+// ── {resourceUri} suffix matching — extension resources ───────────────────────
+// Reproduces Issue 1: Insights metrics on a KeyVault resource.
+// The Insights shard has GET /{resourceUri}/providers/Microsoft.Insights/metrics.
+// panel.js loads this shard as the extension (last provider) shard.
+const INSIGHTS_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Insights" },
+  provider_namespace: "Microsoft.Insights",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "GET /{resourceUri}/providers/Microsoft.Insights/metrics": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.Insights/metrics",
+          provider_namespace: "Microsoft.Insights",
+          versions: {
+            "2019-07-01": { is_preview: false, spec_files: ["insights/2019-07-01/metrics.json"] },
+            "2021-05-01": { is_preview: false, spec_files: ["insights/2021-05-01/metrics.json"] },
+          },
+        },
+        "GET /{resourceUri}/providers/Microsoft.Insights/metricDefinitions": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.Insights/metricDefinitions",
+          provider_namespace: "Microsoft.Insights",
+          versions: {
+            "2018-01-01": { is_preview: false, spec_files: ["insights/2018-01-01/metricDefinitions.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — {resourceUri} suffix matching: exact match ===");
+{
+  // Real scenario: Azure Portal navigates to a KeyVault and asks Insights for metrics.
+  // armPath: .../providers/Microsoft.KeyVault/vaults/{name}/providers/microsoft.Insights/metrics
+  // Matched via suffix /providers/microsoft.Insights/metrics (endsWith).
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/SpecRecon-Demo-RG/providers/Microsoft.KeyVault/vaults/SpecRecon-Demo-KV/providers/microsoft.Insights/metrics?api-version=2019-07-01",
+    "GET"
+  );
+  eq(
+    n.armPath,
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{name}/providers/microsoft.Insights/metrics",
+    "armPath preserves nested provider namespace literal (microsoft.Insights, not {name})"
+  );
+  assert(n.armPath.includes("/providers/microsoft.Insights/metrics"), "nested extension provider namespace is literal in armPath");
+
+  const r = Matcher.classify(n, INSIGHTS_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match via {resourceUri} suffix matching");
+  eq(r.matched_version, "2019-07-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.Insights", "provider_namespace is Insights shard's namespace");
+  eq(r.matched_route_key, "GET /{resourceUri}/providers/Microsoft.Insights/metrics",
+    "matched_route_key is the original {resourceUri} shard key");
+}
+
+console.log("\n=== Matcher.classify — {resourceUri} suffix matching: version mismatch ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/MyRG/providers/Microsoft.KeyVault/vaults/MyVault/providers/microsoft.Insights/metrics?api-version=2099-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, INSIGHTS_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route found via {resourceUri} suffix but api-version absent → version mismatch");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2019-07-01"),
+    "matched_versions lists spec versions");
+}
+
+console.log("\n=== Matcher.classify — {resourceUri}: metricDefinitions via different suffix ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVm/providers/microsoft.Insights/metricDefinitions?api-version=2018-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, INSIGHTS_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match for metricDefinitions via {resourceUri} suffix matching");
+  eq(r.matched_route_key, "GET /{resourceUri}/providers/Microsoft.Insights/metricDefinitions",
+    "correct {resourceUri} route matched for metricDefinitions");
+}
+
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
