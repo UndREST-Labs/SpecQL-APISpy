@@ -140,6 +140,51 @@
   }
 
   /**
+   * First-segment keywords that unambiguously identify a path as an Azure ARM
+   * resource identifier.  Used by looksLikeArmPath() to distinguish real ARM
+   * paths from non-ARM paths on Azure/Microsoft hosts.
+   *
+   * For example, Microsoft Graph paths like /v1.0/subscriptions/{id}
+   * (webhook subscriptions) start with "v1.0", not "subscriptions", so they
+   * are correctly excluded.  Azure Resource Manager paths always start with
+   * one of these keywords at the first segment position.
+   */
+  const ARM_ROOT_SEGMENTS = new Set([
+    "subscriptions",
+    "tenants",
+    "providers",
+    "managementGroups",
+  ]);
+
+  /**
+   * Returns true if `path` looks like an Azure ARM resource identifier — i.e.,
+   * its first non-empty segment is a known ARM root keyword.
+   *
+   * This is the second gate for ARM scope templating (the first being
+   * isAzureArmHost()).  Even on known Azure/Microsoft hosts, paths that do not
+   * start at an ARM root segment must NOT have scope rules applied.  The
+   * canonical example is Microsoft Graph webhook subscriptions:
+   *
+   *   /v1.0/subscriptions/{id}   ← first segment is "v1.0", NOT "subscriptions"
+   *
+   * Without this check, the scope rule for "subscriptions" would fire in the
+   * wrong path position and produce an incorrect {subscriptionId} substitution.
+   *
+   * @param {string} path  Normalised path (already through normalisePath()).
+   * @returns {boolean}
+   */
+  function looksLikeArmPath(path) {
+    // paths always start with "/" so split gives ["", firstSeg, ...]
+    const segments = path.split("/");
+    for (let i = 1; i < segments.length; i++) {
+      if (segments[i] !== "") {
+        return ARM_ROOT_SEGMENTS.has(segments[i]);
+      }
+    }
+    return false;
+  }
+
+  /**
    * Apply Azure ARM structural templating to a path that has already been
    * through normalisePath().
    *
@@ -329,10 +374,15 @@
     const host   = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
     const normalisedPath = normalisePath(pathname);
-    // ARM structural templating is only applied to Azure/Microsoft API hosts.
-    // For any other host, armPath is identical to normalisedPath so that
-    // non-Azure APIs are never incorrectly affected by ARM grammar rules.
-    const armPath = isAzureArmHost(host)
+    // ARM structural templating requires BOTH conditions:
+    //   1. The host is a known Azure/Microsoft API host (isAzureArmHost).
+    //   2. The path starts at an ARM root segment (looksLikeArmPath).
+    // Condition 2 prevents scope rules firing on Azure hosts that use
+    // "subscriptions" for non-ARM purposes, e.g. Microsoft Graph webhook
+    // subscriptions: /v1.0/subscriptions/{id} — first segment is "v1.0",
+    // not "subscriptions", so looksLikeArmPath() returns false and the
+    // path is left unchanged.
+    const armPath = (isAzureArmHost(host) && looksLikeArmPath(normalisedPath))
       ? templateAzureArmPath(normalisedPath)
       : normalisedPath;
     const apiVersion = extractApiVersion(parsed);
@@ -361,6 +411,7 @@
     templateAzureArmPath,
     isLiteralArmSegment,
     isAzureArmHost,
+    looksLikeArmPath,
     extractApiVersion,
     TEMPLATE_RULES,
     ARM_SCOPE_RULES,
@@ -368,6 +419,7 @@
     ARM_LITERAL_SEGMENTS_LIST: Object.freeze(Array.from(ARM_LITERAL_SEGMENTS)),
     ARM_EXACT_HOSTS_LIST:      Object.freeze(Array.from(ARM_EXACT_HOSTS)),
     ARM_HOST_SUFFIXES_LIST:    Object.freeze(ARM_HOST_SUFFIXES.slice()),
+    ARM_ROOT_SEGMENTS_LIST:    Object.freeze(Array.from(ARM_ROOT_SEGMENTS)),
   };
 
 }(typeof window !== "undefined" ? window : exports));

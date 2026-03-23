@@ -208,6 +208,17 @@ assert(!Normalizer.isAzureArmHost("example.com"),              "example.com is N
 assert(!Normalizer.isAzureArmHost("api.example.com"),          "api.example.com is NOT an ARM host");
 assert(!Normalizer.isAzureArmHost(""),                         "empty string is NOT an ARM host");
 
+console.log("\n=== Normalizer.looksLikeArmPath ===");
+assert(Normalizer.looksLikeArmPath("/subscriptions/abc"),          "/subscriptions/... is ARM path");
+assert(Normalizer.looksLikeArmPath("/tenants/abc"),                "/tenants/... is ARM path");
+assert(Normalizer.looksLikeArmPath("/providers/Microsoft.X/ops"), "/providers/... is ARM path");
+assert(Normalizer.looksLikeArmPath("/managementGroups/abc"),       "/managementGroups/... is ARM path");
+assert(!Normalizer.looksLikeArmPath("/v1.0/subscriptions/abc"),    "/v1.0/subscriptions/... is NOT ARM path");
+assert(!Normalizer.looksLikeArmPath("/beta/subscriptions"),        "/beta/subscriptions is NOT ARM path");
+assert(!Normalizer.looksLikeArmPath("/healthz"),                   "/healthz is NOT ARM path");
+assert(!Normalizer.looksLikeArmPath("/"),                          "root / is NOT ARM path");
+assert(!Normalizer.looksLikeArmPath(""),                           "empty string is NOT ARM path");
+
 console.log("\n=== Normalizer.normalise — ARM templating gated on Azure host ===");
 {
   // Non-Azure host with a path that looks ARM-like (contains 'subscriptions').
@@ -230,6 +241,20 @@ console.log("\n=== Normalizer.normalise — ARM templating gated on Azure host =
   );
   assert(r.armPath.includes("{subscriptionId}"), "Azure host: {subscriptionId} applied");
   assert(r.armPath !== r.normalisedPath,         "Azure host: armPath differs from normalisedPath");
+}
+
+{
+  // Microsoft Graph webhook subscription path — host IS an Azure host but the
+  // path starts with /v1.0/ not /subscriptions/, so looksLikeArmPath() returns
+  // false and ARM scope rules must NOT fire.
+  const r = Normalizer.normalise(
+    "https://graph.microsoft.com/v1.0/subscriptions/abc123-webhook-id",
+    "GET"
+  );
+  assert(r.ok === true, "ok=true for Graph webhook path");
+  eq(r.armPath, r.normalisedPath, "Graph webhook path: armPath equals normalisedPath (no ARM templating)");
+  assert(!r.armPath.includes("{subscriptionId}"), "Graph webhook path: 'subscriptions' NOT replaced with {subscriptionId}");
+  assert(r.armPath.includes("subscriptions"),     "Graph webhook path: literal 'subscriptions' preserved");
 }
 
 console.log(`\nNormalizer: ${pass} passed, ${fail} failed`);
