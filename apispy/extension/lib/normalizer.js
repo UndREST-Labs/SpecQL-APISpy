@@ -350,6 +350,11 @@
   }
 
   // Export
+  // Predicates are the primary public API for checking ARM segment/host rules.
+  // The constant snapshots (ARM_LITERAL_SEGMENTS_LIST, ARM_EXACT_HOSTS_LIST,
+  // ARM_HOST_SUFFIXES_LIST) are frozen arrays exposed only for diagnostics and
+  // testing — the live mutable Sets/arrays are intentionally NOT exported so
+  // callers cannot accidentally mutate normalization behavior at runtime.
   exports.Normalizer = {
     normalise,
     normalisePath,
@@ -358,10 +363,11 @@
     isAzureArmHost,
     extractApiVersion,
     TEMPLATE_RULES,
-    ARM_LITERAL_SEGMENTS,
     ARM_SCOPE_RULES,
-    ARM_HOST_SUFFIXES,
-    ARM_EXACT_HOSTS,
+    // Read-only snapshots of the internal sets/arrays for diagnostics/tests only.
+    ARM_LITERAL_SEGMENTS_LIST: Object.freeze(Array.from(ARM_LITERAL_SEGMENTS)),
+    ARM_EXACT_HOSTS_LIST:      Object.freeze(Array.from(ARM_EXACT_HOSTS)),
+    ARM_HOST_SUFFIXES_LIST:    Object.freeze(ARM_HOST_SUFFIXES.slice()),
   };
 
 }(typeof window !== "undefined" ? window : exports));
