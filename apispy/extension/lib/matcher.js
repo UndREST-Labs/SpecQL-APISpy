@@ -83,6 +83,49 @@
   }
 
   /**
+   * Replace ALL `{xxx}` placeholder names in a route key with `{name}`.
+   *
+   * Azure REST API spec path templates use resource-specific parameter names
+   * such as `{vaultName}`, `{secretName}`, and `{accountName}`, while the ARM
+   * normaliser always emits the structural placeholder `{name}` for resource-
+   * name positions.  Normalising both sides to `{name}` before comparison
+   * bridges this gap without requiring shard regeneration.
+   *
+   * @param {string} str  Route key or path string.
+   * @returns {string}
+   * @private
+   */
+  function _normalisePlaceholders(str) {
+    return str.replace(/\{[^}]+\}/g, "{name}");
+  }
+
+  /**
+   * Build a secondary route index keyed by placeholder-normalised route keys.
+   *
+   * Each entry stores both the original route definition and the original
+   * route key so callers can report the real spec key to the user rather than
+   * the normalised form.
+   *
+   * When two shard routes normalise to the same key (extremely rare in
+   * practice — it would require two spec operations with identical path
+   * structure but different only in parameter names) the first entry wins.
+   *
+   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @returns {object}       Normalised key → `{ routeDef, originalKey }`.
+   * @private
+   */
+  function _buildNormalisedRouteIndex(routes) {
+    const index = Object.create(null);
+    for (const routeKey of Object.keys(routes)) {
+      const normKey = _normalisePlaceholders(routeKey);
+      if (!index[normKey]) {
+        index[normKey] = { routeDef: routes[routeKey], originalKey: routeKey };
+      }
+    }
+    return index;
+  }
+
+  /**
    * Attempt to match a normalised request against a loaded shard.
    *
    * Strategy (v2 — ARM-aware):
@@ -162,6 +205,50 @@
         reason:              "api_version_not_in_spec",
         shard_name:          providerNamespace,
       });
+    }
+
+    // Normalised-placeholder fallback.
+    // Shard route keys may use spec-specific parameter names (e.g. {vaultName},
+    // {secretName}) while armPath uses the structural placeholder {name} for all
+    // resource-name positions.  Build a secondary index with every {xxx} replaced
+    // by {name} so the lookup succeeds when only the placeholder name differs.
+    if (norm.armPath) {
+      const normIndex = _buildNormalisedRouteIndex(routes);
+      const normKey   = _normalisePlaceholders(buildRouteKey(norm.method, norm.armPath));
+      const entry     = normIndex[normKey];
+      if (entry) {
+        const { routeDef, originalKey } = entry;
+        const versions = Object.keys(routeDef.versions || {});
+
+        if (!norm.apiVersion) {
+          return _result(STATUS.ROUTE_MISMATCH, {
+            provider_namespace:  providerNamespace,
+            matched_route_key:   originalKey,
+            matched_versions:    versions,
+            reason:              "no_api_version_in_request",
+            shard_name:          providerNamespace,
+          });
+        }
+
+        if (routeDef.versions[norm.apiVersion]) {
+          return _result(STATUS.EXACT_MATCH, {
+            provider_namespace:  providerNamespace,
+            matched_route_key:   originalKey,
+            matched_versions:    versions,
+            matched_version:     norm.apiVersion,
+            shard_name:          providerNamespace,
+            reason:              "exact",
+          });
+        }
+
+        return _result(STATUS.ROUTE_MISMATCH, {
+          provider_namespace:  providerNamespace,
+          matched_route_key:   originalKey,
+          matched_versions:    versions,
+          reason:              "api_version_not_in_spec",
+          shard_name:          providerNamespace,
+        });
+      }
     }
 
     // No route key matched any candidate path
@@ -244,6 +331,7 @@
     matchAgainstShard,
     inferProviderNamespace,
     buildRouteKey,
+    normalisePlaceholders: _normalisePlaceholders,
     STATUS,
     STATUS_LABELS,
   };

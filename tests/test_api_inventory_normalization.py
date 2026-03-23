@@ -239,3 +239,103 @@ class TestDetectSourceKind:
 
     def test_empty(self):
         assert norm.detect_source_kind("") == "other"
+
+
+# ---------------------------------------------------------------------------
+# normalize_path_template_for_key
+# ---------------------------------------------------------------------------
+
+class TestNormalizePathTemplateForKey:
+    """normalize_path_template_for_key replaces non-scope placeholders with {name}."""
+
+    def test_vault_name_replaced(self):
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.KeyVault/vaults/{vaultName}"
+        )
+        expected = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.KeyVault/vaults/{name}"
+        )
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_multi_level_resource_names(self):
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}"
+        )
+        expected = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.KeyVault/vaults/{name}/keys/{name}"
+        )
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_scope_params_preserved(self):
+        """ARM scope placeholders must stay as-is so they match normaliser output."""
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.Compute/virtualMachines/{vmName}"
+        )
+        result = norm.normalize_path_template_for_key(path)
+        assert "{subscriptionId}" in result
+        assert "{resourceGroupName}" in result
+        assert "{name}" in result
+        assert "{vmName}" not in result
+
+    def test_tenant_scope_preserved(self):
+        path = "/tenants/{tenantId}/providers/Microsoft.AAD/domainServices/{domainName}"
+        expected = "/tenants/{tenantId}/providers/Microsoft.AAD/domainServices/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_location_scope_preserved(self):
+        path = (
+            "/subscriptions/{subscriptionId}"
+            "/providers/Microsoft.KeyVault.Admin/locations/{location}/quotas"
+        )
+        result = norm.normalize_path_template_for_key(path)
+        assert "{location}" in result
+        assert "{subscriptionId}" in result
+
+    def test_management_group_scope_preserved(self):
+        path = "/managementGroups/{managementGroupId}/providers/Microsoft.Authorization/policyAssignments/{policyAssignmentName}"
+        expected = "/managementGroups/{managementGroupId}/providers/Microsoft.Authorization/policyAssignments/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_default_singleton_preserved(self):
+        """Literal 'default' segments (not a placeholder) must remain unchanged."""
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices/default"
+        )
+        result = norm.normalize_path_template_for_key(path)
+        assert "blobServices/default" in result
+        assert "{name}" in result
+
+    def test_storage_account_name_replaced(self):
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.Storage/storageAccounts/{accountName}"
+        )
+        expected = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.Storage/storageAccounts/{name}"
+        )
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_no_placeholders_unchanged(self):
+        path = "/providers/Microsoft.Authorization/operations"
+        assert norm.normalize_path_template_for_key(path) == path
+
+    def test_already_normalised_unchanged(self):
+        """A path that already uses {name} is returned unchanged."""
+        path = (
+            "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
+            "/providers/Microsoft.KeyVault/vaults/{name}"
+        )
+        assert norm.normalize_path_template_for_key(path) == path
+
+    def test_empty_string(self):
+        assert norm.normalize_path_template_for_key("") == ""
+
+    def test_none(self):
+        assert norm.normalize_path_template_for_key(None) is None
