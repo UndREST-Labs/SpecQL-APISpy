@@ -113,6 +113,11 @@ async function onRequestFinished(req) {
   const method = req.request && req.request.method;
   if (!url) return;
 
+  // Skip CORS preflight requests — they are browser-generated and never appear
+  // in Azure REST API specs, so they would always produce false "Unknown route"
+  // results.  Filtering them here keeps the panel free of this systematic noise.
+  if (Filters.isCorsPreflightRequest(method)) return;
+
   const scope = Filters.classifyScope(url);
   const norm = Normalizer.normalise(url, method);
   const entry = await buildEntry(req, norm, scope);
@@ -152,6 +157,10 @@ async function expandBatchSubRequests(req) {
     const subUrl    = sub.url    || sub.Url    || sub.URL;
     const subMethod = sub.httpMethod || sub.method || "GET";
     if (!subUrl) continue;
+
+    // Skip CORS preflights in batch payloads (extremely rare but apply
+    // the same rule for consistency).
+    if (Filters.isCorsPreflightRequest(subMethod)) continue;
 
     // Build a minimal synthetic HAR-like object so buildEntry can process it.
     const syntheticReq = {

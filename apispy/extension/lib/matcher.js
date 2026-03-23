@@ -170,9 +170,9 @@
    *
    * Three normalisations are applied:
    *   1. All `{xxx}` → `{name}` (placeholder-name agnostic, as in v2).
-   *   2. Trailing slash stripped from the path portion — some spec route keys end
-   *      with `/` (e.g. `GET …/deployments/`) while the normalised request path
-   *      never does.
+   *   2. Trailing slashes stripped from the path portion — some spec route keys
+   *      end with `/` (e.g. `GET …/deployments/`) while the normalised request
+   *      path never does.
    *   3. Entire key lowercased — spec files occasionally use `resourcegroups`
    *      (lowercase) while the ARM normaliser always emits `resourceGroups`.
    *      Lowercasing both sides makes the comparison case-insensitive.
@@ -241,7 +241,7 @@
       if (!m) continue;
       const method = m[1];
       const suffix = m[2]; // e.g. "/providers/Microsoft.Insights/metrics"
-      const canonKey = method.toLowerCase() + " " + _normalisePlaceholders(suffix).toLowerCase().replace(/\/+$/, "");
+      const canonKey = _canonicaliseRouteKey(method + " " + suffix);
       if (!index[canonKey]) {
         index[canonKey] = { routeDef: routes[routeKey], originalKey: routeKey };
       }

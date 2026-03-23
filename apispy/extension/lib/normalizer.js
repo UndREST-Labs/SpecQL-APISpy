@@ -345,9 +345,10 @@
       path = path.slice(0, -1);
     }
 
-    // Collapse consecutive slashes (e.g. "//providers/..." → "/providers/...").
-    // Azure Portal occasionally emits double-slash paths which are malformed
-    // but should still be matchable against single-slash spec route keys.
+    // Collapse runs of consecutive slashes into a single slash.
+    // Azure Portal occasionally emits paths with multiple consecutive slashes
+    // (e.g. "//providers/..." → "/providers/..."); collapsing them makes the
+    // path matchable against single-slash spec route keys.
     path = path.replace(/\/\/+/g, "/");
 
     // Replace known-shape segments
