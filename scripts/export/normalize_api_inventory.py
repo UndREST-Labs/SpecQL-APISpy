@@ -218,6 +218,65 @@ def generate_lookup_key(host: str, method: str, path_template: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Route key normalization
+# ---------------------------------------------------------------------------
+
+# ARM scope parameter placeholders that are kept verbatim in route keys.
+# These match the placeholders emitted by the APISpy ARM normaliser for the
+# structurally-defined scope segments (subscriptions, resourceGroups, etc.).
+_ARM_SCOPE_PARAMS: frozenset = frozenset({
+    "{subscriptionId}",
+    "{resourceGroupName}",
+    "{tenantId}",
+    "{location}",
+    "{managementGroupId}",
+})
+
+_PLACEHOLDER_RE = re.compile(r"\{[^}]+\}")
+
+
+def normalize_path_template_for_key(path_template: str) -> str:
+    """Normalise path parameter names in a path template for use as a route key.
+
+    Azure REST API spec path templates use resource-specific parameter names
+    such as ``{vaultName}``, ``{secretName}``, and ``{accountName}``.  The
+    APISpy ARM normaliser replaces all resource-name positions with the
+    structural placeholder ``{name}``.  To ensure the two sides compare equal
+    during route lookup, this function replaces every non-scope placeholder
+    with ``{name}``.
+
+    ARM scope parameters that are preserved as-is (they already match the
+    ARM normaliser output)::
+
+        {subscriptionId}, {resourceGroupName}, {tenantId},
+        {location}, {managementGroupId}
+
+    Examples::
+
+        /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
+        providers/Microsoft.KeyVault/vaults/{vaultName}
+        → /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
+          providers/Microsoft.KeyVault/vaults/{name}
+
+        /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
+        providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices/default
+        → /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
+          providers/Microsoft.Storage/storageAccounts/{name}/blobServices/default
+
+    Returns ``path_template`` unchanged when it contains no non-scope
+    placeholders.
+    """
+    if not path_template:
+        return path_template
+
+    def _replace(match: re.Match) -> str:
+        placeholder = match.group(0)
+        return placeholder if placeholder in _ARM_SCOPE_PARAMS else "{name}"
+
+    return _PLACEHOLDER_RE.sub(_replace, path_template)
+
+
+# ---------------------------------------------------------------------------
 # Source kind detection
 # ---------------------------------------------------------------------------
 

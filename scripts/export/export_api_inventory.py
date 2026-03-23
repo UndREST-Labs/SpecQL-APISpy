@@ -48,6 +48,7 @@ from normalize_api_inventory import (
     generate_lookup_key,
     is_preview_version,
     normalize_method,
+    normalize_path_template_for_key,
 )
 
 # ---------------------------------------------------------------------------
@@ -324,7 +325,7 @@ def _build_grouped_index(flat_ops: list) -> dict:
         method = op["method"]
         path_template = op["path_template"]
         provider_ns = extract_provider_namespace(path_template)
-        route_key = f"{method} {path_template}"
+        route_key = f"{method} {normalize_path_template_for_key(path_template)}"
 
         # Navigate / create the nested slots
         if provider_ns not in providers:

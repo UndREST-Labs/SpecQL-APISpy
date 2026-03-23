@@ -284,5 +284,146 @@ console.log("\n=== Matcher.classify — ARM fallback: generic normalisedPath sti
   eq(r.status, Matcher.STATUS.EXACT_MATCH, "exact_match via normalisedPath fallback when armPath misses");
 }
 
+// ── Normalised-placeholder fallback ──────────────────────────────────────────
+//
+// Real SpecRecon shard files use spec-specific parameter names such as
+// {vaultName}, {secretName}, {keyName}, etc. — not the structural {name}
+// placeholder emitted by the ARM normaliser.  The matcher must bridge this
+// gap via a normalised-placeholder fallback that maps all {xxx} → {name}
+// before comparing route keys.
+//
+// These tests reproduce the exact scenario shown in the GitHub issue where
+// requests to known KeyVault routes were incorrectly classified as
+// "Unknown route / route_not_in_shard".
+
+const REAL_SHARD_FORMAT = {
+  metadata: { provider_namespace: "Microsoft.KeyVault" },
+  provider_namespace: "Microsoft.KeyVault",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Route key uses spec-specific {vaultName} — not the structural {name}
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}",
+          provider_namespace: "Microsoft.KeyVault",
+          versions: {
+            "2024-11-01": { is_preview: false, spec_files: ["keyvault/2024-11-01/vaults.json"] },
+            "2023-07-01": { is_preview: false, spec_files: ["keyvault/2023-07-01/vaults.json"] },
+          },
+        },
+        // Multi-level resource names: {vaultName}/keys/{keyName}
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}/keys/{keyName}",
+          provider_namespace: "Microsoft.KeyVault",
+          versions: {
+            "2024-11-01": { is_preview: false, spec_files: ["keyvault/2024-11-01/keys.json"] },
+          },
+        },
+        // Singleton 'default' preserved in spec key (blobServices/default pattern)
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices/default": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{accountName}/blobServices/default",
+          provider_namespace: "Microsoft.Storage",
+          versions: {
+            "2023-01-01": { is_preview: false, spec_files: ["storage/2023-01-01/blob.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — normalised-placeholder fallback: real shard {vaultName} ===");
+{
+  // Reproduces the GitHub issue: a GET request to a real KeyVault vault URL
+  // was flagged as "Unknown route / route_not_in_shard" because the shard
+  // key uses {vaultName} while armPath produces {name}.
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/SpecRecon-Demo-RG/providers/Microsoft.KeyVault/vaults/SpecRecon-Demo-KV?api-version=2024-11-01",
+    "GET"
+  );
+  eq(
+    n.armPath,
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{name}",
+    "armPath uses structural {name} (not literal vault name)"
+  );
+
+  const r = Matcher.classify(n, REAL_SHARD_FORMAT, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match via normalised-placeholder fallback (shard uses {vaultName})");
+  eq(r.matched_version, "2024-11-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.KeyVault", "correct provider_namespace");
+  // matched_route_key should be the original shard key (not the normalised form)
+  eq(
+    r.matched_route_key,
+    "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}",
+    "matched_route_key is the original shard key with spec-specific param names"
+  );
+}
+
+console.log("\n=== Matcher.classify — normalised-placeholder fallback: version mismatch ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/SpecRecon-Demo-RG/providers/Microsoft.KeyVault/vaults/SpecRecon-Demo-KV?api-version=2099-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, REAL_SHARD_FORMAT, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route_mismatch when route found via normalised fallback but api-version absent");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2024-11-01"),
+    "matched_versions lists known versions");
+}
+
+console.log("\n=== Matcher.classify — normalised-placeholder fallback: multi-level resource names ===");
+{
+  // Shard key: ...vaults/{vaultName}/keys/{keyName}
+  // armPath:   ...vaults/{name}/keys/{name}
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/myRG/providers/Microsoft.KeyVault/vaults/myVault/keys/myKey?api-version=2024-11-01",
+    "GET"
+  );
+  eq(
+    n.armPath,
+    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{name}/keys/{name}",
+    "armPath templates both vault name and key name to {name}"
+  );
+  const r = Matcher.classify(n, REAL_SHARD_FORMAT, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match for multi-level resource names via normalised-placeholder fallback");
+}
+
+console.log("\n=== Matcher.classify — normalised-placeholder fallback: 'default' singleton ===");
+{
+  // Spec key uses {accountName} for the storage account name but 'default' literal
+  // for the blobServices singleton.  Both must match correctly.
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/mystorage/blobServices/default?api-version=2023-01-01",
+    "GET"
+  );
+  assert(n.armPath.includes("blobServices/default"), "armPath preserves 'default' literal");
+  const r = Matcher.classify(n, REAL_SHARD_FORMAT, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match: 'default' singleton preserved and {accountName}→{name} normalised");
+}
+
+console.log("\n=== Matcher.normalisePlaceholders ===");
+eq(
+  Matcher.normalisePlaceholders("/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}"),
+  "/subscriptions/{name}/resourceGroups/{name}/providers/Microsoft.KeyVault/vaults/{name}",
+  "all placeholders replaced with {name}"
+);
+eq(
+  Matcher.normalisePlaceholders("/providers/Microsoft.AAD/operations"),
+  "/providers/Microsoft.AAD/operations",
+  "path with no placeholders unchanged"
+);
+eq(
+  Matcher.normalisePlaceholders("GET /subscriptions/{subscriptionId}/providers/Microsoft.Foo/things/{thingName}"),
+  "GET /subscriptions/{name}/providers/Microsoft.Foo/things/{name}",
+  "route key string normalised correctly"
+);
+
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
