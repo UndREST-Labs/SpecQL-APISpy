@@ -28,6 +28,58 @@
     },
   ];
 
+  // ─── Azure ARM host guard ────────────────────────────────────────────────────
+
+  /**
+   * Hostname suffixes that identify Azure/Microsoft API hosts.
+   * ARM structural templating is ONLY applied when the request host matches
+   * one of these suffixes (or is an exact host from ARM_EXACT_HOSTS below).
+   *
+   * This ensures that templateAzureArmPath() is never applied to non-Azure APIs,
+   * even if those APIs happen to have path segments named "subscriptions" or
+   * "tenants" — which would otherwise be incorrectly replaced with ARM
+   * placeholders.
+   *
+   * Kept in sync conceptually with Filters.HOST_SUFFIXES / Filters.EXACT_HOSTS
+   * in lib/filters.js, but defined independently here so normalizer.js remains
+   * a standalone module with no cross-module dependency.
+   */
+  const ARM_HOST_SUFFIXES = [
+    ".azure.com",
+    ".microsoft.com",
+    ".microsoftonline.com",
+    ".windows.net",
+    ".azure.net",
+    ".azure-api.net",
+  ];
+
+  const ARM_EXACT_HOSTS = new Set([
+    "management.azure.com",
+    "graph.microsoft.com",
+    "login.microsoftonline.com",
+    "login.windows.net",
+    "graph.windows.net",
+    "api.loganalytics.io",
+    "api.applicationinsights.io",
+  ]);
+
+  /**
+   * Returns true only if `host` is a known Azure/Microsoft API host.
+   * ARM structural path templating is gated on this check so it is never
+   * applied to non-Azure APIs that APISpy may monitor in the future.
+   *
+   * @param {string} host  Lower-case hostname (no port).
+   * @returns {boolean}
+   */
+  function isAzureArmHost(host) {
+    if (!host) return false;
+    if (ARM_EXACT_HOSTS.has(host)) return true;
+    for (const suffix of ARM_HOST_SUFFIXES) {
+      if (host.endsWith(suffix)) return true;
+    }
+    return false;
+  }
+
   // ─── Azure ARM structural templating ────────────────────────────────────────
 
   /**
@@ -277,7 +329,12 @@
     const host   = parsed.hostname.toLowerCase();
     const pathname = parsed.pathname;
     const normalisedPath = normalisePath(pathname);
-    const armPath = templateAzureArmPath(normalisedPath);
+    // ARM structural templating is only applied to Azure/Microsoft API hosts.
+    // For any other host, armPath is identical to normalisedPath so that
+    // non-Azure APIs are never incorrectly affected by ARM grammar rules.
+    const armPath = isAzureArmHost(host)
+      ? templateAzureArmPath(normalisedPath)
+      : normalisedPath;
     const apiVersion = extractApiVersion(parsed);
 
     return {
@@ -298,10 +355,13 @@
     normalisePath,
     templateAzureArmPath,
     isLiteralArmSegment,
+    isAzureArmHost,
     extractApiVersion,
     TEMPLATE_RULES,
     ARM_LITERAL_SEGMENTS,
     ARM_SCOPE_RULES,
+    ARM_HOST_SUFFIXES,
+    ARM_EXACT_HOSTS,
   };
 
 }(typeof window !== "undefined" ? window : exports));

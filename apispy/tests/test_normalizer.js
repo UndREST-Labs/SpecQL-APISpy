@@ -199,5 +199,38 @@ console.log("\n=== Normalizer.normalise — armPath field ===");
   eq(r.armPath, r.normalisedPath, "armPath equals normalisedPath for non-ARM path");
 }
 
+console.log("\n=== Normalizer.isAzureArmHost ===");
+assert(Normalizer.isAzureArmHost("management.azure.com"),      "management.azure.com is ARM host");
+assert(Normalizer.isAzureArmHost("graph.microsoft.com"),       "graph.microsoft.com is ARM host");
+assert(Normalizer.isAzureArmHost("myhost.azure.com"),          "*.azure.com suffix matches");
+assert(Normalizer.isAzureArmHost("custom.management.azure.com"), "nested *.azure.com matches");
+assert(!Normalizer.isAzureArmHost("example.com"),              "example.com is NOT an ARM host");
+assert(!Normalizer.isAzureArmHost("api.example.com"),          "api.example.com is NOT an ARM host");
+assert(!Normalizer.isAzureArmHost(""),                         "empty string is NOT an ARM host");
+
+console.log("\n=== Normalizer.normalise — ARM templating gated on Azure host ===");
+{
+  // Non-Azure host with a path that looks ARM-like (contains 'subscriptions').
+  // armPath must NOT be templated — it must equal normalisedPath.
+  const r = Normalizer.normalise(
+    "https://api.example.com/billing/subscriptions/myplan?api-version=2024-01-01",
+    "GET"
+  );
+  assert(r.ok === true,                      "ok=true for non-Azure URL");
+  eq(r.armPath, r.normalisedPath,            "non-Azure host: armPath equals normalisedPath (no ARM templating)");
+  assert(!r.armPath.includes("{subscriptionId}"), "non-Azure host: 'subscriptions' not replaced with {subscriptionId}");
+  assert(r.armPath.includes("myplan"),       "non-Azure host: literal segment 'myplan' preserved");
+}
+
+{
+  // Azure host — ARM templating IS applied.
+  const r = Normalizer.normalise(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.KeyVault/vaults/myvault?api-version=2023-01-01",
+    "GET"
+  );
+  assert(r.armPath.includes("{subscriptionId}"), "Azure host: {subscriptionId} applied");
+  assert(r.armPath !== r.normalisedPath,         "Azure host: armPath differs from normalisedPath");
+}
+
 console.log(`\nNormalizer: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
