@@ -6,11 +6,6 @@
 
 (function (exports) {
 
-  // ── Module-level regex constants ─────────────────────────────────────────────
-
-  /** Matches two or more consecutive forward slashes in a URL path. */
-  const CONSECUTIVE_SLASHES_RE = /\/\/+/g;
-
   /**
    * Known path-segment patterns that represent template parameters in
    * Azure Resource Manager URLs.  A segment is replaced with `{param}` when
@@ -211,15 +206,9 @@
    *     unless the segment is already a placeholder (starts with "{") or
    *     appears in the ARM_LITERAL_SEGMENTS allowlist.
    *
-   * Nested /providers/ segments (Azure extension resources) are handled by
-   * restarting provider processing, keeping the extension provider namespace
-   * literal.  For example:
-   *
-   *   .../vaults/MyVault/providers/Microsoft.Insights/metrics
-   *   →  .../vaults/{name}/providers/Microsoft.Insights/metrics
-   *
-   * This ensures that the extension-resource provider namespace is preserved
-   * as a literal so the matcher can route the request to the correct shard.
+   * This reduces false "provider_known_route_unknown" results caused by literal
+   * Azure resource names (vault names, site names, storage account names, etc.)
+   * that would never appear literally in spec path templates.
    *
    * @param {string} normalisedPath  Output of normalisePath() — generic
    *   normalization (GUID/integer replacement) has already been applied.
@@ -275,25 +264,7 @@
       // After /providers/{Namespace}, ARM paths alternate:
       //   type / name / childType / childName / ...
       // We only replace name positions, never type positions.
-      //
-      // Special case: a nested /providers/ segment within a resource path marks
-      // an Azure extension resource (e.g. …/vaults/{name}/providers/Microsoft.Insights/metrics).
-      // When we encounter "providers" in a type position, restart provider handling
-      // rather than treating it as a plain type segment — this keeps the extension
-      // provider namespace literal instead of replacing it with {name}.
       if (inProviderResourcePath) {
-        if (seg === "providers") {
-          // Nested /providers/ — restart provider section.
-          result.push(seg);
-          i++;
-          if (i < segments.length) {
-            // Extension provider namespace — always keep literal.
-            result.push(segments[i]);
-            i++;
-            resourcePosition = 0;
-          }
-          continue;
-        }
         const isNamePosition = (resourcePosition % 2 === 1);
         if (isNamePosition && !seg.startsWith("{") && !isLiteralArmSegment(seg)) {
           // Name position: replace with conservative structural placeholder.
@@ -349,12 +320,6 @@
     if (path.length > 1 && path.endsWith("/")) {
       path = path.slice(0, -1);
     }
-
-    // Collapse runs of consecutive slashes into a single slash.
-    // Azure Portal occasionally emits paths with multiple consecutive slashes
-    // (e.g. "//providers/..." → "/providers/..."); collapsing them makes the
-    // path matchable against single-slash spec route keys.
-    path = path.replace(CONSECUTIVE_SLASHES_RE, "/");
 
     // Replace known-shape segments
     const segments = path.split("/");

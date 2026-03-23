@@ -65,19 +65,6 @@ assert(!Filters.isBatchRequest("https://example.com/batch", "POST"),
 assert(!Filters.isBatchRequest("", "POST"),
   "empty URL → false");
 
-console.log("\n=== Filters.isCorsPreflightRequest ===");
-assert(Filters.isCorsPreflightRequest("OPTIONS"),    "OPTIONS → true (CORS preflight)");
-assert(Filters.isCorsPreflightRequest("options"),    "lowercase 'options' → true");
-assert(Filters.isCorsPreflightRequest("Options"),    "mixed case 'Options' → true");
-assert(!Filters.isCorsPreflightRequest("GET"),       "GET → false");
-assert(!Filters.isCorsPreflightRequest("POST"),      "POST → false");
-assert(!Filters.isCorsPreflightRequest("PUT"),       "PUT → false");
-assert(!Filters.isCorsPreflightRequest("DELETE"),    "DELETE → false");
-assert(!Filters.isCorsPreflightRequest("HEAD"),      "HEAD → false (HEAD is a real spec method)");
-assert(!Filters.isCorsPreflightRequest(""),          "empty string → false");
-assert(!Filters.isCorsPreflightRequest(null),        "null → false");
-assert(!Filters.isCorsPreflightRequest(undefined),   "undefined → false");
-
 // Summary
 console.log(`\nFilters: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

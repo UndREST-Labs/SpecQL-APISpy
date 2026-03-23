@@ -84,10 +84,6 @@ console.log("\n=== Normalizer.normalisePath — standalone ===");
 eq(Normalizer.normalisePath("/a/b/c"), "/a/b/c", "clean path unchanged");
 eq(Normalizer.normalisePath("/a/b/c/"), "/a/b/c", "trailing slash removed");
 eq(Normalizer.normalisePath("/"), "/", "root preserved");
-eq(Normalizer.normalisePath("//providers/microsoft.management/getEntities"), "/providers/microsoft.management/getEntities",
-  "double slash at start collapsed to single slash");
-eq(Normalizer.normalisePath("/a//b/c"), "/a/b/c",
-  "mid-path double slash collapsed");
 
 // ── Azure ARM structural templating ──────────────────────────────────────────
 
@@ -164,24 +160,6 @@ console.log("\n=== Normalizer.templateAzureArmPath — representative ARM paths 
     ),
     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Storage/storageAccounts/{name}/listKeys",
     "listKeys action preserved as literal in name position"
-  );
-
-  // Nested /providers/ — extension resource (e.g. Insights metrics on a KeyVault vault)
-  eq(
-    Normalizer.templateAzureArmPath(
-      "/subscriptions/{guid}/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/MyVault/providers/Microsoft.Insights/metrics"
-    ),
-    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{name}/providers/Microsoft.Insights/metrics",
-    "nested provider: extension provider namespace kept literal (not replaced with {name})"
-  );
-
-  // Nested /providers/ — two levels of named resources then extension
-  eq(
-    Normalizer.templateAzureArmPath(
-      "/subscriptions/{guid}/resourceGroups/rg/providers/Microsoft.Web/sites/MySite/slots/staging/providers/Microsoft.Insights/diagnosticSettings/myDS"
-    ),
-    "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/slots/{name}/providers/Microsoft.Insights/diagnosticSettings/{name}",
-    "nested provider after two resource levels: names templated, extension namespace literal"
   );
 }
 

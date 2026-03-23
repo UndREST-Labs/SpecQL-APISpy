@@ -112,29 +112,12 @@
     }
   }
 
-  /**
-   * Returns true if the HTTP method indicates a CORS preflight request.
-   *
-   * Browsers automatically issue OPTIONS requests before cross-origin API calls
-   * to negotiate CORS headers.  These are browser-generated control messages —
-   * they are never defined in Azure REST API specs, contain no application-level
-   * payload, and will always produce a false "Unknown route" result in APISpy.
-   * Filtering them out eliminates this systematic false-negative noise.
-   *
-   * @param {string} method  HTTP method string (any casing).
-   * @returns {boolean}
-   */
-  function isCorsPreflightRequest(method) {
-    return (method || "").toUpperCase() === "OPTIONS";
-  }
-
   // Export
   exports.Filters = {
     isInScopeHost,
     isInScopePath,
     classifyScope,
     isBatchRequest,
-    isCorsPreflightRequest,
     // Expose lists for testing / extension
     EXACT_HOSTS,
     HOST_SUFFIXES,

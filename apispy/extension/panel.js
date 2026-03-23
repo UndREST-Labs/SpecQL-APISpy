@@ -113,11 +113,6 @@ async function onRequestFinished(req) {
   const method = req.request && req.request.method;
   if (!url) return;
 
-  // Skip CORS preflight requests — they are browser-generated and never appear
-  // in Azure REST API specs, so they would always produce false "Unknown route"
-  // results.  Filtering them here keeps the panel free of this systematic noise.
-  if (Filters.isCorsPreflightRequest(method)) return;
-
   const scope = Filters.classifyScope(url);
   const norm = Normalizer.normalise(url, method);
   const entry = await buildEntry(req, norm, scope);
@@ -157,10 +152,6 @@ async function expandBatchSubRequests(req) {
     const subUrl    = sub.url    || sub.Url    || sub.URL;
     const subMethod = sub.httpMethod || sub.method || "GET";
     if (!subUrl) continue;
-
-    // Skip CORS preflights in batch payloads (extremely rare but apply
-    // the same rule for consistency).
-    if (Filters.isCorsPreflightRequest(subMethod)) continue;
 
     // Build a minimal synthetic HAR-like object so buildEntry can process it.
     const syntheticReq = {
@@ -230,29 +221,6 @@ async function buildEntry(req, norm, scope) {
       }
     }
     result = Matcher.classify(norm, shard, { inScope: true, shardLoadError });
-
-    // Extension-resource fallback: for paths with a nested /providers/ segment
-    // (e.g. .../vaults/{name}/providers/Microsoft.Insights/metrics), the route
-    // lives in the EXTENSION provider's shard, not the primary resource's shard.
-    // When the primary shard gives up (route_not_in_shard), try the last provider
-    // namespace's shard with the same matcher logic (which includes {resourceUri}
-    // suffix matching).
-    if (result.status === Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE) {
-      const lastNs = Matcher.inferLastProviderNamespace(norm.pathname);
-      if (lastNs) {
-        try {
-          const extensionShard = await Loader.loadShard(lastNs);
-          if (extensionShard) {
-            const extensionResult = Matcher.classify(norm, extensionShard, { inScope: true });
-            if (extensionResult.status !== Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE) {
-              result = extensionResult;
-            }
-          }
-        } catch (_) {
-          // Extension shard load failure is non-critical; keep the primary result.
-        }
-      }
-    }
   }
 
   return {

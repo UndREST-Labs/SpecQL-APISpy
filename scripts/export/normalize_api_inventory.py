@@ -224,7 +224,7 @@ def generate_lookup_key(host: str, method: str, path_template: str) -> str:
 # ARM scope parameter placeholders that are kept verbatim in route keys.
 # These match the placeholders emitted by the APISpy ARM normaliser for the
 # structurally-defined scope segments (subscriptions, resourceGroups, etc.).
-_ARM_SCOPE_PARAMS: frozenset[str] = frozenset({
+_ARM_SCOPE_PARAMS: frozenset = frozenset({
     "{subscriptionId}",
     "{resourceGroupName}",
     "{tenantId}",
