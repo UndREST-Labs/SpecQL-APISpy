@@ -47,6 +47,31 @@
   const PLACEHOLDER_RE = /\{[^}]+\}/g;
 
   /**
+   * Matches Azure provider namespace literals (e.g. "microsoft.storage") that
+   * appear immediately after a SECOND /providers/ segment in a canonical key.
+   *
+   * Some Azure providers (e.g. Microsoft.Features) parameterise the secondary
+   * provider namespace as `{resourceProviderNamespace}` in their spec, e.g.:
+   *   /subscriptions/{s}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features/{name}
+   *
+   * After the standard placeholder pass this becomes:
+   *   .../providers/microsoft.features/providers/{name}/features/{name}
+   *
+   * But a real request URL has a LITERAL in that position (e.g. "microsoft.support").
+   * This regex targets that literal so that `_canonicaliseRouteKey` can replace it
+   * with `{name}` and make the comparison namespace-agnostic for the secondary slot.
+   *
+   * NOTE: this regex is applied AFTER lowercasing so all characters are [a-z0-9.].
+   * Using `[a-z]` is intentional — it must only match post-lowercase input.
+   *
+   * Captures:
+   *   $1 — everything up to and including the second "/providers/"
+   *   $2 — the literal namespace segment (contains a dot, not already `{name}`)
+   */
+  const NESTED_PROVIDER_NS_RE =
+    /(\/providers\/[a-z][a-z0-9.]*\/providers\/)([a-z][a-z0-9]*\.[a-z][a-z0-9.]*)/g;
+
+  /**
    * Matches shard route keys whose path begins with a single placeholder
    * segment followed by the rest of the path, i.e. routes of the form
    * "METHOD /{anyPlaceholder}/rest/of/path" — the Azure {resourceUri} pattern.
@@ -197,9 +222,9 @@
 
   /**
    * Return a canonical form of a route key for case-insensitive, trailing-slash-
-   * tolerant, and placeholder-agnostic comparison.
+   * tolerant, placeholder-agnostic, and nested-provider-namespace-agnostic comparison.
    *
-   * Three normalisations are applied:
+   * Four normalisations are applied:
    *   1. All `{xxx}` → `{name}` (placeholder-name agnostic, as in v2).
    *   2. Trailing slashes stripped from the path portion — some spec route keys
    *      end with `/` (e.g. `GET …/deployments/`) while the normalised request
@@ -207,13 +232,23 @@
    *   3. Entire key lowercased — spec files occasionally use `resourcegroups`
    *      (lowercase) while the ARM normaliser always emits `resourceGroups`.
    *      Lowercasing both sides makes the comparison case-insensitive.
+   *   4. Secondary Azure provider namespace literals (e.g. `microsoft.support`)
+   *      that appear immediately after a nested `/providers/` segment are also
+   *      replaced with `{name}`.  This handles Azure "meta-providers" such as
+   *      Microsoft.Features whose specs use `{resourceProviderNamespace}` as a
+   *      variable.  The standard pass (step 1) already converts the spec's
+   *      `{resourceProviderNamespace}` to `{name}`, so making the request's
+   *      literal canonical too allows them to match.
    *
    * @param {string} routeKey  e.g. "GET /subscriptions/{subscriptionId}/…"
    * @returns {string}
    * @private
    */
   function _canonicaliseRouteKey(routeKey) {
-    return _normalisePlaceholders(routeKey).replace(/\/+$/, "").toLowerCase();
+    return _normalisePlaceholders(routeKey)
+      .replace(/\/+$/, "")
+      .toLowerCase()
+      .replace(NESTED_PROVIDER_NS_RE, "$1{name}");
   }
 
   /**

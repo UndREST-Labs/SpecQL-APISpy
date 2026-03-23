@@ -766,5 +766,94 @@ console.log("\n=== Matcher.classify — Pass 5 last-provider-suffix: authorizati
     "version mismatch (not route_not_in_shard) when api-version absent from spec");
 }
 
+console.log("\n=== Matcher.classify — Pass 3 canonical nested-provider namespace: Microsoft.Features/providers/{resourceProviderNamespace} ===");
+// Azure Microsoft.Features spec parameterises the secondary provider namespace
+// as {resourceProviderNamespace}.  The request URL contains a LITERAL namespace
+// (e.g. Microsoft.Support) in that position.  Standard placeholder replacement
+// converts {resourceProviderNamespace} → {name} in the shard route but does not
+// touch the literal microsoft.support in the request.  The extra canonical step
+// (NESTED_PROVIDER_NS_RE) bridges this gap.
+{
+  const FEATURES_SHARD = {
+    metadata: { provider_namespace: "Microsoft.Features" },
+    provider_namespace: "Microsoft.Features",
+    hosts: {
+      "management.azure.com": {
+        routes: {
+          "GET /subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features": {
+            path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features",
+            provider_namespace: "Microsoft.Features",
+            versions: {
+              "2015-12-01": { is_preview: false, spec_files: ["features/2015-12-01/features.json"] },
+              "2021-07-01": { is_preview: false, spec_files: ["features/2021-07-01/features.json"] },
+            },
+          },
+          "GET /subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features/{featureName}": {
+            path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features/{featureName}",
+            provider_namespace: "Microsoft.Features",
+            versions: {
+              "2015-12-01": { is_preview: false, spec_files: ["features/2015-12-01/features.json"] },
+              "2021-07-01": { is_preview: false, spec_files: ["features/2021-07-01/features.json"] },
+            },
+          },
+          "POST /subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features/{featureName}/register": {
+            path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Features/providers/{resourceProviderNamespace}/features/{featureName}/register",
+            provider_namespace: "Microsoft.Features",
+            versions: {
+              "2015-12-01": { is_preview: false, spec_files: ["features/2015-12-01/features.json"] },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  // Single feature (e.g. AbacEmergencySev) – exact api-version
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Features/providers/Microsoft.Support/features/AbacEmergencySev?api-version=2015-12-01",
+    "GET"
+  );
+  assert(
+    n.armPath.includes("/providers/Microsoft.Support/features/{name}"),
+    "ARM templater keeps literal Microsoft.Support as extension namespace"
+  );
+
+  const r = Matcher.classify(n, FEATURES_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match via nested-provider canonical (microsoft.support → {name})");
+  eq(r.matched_version, "2015-12-01", "correct api-version matched");
+  assert(
+    r.matched_route_key.includes("{resourceProviderNamespace}"),
+    "matched route key uses {resourceProviderNamespace} placeholder"
+  );
+
+  // Wrong api-version → version mismatch not route unknown
+  const nBad = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Features/providers/Microsoft.Support/features/AbacEmergencySev?api-version=2099-01-01",
+    "GET"
+  );
+  const rBad = Matcher.classify(nBad, FEATURES_SHARD, { inScope: true });
+  eq(rBad.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "version mismatch (not route_not_in_shard) for wrong api-version");
+
+  // List features for a provider (no specific name)
+  const nList = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Features/providers/Microsoft.Sql/features?api-version=2015-12-01",
+    "GET"
+  );
+  const rList = Matcher.classify(nList, FEATURES_SHARD, { inScope: true });
+  eq(rList.status, Matcher.STATUS.EXACT_MATCH,
+    "list features route also matched via nested-provider canonical");
+
+  // Register feature (POST)
+  const nReg = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Features/providers/Microsoft.Compute/features/SomeFeature/register?api-version=2015-12-01",
+    "POST"
+  );
+  const rReg = Matcher.classify(nReg, FEATURES_SHARD, { inScope: true });
+  eq(rReg.status, Matcher.STATUS.EXACT_MATCH,
+    "register feature route matched via nested-provider canonical");
+}
+
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
