@@ -86,9 +86,11 @@ console.log("\n=== Matcher.classify — out of scope ===");
 
 console.log("\n=== Matcher.classify — no shard / no provider inferred ===");
 {
+  // /subscriptions/abc has no provider namespace but IS a valid ARM root path.
+  // Under the updated classification it returns arm_root_route, not no_spec_match.
   const n = norm("https://management.azure.com/subscriptions/abc", "GET");
   const r = Matcher.classify(n, null, { inScope: true });
-  eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "no_spec_match when no shard");
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "arm_root_route for /subscriptions/... with no provider namespace");
 }
 
 console.log("\n=== Matcher.classify — exact match ===");
@@ -424,6 +426,81 @@ eq(
   "GET /subscriptions/{name}/providers/Microsoft.Foo/things/{name}",
   "route key string normalised correctly"
 );
+
+// ── ARM_ROOT_ROUTE status ─────────────────────────────────────────────────────
+//
+// Valid ARM root/tenant-scope endpoints on management.azure.com that have no
+// provider namespace in the URL must receive ARM_ROOT_ROUTE rather than
+// NO_SPEC_MATCH so callers can distinguish them from genuinely unrecognised
+// requests.
+
+console.log("\n=== Matcher.STATUS — ARM_ROOT_ROUTE defined ===");
+assert(Matcher.STATUS.ARM_ROOT_ROUTE === "arm_root_route", "ARM_ROOT_ROUTE status value is 'arm_root_route'");
+assert(typeof Matcher.STATUS_LABELS[Matcher.STATUS.ARM_ROOT_ROUTE] === "string", "ARM_ROOT_ROUTE has a label");
+
+console.log("\n=== Matcher.isArmRootPath ===");
+{
+  // management.azure.com paths that start at an ARM root keyword
+  const mkNorm = (pathname) => ({ host: "management.azure.com", pathname });
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions")),       "/subscriptions is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/tenants")),             "/tenants is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/providers")),           "/providers is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/managementGroups")),    "/managementGroups is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions/abc/providers")), "/subscriptions/.../providers is ARM root path");
+
+  // Non-management.azure.com host — must return false
+  assert(!Matcher.isArmRootPath({ host: "graph.microsoft.com", pathname: "/subscriptions" }),
+    "isArmRootPath returns false for non-management.azure.com host");
+  assert(!Matcher.isArmRootPath({ host: "login.microsoftonline.com", pathname: "/subscriptions" }),
+    "isArmRootPath returns false for login host");
+
+  // Path with provider namespace — not a root-only path (isArmRootPath still
+  // returns true because the first segment is still 'subscriptions', which is
+  // correct: the caller uses isArmRootPath only when no provider was inferred)
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions/abc/providers/Microsoft.Compute/virtualMachines")),
+    "isArmRootPath is first-segment only; provider inference handles the rest");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /subscriptions ===");
+{
+  const n = norm("https://management.azure.com/subscriptions?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/subscriptions → arm_root_route");
+  eq(r.reason, "arm_root_no_provider", "reason=arm_root_no_provider");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /tenants ===");
+{
+  const n = norm("https://management.azure.com/tenants?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/tenants → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /providers (no namespace) ===");
+{
+  const n = norm("https://management.azure.com/providers?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/providers without namespace → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /subscriptions/{id}/providers ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/providers?api-version=2022-12-01",
+    "GET"
+  );
+  // inferProviderNamespace returns null (/providers has no {namespace} after it)
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/subscriptions/{id}/providers → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — NO_SPEC_MATCH still returned for non-ARM root paths ===");
+{
+  // Non-management host with path starting at 'subscriptions' — not ARM root
+  const n = norm("https://api.example.com/subscriptions?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "non-management host: still no_spec_match (not arm_root_route)");
+}
 
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

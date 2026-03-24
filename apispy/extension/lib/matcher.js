@@ -35,6 +35,7 @@
     ROUTE_MISMATCH:            "route_match_version_mismatch",
     PROVIDER_KNOWN_NO_ROUTE:   "provider_known_route_unknown",
     NO_SPEC_MATCH:             "no_spec_match",
+    ARM_ROOT_ROUTE:            "arm_root_route",
     OUT_OF_SCOPE:              "out_of_scope",
   });
 
@@ -46,8 +47,51 @@
     [STATUS.ROUTE_MISMATCH]:          "⚠️ Version mismatch",
     [STATUS.PROVIDER_KNOWN_NO_ROUTE]: "🔶 Unknown route",
     [STATUS.NO_SPEC_MATCH]:           "❌ No spec match",
+    [STATUS.ARM_ROOT_ROUTE]:          "ℹ️ ARM root route",
     [STATUS.OUT_OF_SCOPE]:            "Out of scope",
   });
+
+  /**
+   * ARM root-level path keywords whose first segment unambiguously identifies
+   * a request as targeting the Azure Resource Manager root surface (no
+   * provider namespace in the URL).
+   *
+   * Examples: /subscriptions, /tenants, /providers,
+   *           /subscriptions/{id}/providers (trailing /providers without a
+   *           {Namespace} suffix).
+   *
+   * These are valid ARM endpoints documented by Microsoft, but they carry no
+   * provider namespace in the URL, which means they cannot be matched against
+   * a provider shard.  Under the classification model they receive the
+   * ARM_ROOT_ROUTE status rather than NO_SPEC_MATCH to make the distinction
+   * between "genuinely unrecognised" and "documented but provider-less" clear.
+   */
+  const ARM_ROOT_KEYWORDS = new Set([
+    "subscriptions",
+    "tenants",
+    "providers",
+    "managementGroups",
+  ]);
+
+  /**
+   * Returns true when the request looks like a valid ARM root or tenant-scope
+   * endpoint that has no provider namespace in the URL.
+   *
+   * Conditions:
+   *   1. Host must be exactly "management.azure.com".
+   *   2. The first non-empty path segment must be a known ARM root keyword.
+   *
+   * @param {object} norm  Output of Normalizer.normalise().
+   * @returns {boolean}
+   */
+  function isArmRootPath(norm) {
+    if (!norm || norm.host !== "management.azure.com") return false;
+    const segs = (norm.pathname || "").split("/");
+    for (let i = 0; i < segs.length; i++) {
+      if (segs[i] !== "") return ARM_ROOT_KEYWORDS.has(segs[i]);
+    }
+    return false;
+  }
 
   /**
    * Try to infer the provider namespace from a URL path.
@@ -295,9 +339,23 @@
           error:              shardLoadError,
         });
       }
+      if (!inferredNs) {
+        // No provider namespace in the URL.  Distinguish between valid ARM
+        // root/tenant endpoints (e.g. /subscriptions, /tenants, /providers)
+        // and genuinely non-matching requests.
+        if (isArmRootPath(norm)) {
+          return _result(STATUS.ARM_ROOT_ROUTE, {
+            reason: "arm_root_no_provider",
+          });
+        }
+        return _result(STATUS.NO_SPEC_MATCH, {
+          provider_namespace: null,
+          reason: "no_provider_inferred",
+        });
+      }
       return _result(STATUS.NO_SPEC_MATCH, {
-        provider_namespace: inferredNs || null,
-        reason: inferredNs ? "provider_shard_not_bundled" : "no_provider_inferred",
+        provider_namespace: inferredNs,
+        reason: "provider_shard_not_bundled",
       });
     }
 
@@ -330,6 +388,7 @@
     classify,
     matchAgainstShard,
     inferProviderNamespace,
+    isArmRootPath,
     buildRouteKey,
     normalisePlaceholders: _normalisePlaceholders,
     STATUS,

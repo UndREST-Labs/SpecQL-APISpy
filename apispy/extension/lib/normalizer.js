@@ -298,8 +298,15 @@
   /**
    * Normalise a URL path minimally for v1.
    * - Strip trailing slash (unless root "/")
-   * - Decode percent-encoding
+   * - Decode percent-encoding per-segment (RFC 3986 §3.3)
    * - Replace known-shape segments (GUIDs, pure integers) with placeholders
+   *
+   * Decoding is applied per-segment (after splitting on "/") so that
+   * percent-encoded slashes (%2F) inside a segment do not corrupt the
+   * path hierarchy.  RFC 3986 §3.3 requires that the path be split on
+   * literal "/" before any pct-decoding is applied to individual segments.
+   * Encoded slashes (%2F / %2f) are preserved as "%2F" in the output to
+   * keep them distinct from real path separators.
    *
    * We do NOT attempt to match arbitrary resource-name segments to spec
    * path templates here — that is the job of templateAzureArmPath(), which
@@ -309,21 +316,35 @@
    * @returns {string}  Normalised path.
    */
   function normalisePath(rawPath) {
-    let path;
-    try {
-      path = decodeURIComponent(rawPath);
-    } catch (_) {
-      path = rawPath;
+    // Split on "/" BEFORE decoding so that %2F inside a segment does not
+    // become a path separator and corrupt the segment boundaries.
+    const rawSegments = rawPath.split("/");
+
+    // Decode each segment individually, preserving encoded slashes (%2F)
+    // so they cannot corrupt segment boundaries when the path is re-joined.
+    const decoded = rawSegments.map((seg) => {
+      if (!seg) return seg; // fast-path empty (leading/trailing) segments
+      // Temporarily replace encoded slashes before decoding, then restore them.
+      // This ensures %2F never becomes a literal "/" that looks like a separator.
+      const withProtectedSlashes = seg.replace(/%2[Ff]/g, "\x00");
+      let result;
+      try {
+        result = decodeURIComponent(withProtectedSlashes);
+      } catch (_) {
+        result = withProtectedSlashes;
+      }
+      return result.replace(/\x00/g, "%2F");
+    });
+
+    // Strip trailing empty segment produced by a trailing slash (e.g. "/a/b/"
+    // splits to ["", "a", "b", ""] — drop the trailing "" but only when the
+    // path is not the root "/").
+    if (decoded.length > 2 && decoded[decoded.length - 1] === "") {
+      decoded.pop();
     }
 
-    // Strip trailing slash (keep root intact)
-    if (path.length > 1 && path.endsWith("/")) {
-      path = path.slice(0, -1);
-    }
-
-    // Replace known-shape segments
-    const segments = path.split("/");
-    const normalised = segments.map((seg) => {
+    // Replace known-shape segments with placeholders.
+    const normalised = decoded.map((seg) => {
       for (const rule of TEMPLATE_RULES) {
         if (rule.test.test(seg)) return rule.replace;
       }

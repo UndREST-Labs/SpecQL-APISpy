@@ -85,6 +85,23 @@ eq(Normalizer.normalisePath("/a/b/c"), "/a/b/c", "clean path unchanged");
 eq(Normalizer.normalisePath("/a/b/c/"), "/a/b/c", "trailing slash removed");
 eq(Normalizer.normalisePath("/"), "/", "root preserved");
 
+console.log("\n=== Normalizer.normalisePath — RFC 3986: split before decode ===");
+{
+  // A segment containing %2F (encoded slash) must NOT become a new path
+  // separator.  RFC 3986 §3.3 requires splitting on literal "/" before
+  // decoding pct-encoded characters within each segment.  Encoded slashes
+  // are preserved as "%2F" in the output to keep them distinguishable from
+  // real path separators.
+  const result = Normalizer.normalisePath("/subscriptions/foo%2Fbar/resourceGroups/rg1");
+  // Expected: 5 elements when split on "/" (the %2F stays within its segment)
+  assert(result.split("/").length === 5,
+    "encoded %2F does not create an extra path segment (split count = 5)");
+  assert(result.includes("foo%2Fbar"),
+    "encoded %2F preserved as '%2F' within its segment (not decoded to '/')");
+  assert(!result.includes("/foo/bar/"),
+    "encoded %2F does not corrupt segment boundary into a new path level");
+}
+
 // ── Azure ARM structural templating ──────────────────────────────────────────
 
 console.log("\n=== Normalizer.templateAzureArmPath — representative ARM paths ===");

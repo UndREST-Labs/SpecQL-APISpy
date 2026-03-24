@@ -15,6 +15,7 @@ const ALL_STATUSES = Object.freeze([
   "route_match_version_mismatch",
   "provider_known_route_unknown",
   "no_spec_match",
+  "arm_root_route",
 ]);
 
 const DEFAULT_DETAIL_HEIGHT = 220; // px
@@ -117,9 +118,11 @@ async function onRequestFinished(req) {
   const norm = Normalizer.normalise(url, method);
   const entry = await buildEntry(req, norm, scope);
 
-  // Only record entries where a provider namespace was identified; skip
-  // out-of-scope hosts and paths with no /providers/ segment entirely.
-  if (entry.result.provider_namespace !== null) {
+  // Record entries where a provider namespace was identified, or entries for
+  // ARM root routes (valid ARM endpoints with no provider namespace such as
+  // /subscriptions or /tenants).  Skip out-of-scope and no-spec-match entries.
+  if (entry.result.provider_namespace !== null ||
+      entry.result.status === Matcher.STATUS.ARM_ROOT_ROUTE) {
     state.requests.push(entry);
     renderRow(entry, state.requests.length - 1);
     updateCountBadge();
