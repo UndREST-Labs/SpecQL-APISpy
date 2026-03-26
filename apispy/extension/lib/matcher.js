@@ -144,26 +144,73 @@
   }
 
   /**
-   * Build a secondary route index keyed by placeholder-normalised route keys.
+   * Canonicalise a route key for resilient comparison across shard variations.
+   *
+   * Applies three normalisations on top of `_normalisePlaceholders`:
+   *
+   *   1. Placeholder normalisation: `{vaultName}` → `{name}` (same as
+   *      `_normalisePlaceholders`).
+   *
+   *   2. ARM keyword case normalisation: fixed ARM scope keyword segments
+   *      (`subscriptions`, `resourcegroups`, `tenants`, `locations`,
+   *      `managementgroups`, `providers`) are lowercased.  Shard files
+   *      generated from different versions of azure-rest-api-specs use
+   *      inconsistent casing (e.g. `resourceGroups` vs `resourcegroups`,
+   *      `managementGroups` vs `managementgroups`), so exact comparison
+   *      fails without this step.
+   *
+   *   3. Trailing-slash stripping: some shard keys for collection list
+   *      routes end with `/` (e.g. `.../deployments/`) while the normaliser
+   *      always strips trailing slashes.  Stripping on both sides makes the
+   *      comparison slash-agnostic.
+   *
+   * @param {string} str  Route key string ("METHOD /path/template").
+   * @returns {string}    Canonicalised route key.
+   * @private
+   */
+  function _canonicaliseRouteKey(str) {
+    // 1. Normalise all {xxx} placeholders to {name}
+    let result = _normalisePlaceholders(str);
+
+    // 2. Lowercase fixed ARM keyword path segments (case varies across shard
+    //    generations: resourceGroups vs resourcegroups, managementGroups vs
+    //    managementgroups, Subscriptions vs subscriptions, etc.)
+    result = result.replace(
+      /\/(subscriptions|resourcegroups|tenants|locations|managementgroups|providers)(?=\/|$)/gi,
+      (_, kw) => "/" + kw.toLowerCase()
+    );
+
+    // 3. Strip trailing slash from path portion (some shard keys for
+    //    collection routes end with '/', normaliser never emits one)
+    result = result.replace(/\s(.+)\/$/, (_, path) => " " + path);
+
+    return result;
+  }
+
+  /**
+   * Build a secondary route index keyed by canonicalised route keys.
    *
    * Each entry stores both the original route definition and the original
    * route key so callers can report the real spec key to the user rather than
    * the normalised form.
    *
-   * When two shard routes normalise to the same key (extremely rare in
-   * practice — it would require two spec operations with identical path
-   * structure but different only in parameter names) the first entry wins.
+   * The canonical key applies three normalisations via `_canonicaliseRouteKey`:
+   *   - `{xxx}` placeholders → `{name}`
+   *   - ARM scope keyword segments lowercased
+   *   - Trailing slash stripped from path
+   *
+   * When two shard routes canonicalise to the same key the first entry wins.
    *
    * @param {object} routes  Shard routes map (routeKey → routeDef).
-   * @returns {object}       Normalised key → `{ routeDef, originalKey }`.
+   * @returns {object}       Canonical key → `{ routeDef, originalKey }`.
    * @private
    */
-  function _buildNormalisedRouteIndex(routes) {
+  function _buildCanonicalRouteIndex(routes) {
     const index = Object.create(null);
     for (const routeKey of Object.keys(routes)) {
-      const normKey = _normalisePlaceholders(routeKey);
-      if (!index[normKey]) {
-        index[normKey] = { routeDef: routes[routeKey], originalKey: routeKey };
+      const canonKey = _canonicaliseRouteKey(routeKey);
+      if (!index[canonKey]) {
+        index[canonKey] = { routeDef: routes[routeKey], originalKey: routeKey };
       }
     }
     return index;
@@ -251,15 +298,18 @@
       });
     }
 
-    // Normalised-placeholder fallback.
-    // Shard route keys may use spec-specific parameter names (e.g. {vaultName},
-    // {secretName}) while armPath uses the structural placeholder {name} for all
-    // resource-name positions.  Build a secondary index with every {xxx} replaced
-    // by {name} so the lookup succeeds when only the placeholder name differs.
+    // Canonical-key fallback.
+    // Applies placeholder normalisation + ARM keyword lowercasing + trailing-
+    // slash stripping to handle the two known shard inconsistencies:
+    //   • ARM scope keywords: `resourceGroups` vs `resourcegroups`,
+    //     `managementGroups` vs `managementgroups`, etc.
+    //   • Collection list routes: shard key ends with '/', normalised path
+    //     never does (e.g. ".../deployments/" in the shard vs
+    //     ".../deployments" from the normaliser).
     if (norm.armPath) {
-      const normIndex = _buildNormalisedRouteIndex(routes);
-      const normKey   = _normalisePlaceholders(buildRouteKey(norm.method, norm.armPath));
-      const entry     = normIndex[normKey];
+      const canonIndex = _buildCanonicalRouteIndex(routes);
+      const canonKey   = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
+      const entry      = canonIndex[canonKey];
       if (entry) {
         const { routeDef, originalKey } = entry;
         const versions = Object.keys(routeDef.versions || {});
@@ -390,7 +440,8 @@
     inferProviderNamespace,
     isArmRootPath,
     buildRouteKey,
-    normalisePlaceholders: _normalisePlaceholders,
+    normalisePlaceholders:  _normalisePlaceholders,
+    canonicaliseRouteKey:   _canonicaliseRouteKey,
     STATUS,
     STATUS_LABELS,
   };

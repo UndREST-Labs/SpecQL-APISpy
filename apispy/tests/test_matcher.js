@@ -427,6 +427,130 @@ eq(
   "route key string normalised correctly"
 );
 
+// ── canonicaliseRouteKey ──────────────────────────────────────────────────────
+//
+// Verifies that _canonicaliseRouteKey applies all three normalisations:
+//   1. {xxx} placeholder → {name}
+//   2. ARM keyword segments lowercased (resourceGroups → resourcegroups, etc.)
+//   3. Trailing slash stripped
+
+console.log("\n=== Matcher.canonicaliseRouteKey ===");
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  ),
+  "GET /subscriptions/{name}/resourcegroups/{name}/providers/Microsoft.Resources/deployments",
+  "canonical: placeholders + lowercase resourceGroups + trailing slash stripped"
+);
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  ),
+  "GET /subscriptions/{name}/resourcegroups/{name}/providers/Microsoft.Resources/deployments",
+  "canonical: already lowercase resourcegroups, trailing slash stripped"
+);
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{name}/managementGroups/{name}/providers/Microsoft.Foo/bars/{barName}"
+  ),
+  "GET /subscriptions/{name}/managementgroups/{name}/providers/Microsoft.Foo/bars/{name}",
+  "canonical: managementGroups lowercased, bar placeholder normalised"
+);
+eq(
+  Matcher.canonicaliseRouteKey("GET /providers/Microsoft.AAD/operations"),
+  "GET /providers/Microsoft.AAD/operations",
+  "canonical: no change for already-clean key"
+);
+
+// ── Canonical-key fallback: keyword casing mismatch ──────────────────────────
+//
+// Reproduces the real-world scenario seen in the issue report where
+// GET .../resourceGroups/.../providers/Microsoft.Resources/deployments
+// was flagged as "Unknown route / route_not_in_shard" because the shard key
+// used lowercase "resourcegroups" while the normaliser emits "resourceGroups".
+
+const LOWERCASE_KEYWORD_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Shard key uses lowercase 'resourcegroups' and has trailing slash
+        // (as generated from some azure-rest-api-specs versions)
+        "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2022-12-01": { is_preview: false, spec_files: ["resources/2022-12-01/deployments.json"] },
+            "2024-11-01": { is_preview: false, spec_files: ["resources/2024-11-01/deployments.json"] },
+          },
+        },
+        // Also verify camelCase version still matches (mixed shards)
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deploymentStacks": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deploymentStacks",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-03-01": { is_preview: false, spec_files: ["resources/2024-03-01/deploymentStacks.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — canonical fallback: lowercase 'resourcegroups' in shard ===");
+{
+  // Real-world failing case from the issue report:
+  // Shard key: "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  // armPath:   "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments"
+  // Mismatch: 'resourceGroups' vs 'resourcegroups', plus trailing slash
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2022-12-01",
+    "GET"
+  );
+  assert(n.armPath.includes("resourceGroups"),         "armPath has camelCase resourceGroups");
+  assert(!n.armPath.endsWith("/"),                     "armPath has no trailing slash");
+
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match despite shard using lowercase 'resourcegroups' + trailing slash");
+  eq(r.matched_version, "2022-12-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.Resources", "correct provider_namespace");
+  assert(
+    r.matched_route_key ===
+    "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/",
+    "matched_route_key is the original shard key (with lowercase + trailing slash preserved)"
+  );
+}
+
+console.log("\n=== Matcher.classify — canonical fallback: version mismatch with lowercase shard key ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2099-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "version_mismatch when route matched via canonical fallback but api-version absent");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2022-12-01"),
+    "matched_versions contains known version");
+}
+
+console.log("\n=== Matcher.classify — canonical fallback: camelCase shard key still matches ===");
+{
+  // camelCase shard keys (the majority) continue to match after canonical normalisation
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.Resources/deploymentStacks?api-version=2024-03-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "camelCase shard key still yields exact_match via canonical fallback");
+  eq(r.matched_version, "2024-03-01", "correct api-version matched");
+}
+
 // ── ARM_ROOT_ROUTE status ─────────────────────────────────────────────────────
 //
 // Valid ARM root/tenant-scope endpoints on management.azure.com that have no
