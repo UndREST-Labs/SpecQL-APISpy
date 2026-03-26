@@ -77,6 +77,26 @@ eq(Matcher.inferProviderNamespace("/providers/Microsoft.AAD/operations"),
 eq(Matcher.inferProviderNamespace("/subscriptions/abc"),
    null, "returns null when no provider segment");
 
+console.log("\n=== Matcher.inferProviderNamespace — double-provider (extension resource) ===");
+// Extension resources have two /providers/ segments; the LAST identifies the
+// extension provider that owns the route spec.
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/microsoft.insights/metrics"),
+   "microsoft.insights",
+   "double-provider: returns LAST provider namespace (microsoft.insights), not first (Microsoft.Compute)");
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/myVault/providers/Microsoft.Authorization/roleAssignments"),
+   "Microsoft.Authorization",
+   "double-provider: returns Microsoft.Authorization (last), not Microsoft.KeyVault (first)");
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa/providers/Microsoft.Security/defenderForStorageSettings/mdsetting"),
+   "Microsoft.Security",
+   "double-provider: returns Microsoft.Security (last), not Microsoft.Storage (first)");
+// Single-provider paths unchanged
+eq(Matcher.inferProviderNamespace("/subscriptions/abc/providers/Microsoft.Resources/deployments/myDep"),
+   "Microsoft.Resources",
+   "single-provider: unchanged — still returns Microsoft.Resources");
+
 console.log("\n=== Matcher.classify — out of scope ===");
 {
   const n = norm("https://example.com/api/data", "GET");
@@ -86,9 +106,11 @@ console.log("\n=== Matcher.classify — out of scope ===");
 
 console.log("\n=== Matcher.classify — no shard / no provider inferred ===");
 {
+  // /subscriptions/abc has no provider namespace but IS a valid ARM root path.
+  // Under the updated classification it returns arm_root_route, not no_spec_match.
   const n = norm("https://management.azure.com/subscriptions/abc", "GET");
   const r = Matcher.classify(n, null, { inScope: true });
-  eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "no_spec_match when no shard");
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "arm_root_route for /subscriptions/... with no provider namespace");
 }
 
 console.log("\n=== Matcher.classify — exact match ===");
@@ -424,6 +446,777 @@ eq(
   "GET /subscriptions/{name}/providers/Microsoft.Foo/things/{name}",
   "route key string normalised correctly"
 );
+
+// ── canonicaliseRouteKey ──────────────────────────────────────────────────────
+//
+// Verifies that _canonicaliseRouteKey applies all three normalisations:
+//   1. {xxx} placeholder → {name}
+//   2. ARM keyword segments lowercased (resourceGroups → resourcegroups, etc.)
+//   3. Trailing slash stripped
+
+console.log("\n=== Matcher.canonicaliseRouteKey ===");
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  ),
+  "GET /subscriptions/{name}/resourcegroups/{name}/providers/Microsoft.Resources/deployments",
+  "canonical: placeholders + lowercase resourceGroups + trailing slash stripped"
+);
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  ),
+  "GET /subscriptions/{name}/resourcegroups/{name}/providers/Microsoft.Resources/deployments",
+  "canonical: already lowercase resourcegroups, trailing slash stripped"
+);
+eq(
+  Matcher.canonicaliseRouteKey(
+    "GET /subscriptions/{name}/managementGroups/{name}/providers/Microsoft.Foo/bars/{barName}"
+  ),
+  "GET /subscriptions/{name}/managementgroups/{name}/providers/Microsoft.Foo/bars/{name}",
+  "canonical: managementGroups lowercased, bar placeholder normalised"
+);
+eq(
+  Matcher.canonicaliseRouteKey("GET /providers/Microsoft.AAD/operations"),
+  "GET /providers/Microsoft.AAD/operations",
+  "canonical: no change for already-clean key"
+);
+
+// ── Canonical-key fallback: keyword casing mismatch ──────────────────────────
+//
+// Reproduces the real-world scenario seen in the issue report where
+// GET .../resourceGroups/.../providers/Microsoft.Resources/deployments
+// was flagged as "Unknown route / route_not_in_shard" because the shard key
+// used lowercase "resourcegroups" while the normaliser emits "resourceGroups".
+
+const LOWERCASE_KEYWORD_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Shard key uses lowercase 'resourcegroups' and has trailing slash
+        // (as generated from some azure-rest-api-specs versions)
+        "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2022-12-01": { is_preview: false, spec_files: ["resources/2022-12-01/deployments.json"] },
+            "2024-11-01": { is_preview: false, spec_files: ["resources/2024-11-01/deployments.json"] },
+          },
+        },
+        // Also verify camelCase version still matches (mixed shards)
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deploymentStacks": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deploymentStacks",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-03-01": { is_preview: false, spec_files: ["resources/2024-03-01/deploymentStacks.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — canonical fallback: lowercase 'resourcegroups' in shard ===");
+{
+  // Real-world failing case from the issue report:
+  // Shard key: "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/"
+  // armPath:   "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Resources/deployments"
+  // Mismatch: 'resourceGroups' vs 'resourcegroups', plus trailing slash
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2022-12-01",
+    "GET"
+  );
+  assert(n.armPath.includes("resourceGroups"),         "armPath has camelCase resourceGroups");
+  assert(!n.armPath.endsWith("/"),                     "armPath has no trailing slash");
+
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match despite shard using lowercase 'resourcegroups' + trailing slash");
+  eq(r.matched_version, "2022-12-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.Resources", "correct provider_namespace");
+  assert(
+    r.matched_route_key ===
+    "GET /subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}/providers/Microsoft.Resources/deployments/",
+    "matched_route_key is the original shard key (with lowercase + trailing slash preserved)"
+  );
+}
+
+console.log("\n=== Matcher.classify — canonical fallback: version mismatch with lowercase shard key ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2099-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "version_mismatch when route matched via canonical fallback but api-version absent");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2022-12-01"),
+    "matched_versions contains known version");
+}
+
+console.log("\n=== Matcher.classify — canonical fallback: camelCase shard key still matches ===");
+{
+  // camelCase shard keys (the majority) continue to match after canonical normalisation
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.Resources/deploymentStacks?api-version=2024-03-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, LOWERCASE_KEYWORD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "camelCase shard key still yields exact_match via canonical fallback");
+  eq(r.matched_version, "2024-03-01", "correct api-version matched");
+}
+
+// ── {default} singleton-suffix fallback ──────────────────────────────────────
+//
+// Some Azure ARM specs define singleton resources as `/{resourceType}/{default}`
+// where `{default}` takes the literal value "default".  Clients sometimes omit
+// the trailing "/default" suffix and call the parent path directly.
+//
+// When no direct or canonical match is found, the matcher should try the
+// request's canonical key against a "parent-path index" built from shard
+// routes ending in `/{default}`.  This prevents valid singleton requests from
+// being classified as "provider_known_route_unknown" (Unknown route).
+//
+// Real-world example (from issue report):
+//   Request: GET /providers/Microsoft.Resources/dataBoundaries?api-version=2023-07-01
+//   Shard:   GET /providers/Microsoft.Resources/dataBoundaries/{default}  (v: 2024-08-01)
+//   Before:  🔶 provider_known_route_unknown / route_not_in_shard
+//   After:   ⚠️ route_match_version_mismatch  (available: 2024-08-01)
+
+const SINGLETON_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Singleton route: only one valid value for {default}, the literal "default"
+        "GET /providers/Microsoft.Resources/dataBoundaries/{default}": {
+          method: "GET",
+          path_template: "/providers/Microsoft.Resources/dataBoundaries/{default}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-08-01": { is_preview: false, spec_files: ["databoundaries/2024-08-01/dataBoundaries.json"] },
+          },
+        },
+        "PUT /providers/Microsoft.Resources/dataBoundaries/{default}": {
+          method: "PUT",
+          path_template: "/providers/Microsoft.Resources/dataBoundaries/{default}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-08-01": { is_preview: false, spec_files: ["databoundaries/2024-08-01/dataBoundaries.json"] },
+          },
+        },
+        // Unrelated collection route that does NOT end in {default}
+        "GET /subscriptions/{subscriptionId}/providers/Microsoft.Resources/tags": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Resources/tags",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2021-04-01": { is_preview: false, spec_files: ["tags/2021-04-01/tags.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: version mismatch (issue report) ===");
+{
+  // Real-world case: client calls without '/default' suffix, api-version not in spec
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2023-07-01",
+    "GET"
+  );
+  eq(n.normalisedPath, "/providers/Microsoft.Resources/dataBoundaries",
+    "normalisedPath has no trailing {default}");
+
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route_mismatch (not unknown_route) when {default} suffix omitted and api-version not in spec");
+  assert(r.matched_route_key === "GET /providers/Microsoft.Resources/dataBoundaries/{default}",
+    "matched_route_key is the original shard key with {default}");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2024-08-01"),
+    "matched_versions includes the spec version");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+  eq(r.provider_namespace, "Microsoft.Resources", "correct provider_namespace");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: exact match when api-version present ===");
+{
+  // Exact api-version match via singleton fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2024-08-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match when {default} suffix omitted but api-version IS in spec");
+  eq(r.matched_version, "2024-08-01", "correct api-version matched");
+  assert(r.matched_route_key === "GET /providers/Microsoft.Resources/dataBoundaries/{default}",
+    "matched_route_key is the singleton shard key");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: no api-version ===");
+{
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries",
+    "GET"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route_mismatch when {default} suffix omitted and no api-version");
+  eq(r.reason, "no_api_version_in_request", "reason=no_api_version_in_request");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: PUT method ===");
+{
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2024-08-01",
+    "PUT"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "PUT method also matches via {default} singleton suffix fallback");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: non-default placeholder NOT matched ===");
+{
+  // A route ending in {vaultName} (NOT {default}) must NOT trigger the singleton fallback
+  // and must remain provider_known_route_unknown for list requests.
+  const nonDefaultShard = {
+    metadata: { provider_namespace: "Microsoft.KeyVault" },
+    provider_namespace: "Microsoft.KeyVault",
+    hosts: {
+      "management.azure.com": {
+        routes: {
+          "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}": {
+            method: "GET",
+            path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}",
+            provider_namespace: "Microsoft.KeyVault",
+            versions: {
+              "2023-07-01": { is_preview: false, spec_files: ["keyvault/2023-07-01/vaults.json"] },
+            },
+          },
+        },
+      },
+    },
+  };
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.KeyVault/vaults?api-version=2023-07-01",
+    "GET"
+  );
+  // List-vaults is NOT in the shard (only single-vault is). {vaultName} ≠ {default},
+  // so the singleton fallback must NOT activate and the result must still be UNKNOWN.
+  const r = Matcher.classify(n, nonDefaultShard, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "list-vaults request is NOT matched against single-vault route — {vaultName} is not a singleton");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard when no {default} singleton key matches");
+}
+
+// ── ARM_ROOT_ROUTE status ─────────────────────────────────────────────────────
+//
+// Valid ARM root/tenant-scope endpoints on management.azure.com that have no
+// provider namespace in the URL must receive ARM_ROOT_ROUTE rather than
+// NO_SPEC_MATCH so callers can distinguish them from genuinely unrecognised
+// requests.
+
+console.log("\n=== Matcher.STATUS — ARM_ROOT_ROUTE defined ===");
+assert(Matcher.STATUS.ARM_ROOT_ROUTE === "arm_root_route", "ARM_ROOT_ROUTE status value is 'arm_root_route'");
+assert(typeof Matcher.STATUS_LABELS[Matcher.STATUS.ARM_ROOT_ROUTE] === "string", "ARM_ROOT_ROUTE has a label");
+
+console.log("\n=== Matcher.isArmRootPath ===");
+{
+  // management.azure.com paths that start at an ARM root keyword
+  const mkNorm = (pathname) => ({ host: "management.azure.com", pathname });
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions")),       "/subscriptions is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/tenants")),             "/tenants is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/providers")),           "/providers is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/managementGroups")),    "/managementGroups is ARM root path");
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions/abc/providers")), "/subscriptions/.../providers is ARM root path");
+
+  // Non-management.azure.com host — must return false
+  assert(!Matcher.isArmRootPath({ host: "graph.microsoft.com", pathname: "/subscriptions" }),
+    "isArmRootPath returns false for non-management.azure.com host");
+  assert(!Matcher.isArmRootPath({ host: "login.microsoftonline.com", pathname: "/subscriptions" }),
+    "isArmRootPath returns false for login host");
+
+  // Path with provider namespace — not a root-only path (isArmRootPath still
+  // returns true because the first segment is still 'subscriptions', which is
+  // correct: the caller uses isArmRootPath only when no provider was inferred)
+  assert(Matcher.isArmRootPath(mkNorm("/subscriptions/abc/providers/Microsoft.Compute/virtualMachines")),
+    "isArmRootPath is first-segment only; provider inference handles the rest");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /subscriptions ===");
+{
+  const n = norm("https://management.azure.com/subscriptions?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/subscriptions → arm_root_route");
+  eq(r.reason, "arm_root_no_provider", "reason=arm_root_no_provider");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /tenants ===");
+{
+  const n = norm("https://management.azure.com/tenants?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/tenants → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /providers (no namespace) ===");
+{
+  const n = norm("https://management.azure.com/providers?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/providers without namespace → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — ARM_ROOT_ROUTE: /subscriptions/{id}/providers ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/providers?api-version=2022-12-01",
+    "GET"
+  );
+  // inferProviderNamespace returns null (/providers has no {namespace} after it)
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.ARM_ROOT_ROUTE, "/subscriptions/{id}/providers → arm_root_route");
+}
+
+console.log("\n=== Matcher.classify — NO_SPEC_MATCH still returned for non-ARM root paths ===");
+{
+  // Non-management host with path starting at 'subscriptions' — not ARM root
+  const n = norm("https://api.example.com/subscriptions?api-version=2022-12-01", "GET");
+  const r = Matcher.classify(n, null, { inScope: true });
+  eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "non-management host: still no_spec_match (not arm_root_route)");
+}
+
+// ── HTTP method not-in-spec fallback ─────────────────────────────────────────
+//
+// Browsers and load-balancers automatically issue `OPTIONS` (CORS preflight)
+// and sometimes `HEAD` requests to paths that the spec defines only for other
+// methods (GET, POST, PUT, DELETE, PATCH).  Previously these fell through to
+// `reason: "route_not_in_shard"` — indistinguishable from a genuinely unknown
+// path.  After the fix the matcher reports `reason: "http_method_not_in_spec"`
+// and includes the spec-defined methods so callers can present a more
+// accurate diagnosis.
+//
+// Real-world example from the issue report:
+//   OPTIONS /providers/Microsoft.Management/getEntities  (CORS preflight)
+//   Shard only has: POST /providers/Microsoft.Management/getEntities
+//   Before: 🔶 Unknown route / route_not_in_shard
+//   After:  🔶 Unknown route / http_method_not_in_spec (available: POST)
+
+const METHOD_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Management" },
+  provider_namespace: "Microsoft.Management",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "POST /providers/Microsoft.Management/getEntities": {
+          method: "POST",
+          path_template: "/providers/Microsoft.Management/getEntities",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-02-01": { is_preview: false, spec_files: ["management/2020-02-01/management.json"] },
+            "2019-11-01": { is_preview: false, spec_files: ["management/2019-11-01/management.json"] },
+          },
+        },
+        "GET /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "GET",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+        "PATCH /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "PATCH",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+        "DELETE /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "DELETE",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to POST-only path (issue report) ===");
+{
+  // CORS preflight to a POST-only endpoint — the path IS known, the method is not
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to POST-only path → PROVIDER_KNOWN_NO_ROUTE (not a genuinely unknown route)");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("POST"),
+    "available_methods includes POST");
+  assert(!r.available_methods.includes("OPTIONS"),
+    "OPTIONS is not listed in available_methods (it is not in the spec)");
+  eq(r.provider_namespace, "Microsoft.Management", "provider_namespace correct");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: HEAD to GET-only path ===");
+{
+  // HEAD is a common HTTP method that proxies/health-checks issue, but specs rarely define it
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "HEAD"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "HEAD to POST-only path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec for HEAD");
+  assert(Array.isArray(r.available_methods), "available_methods is an array");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to multi-method path ===");
+{
+  // Path has GET, PATCH, DELETE — OPTIONS is still not in spec
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/managementGroups/mg1",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to multi-method path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec for OPTIONS on multi-method path");
+  assert(r.available_methods.includes("GET"),    "available_methods includes GET");
+  assert(r.available_methods.includes("PATCH"),  "available_methods includes PATCH");
+  assert(r.available_methods.includes("DELETE"), "available_methods includes DELETE");
+  assert(!r.available_methods.includes("OPTIONS"), "available_methods does NOT include OPTIONS");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to unknown path stays route_not_in_shard ===");
+{
+  // A genuinely unknown path must NOT benefit from the method-not-in-spec fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/doesNotExist?api-version=2020-02-01",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to completely unknown path → still PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard for a genuinely unknown path");
+  assert(r.available_methods === null,
+    "available_methods is null for unknown path");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: POST to known path stays normal ===");
+{
+  // A normal POST request to a known path should NOT be affected by the new fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "POST"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "POST to POST-only path → exact_match (not affected by method fallback)");
+  eq(r.matched_version, "2020-02-01", "correct api-version matched");
+}
+
+
+
+// ── Scope-based suffix fallback ───────────────────────────────────────────────
+//
+// Azure ARM specs frequently define routes with a variable-length scope
+// placeholder (`{scope}`, `{resourceUri}`, `{resourceScope}`, …) as the first
+// path segment:
+//
+//   GET /{scope}/providers/Microsoft.Resources/deployments/{name}
+//
+// The ARM normaliser always emits the full concrete scope prefix, which never
+// matches the /{scope}/providers/… shard key directly.  The scope-based suffix
+// index bridges this gap by matching on the /providers/Namespace/rest suffix.
+//
+// Real-world example from the issue report (CSV):
+//   GET .../subscriptions/{subId}/providers/Microsoft.Resources/deployments
+//   Shard only has: GET /{scope}/providers/Microsoft.Resources/deployments/
+//   Before: 🔶 Unknown route / route_not_in_shard
+//   After:  ✅ exact_match  (or ⚠️ route_match_version_mismatch)
+
+const SCOPE_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Trailing-slash list route (common shard format quirk)
+        "GET /{scope}/providers/Microsoft.Resources/deployments/": {
+          method: "GET",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+            "2020-08-01": { is_preview: false },
+          },
+        },
+        "GET /{scope}/providers/Microsoft.Resources/deployments/{deploymentName}": {
+          method: "GET",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments/{deploymentName}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+            "2022-09-01": { is_preview: false },
+          },
+        },
+        "DELETE /{scope}/providers/Microsoft.Resources/deployments/{deploymentName}": {
+          method: "DELETE",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments/{deploymentName}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+          },
+        },
+        "PATCH /{scope}/providers/Microsoft.Resources/tags/default": {
+          method: "PATCH",
+          path_template: "/{scope}/providers/Microsoft.Resources/tags/default",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — scope-based suffix: subscription-scope list (exact version) ===");
+{
+  // GET /subscriptions/{subId}/providers/Microsoft.Resources/deployments
+  // Shard: GET /{scope}/providers/Microsoft.Resources/deployments/ (trailing slash)
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Resources/deployments?api-version=2024-11-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "subscription-scope list → exact_match via scope-based index");
+  eq(r.matched_version, "2024-11-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.Resources", "provider_namespace correct");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: resourceGroup-scope list (wrong version) ===");
+{
+  // GET /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Resources/deployments
+  // api-version not in spec → version mismatch (not unknown route)
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2022-12-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "rg-scope list, wrong api-version → route_match_version_mismatch (not route_not_in_shard)");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+  assert(r.matched_versions && r.matched_versions.includes("2024-11-01"),
+    "matched_versions includes correct spec version");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: named resource exact match ===");
+{
+  // GET /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{name}
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/providers/Microsoft.Resources/deployments/myDeploy?api-version=2022-09-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "sub-scope named deployment → exact_match via scope-based index");
+  eq(r.matched_version, "2022-09-01", "correct api-version matched");
+  // matched_route_key should be the original scope-based shard key
+  assert(r.matched_route_key && r.matched_route_key.includes("{scope}"),
+    "matched_route_key preserves original {scope} placeholder");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: DELETE on scope route ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/deployments/myDeploy?api-version=2024-11-01",
+    "DELETE"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "DELETE on scope route → exact_match");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: OPTIONS → http_method_not_in_spec ===");
+{
+  // CORS preflight to a scope-based path — path IS known, method is not
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/deployments/myDeploy",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to scope route → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("GET"),
+    "available_methods lists GET");
+  assert(r.available_methods.includes("DELETE"),
+    "available_methods lists DELETE");
+  assert(!r.available_methods.includes("OPTIONS"),
+    "OPTIONS is NOT in available_methods");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: tags/default via scope ===");
+{
+  // ARM tags operations use /{scope}/providers/Microsoft.Resources/tags/default
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/tags/default?api-version=2024-11-01",
+    "PATCH"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "PATCH tags/default via scope route → exact_match");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: genuinely unknown path stays route_not_in_shard ===");
+{
+  // A path that has no scope-based route for it must not false-positive
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/providers/Microsoft.Resources/doesNotExist?api-version=2024-11-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "truly unknown path → still PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard for genuinely unknown path");
+  assert(r.available_methods === null,
+    "available_methods is null for genuinely unknown path");
+}
+
+// ── Double-provider (ARM extension resource) end-to-end matching ──────────────
+//
+// Azure ARM extension resources use double-provider paths where the second
+// /providers/Namespace/ identifies the extension that owns the route spec.
+// Previously:
+//  1. inferProviderNamespace returned the FIRST namespace → wrong shard loaded
+//  2. templateAzureArmPath replaced the second namespace with {name} → wrong key
+// Now both are fixed: inferProviderNamespace returns the LAST namespace and the
+// normaliser preserves the second provider namespace literal.
+
+const EXT_SHARD = {
+  metadata: { provider_namespace: "Microsoft.FakeExtension" },
+  provider_namespace: "Microsoft.FakeExtension",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "GET /{resourceUri}/providers/Microsoft.FakeExtension/metrics": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/metrics",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+        "GET /{resourceUri}/providers/Microsoft.FakeExtension/diagnosticSettings/{name}": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/diagnosticSettings/{settingName}",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+        "DELETE /{resourceUri}/providers/Microsoft.FakeExtension/metrics": {
+          method: "DELETE",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/metrics",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — double-provider: extension metrics on VM (exact match) ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/metrics?api-version=2024-01-01",
+    "GET"
+  );
+  // Verify normaliser fix: second provider namespace preserved in armPath
+  assert(n.armPath && n.armPath.includes("Microsoft.FakeExtension"),
+    "double-provider: normaliser preserves second namespace in armPath");
+  assert(n.armPath && !n.armPath.endsWith("/providers/{name}/metrics"),
+    "double-provider: second namespace is NOT replaced with {name}");
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "double-provider: VM extension metrics → exact_match (via scope-based suffix)");
+  eq(r.matched_version, "2024-01-01", "correct api-version matched");
+  assert(r.matched_route_key && r.matched_route_key.includes("{resourceUri}"),
+    "matched_route_key contains original {resourceUri} placeholder");
+}
+
+console.log("\n=== Matcher.classify — double-provider: extension on Storage account (wrong version) ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/mysa/providers/Microsoft.FakeExtension/metrics?api-version=2022-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "double-provider: SA extension metrics (wrong version) → route_match_version_mismatch");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+}
+
+console.log("\n=== Matcher.classify — double-provider: extension named child resource ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/myVault/providers/Microsoft.FakeExtension/diagnosticSettings/mySetting?api-version=2024-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "double-provider: extension named setting → exact_match");
+}
+
+console.log("\n=== Matcher.classify — double-provider: OPTIONS → http_method_not_in_spec ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/metrics",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "double-provider OPTIONS → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "double-provider OPTIONS → reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("GET"),
+    "available_methods lists GET");
+  assert(r.available_methods.includes("DELETE"),
+    "available_methods lists DELETE");
+}
+
+console.log("\n=== Matcher.classify — double-provider: genuinely unknown extension path ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/unknownThing?api-version=2024-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "double-provider genuinely unknown path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "double-provider genuinely unknown path → reason=route_not_in_shard");
+}
 
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

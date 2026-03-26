@@ -83,6 +83,17 @@
   // ─── Azure ARM structural templating ────────────────────────────────────────
 
   /**
+   * Regex that matches a valid Azure provider namespace (e.g. "Microsoft.KeyVault"
+   * or "microsoft.insights").  Same character class is used in matcher.js for
+   * `inferProviderNamespace` and `_canonicaliseRouteKey`.
+   *
+   * Format: one identifier component, a dot, then one or more dot-separated
+   * identifier components, e.g. "Microsoft.ResourceHealth" or "a.b.c".
+   * @private
+   */
+  const _ARM_PROVIDER_NS_RE = /^[A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9.]+$/;
+
+  /**
    * Allowlist of known ARM path segments that should remain literal even when
    * they appear in a structural "name" position within a resource path.
    *
@@ -91,17 +102,24 @@
    * They should NOT be replaced with {name} even though they sit in what is
    * structurally a resource-name slot after a type segment.
    *
-   * Extend this set conservatively — add only segments that are confirmed
-   * singletons or actions in Azure ARM specs, not arbitrary resource names.
+   * Populated by exhaustive analysis of all provider shard files: every segment
+   * that appears at an odd (name) position in any shard route key and is not a
+   * `{placeholder}` is included here.
    *
    * Based on common patterns across Azure REST API specs:
    * https://learn.microsoft.com/en-us/rest/api/azure/
    */
   const ARM_LITERAL_SEGMENTS = new Set([
+    // Already established singletons / action verbs
     "default",
+    "current",        // singleton "current state" (SQL, HybridCompute, Synapse, etc.)
+    "latest",         // singleton "latest version/invoice" (Billing, Compute, etc.)
+    "service",        // singleton service endpoint (e.g. microsoft.insights diagnosticSettings/service)
     "listKeys",
     "listConnectionStrings",
     "regenerateKey",
+    "regeneratePrimaryKey",
+    "regenerateSecondaryKey",
     "start",
     "stop",
     "restart",
@@ -110,11 +128,165 @@
     "operations",
     "usages",
     "metrics",
+
+    // DocumentDB / CosmosDB API type discriminators at name positions
+    "sql",
+    "mongodb",
+    "cassandra",
+    "gremlin",
+    "table",
+    "throughput",     // settings/throughput sub-resource
+
+    // Azure Web Apps config sub-resource names
+    "web",
+    "appsettings",
+    "authsettings",
+    "authsettingsV2",
+    "azurestorageaccounts",
+    "backup",
+    "configreferences",
+    "connectionstrings",
+    "customdnssuffix",
+    "ftp",
+    "functionappsettings",
+    "metadata",
+    "publishingcredentials",
+    "pushsettings",
+    "scm",
+    "slotConfigNames",
+    "virtualNetwork",
+    "virtualNetworks",
+    "virtualip",
+    "networking",
+    "onedeploy",
+    "zip",
+    "MSDeploy",
+
+    // Action verb paths
+    "reset",
+    "disable",
+    "discover",
+    "cancel",
+    "publish",
+    "refresh",
+    "export",
+    "download",
+    "search",
+    "undoEdit",
+    "generateUri",
+    "listSecrets",
+    "listV2",
+    "getStatus",
+    "modify",
+
+    // RecoveryServices / Backup singleton config names
+    "vaultstorageconfig",
+    "vaultconfig",
+    "vaultExtendedInfo",
+    "backupResourceEncryptionConfig",
+
+    // Singleton sub-resource config singletons across multiple providers
+    "management",
+    "activeDirectory",
+    "global",
+    "main",
+    "access",
+    "configuration",
+    "delegation",
+    "policy",
+    "status",
+    "admin",
+    "compute",
+    "limit",
+    "json",
+    "item",
+    "content",
+    "network",
+    "domain",
+
+    // Azure Monitor / Insights singleton agent configs
+    "azureMonitor",
+    "azureMonitorAgent",
+    "clustermonitoring",
+    "serviceMap",
+
+    // Automation / Logic Apps singleton resources
+    "testJob",
+    "runtime",
+    "workflow",
+    "startOperation",
+    "operationresults",
+    "operationstatuses",
+    "operationResults",
+    "azureasyncoperations",
+
+    // Compute image / extension singletons
+    "vmimage",
+    "vmextension",
+    "VMExtension",
+    "platformImage",
+    "diskInspection",
+
+    // Authn / RBAC portals
+    "signin",
+    "signup",
+
+    // API Management analytics sub-resources
+    "byApi",
+    "byUser",
+    "byOperation",
+    "byProduct",
+    "byGeo",
+    "bySubscription",
+    "byTime",
+    "byRequest",
+
+    // Miscellaneous singletons seen in one or more providers
+    "checkNameAvailability",
+    "CheckNameAvailability",
+    "premiumCheck",
+    "riskyIp",
+    "alertfeedback",
+    "badpassword",
+    "alerts",
+    "balanceSummary",
+    "aggregatedcost",
+    "aggregatedCost",
+    "canonical",
+    "counts",
+    "DevOps",
+    "flexibleServers",
+    "hostName",
+    "ip",
+    "list",
+    "locations",
+    "machines",
+    "maxMonthlyVirtualUserHours",
+    "osType",
+    "clusterVersions",
+    "password",
+    "revisionsApi",
+    "rootApi",
+    "routes",
+    "skus",
+    "spot",
+    "spotPlacementRecommender",
+    "user",
+    "vmAttributeBased",
+    "apiAccess",
+
+    // OData metadata endpoint
+    "$metadata",
   ]);
 
   /**
    * Maps ARM scope-level segment keywords to the semantic placeholder to use
    * for the value segment immediately following each keyword.
+   *
+   * Keys are intentionally all-lowercase so the lookup in templateAzureArmPath
+   * can use `seg.toLowerCase()` — making it robust to shard files and client
+   * requests that use inconsistent casing such as `/Subscriptions/` (capital S)
+   * in older Microsoft.RecoveryServices specs.
    *
    * Based on Azure ARM resource ID scope conventions:
    * https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/template-functions-scope
@@ -122,10 +294,10 @@
    */
   const ARM_SCOPE_RULES = Object.freeze({
     subscriptions:    "{subscriptionId}",
-    resourceGroups:   "{resourceGroupName}",
+    resourcegroups:   "{resourceGroupName}",
     tenants:          "{tenantId}",
     locations:        "{location}",
-    managementGroups: "{managementGroupId}",
+    managementgroups: "{managementGroupId}",
   });
 
   /**
@@ -148,12 +320,16 @@
    * (webhook subscriptions) start with "v1.0", not "subscriptions", so they
    * are correctly excluded.  Azure Resource Manager paths always start with
    * one of these keywords at the first segment position.
+   *
+   * All values are lower-cased; looksLikeArmPath() compares with .toLowerCase()
+   * so that paths using `Subscriptions` (capital S, used in some older
+   * Microsoft.RecoveryServices spec generations) are still recognised.
    */
   const ARM_ROOT_SEGMENTS = new Set([
     "subscriptions",
     "tenants",
     "providers",
-    "managementGroups",
+    "managementgroups",
   ]);
 
   /**
@@ -178,7 +354,7 @@
     const segments = path.split("/");
     for (let i = 1; i < segments.length; i++) {
       if (segments[i] !== "") {
-        return ARM_ROOT_SEGMENTS.has(segments[i]);
+        return ARM_ROOT_SEGMENTS.has(segments[i].toLowerCase());
       }
     }
     return false;
@@ -230,15 +406,20 @@
       // ── Scope-level keywords (only before /providers/) ──────────────────────
       // e.g. subscriptions, resourceGroups, tenants, locations, managementGroups
       // The segment immediately after each keyword is the scope-parameter value.
+      // Use toLowerCase() so paths with capital-S "Subscriptions" (used in some
+      // older Microsoft.RecoveryServices spec generations) are handled correctly.
+      // The original segment casing is preserved in armPath (canonicaliseRouteKey
+      // normalises it anyway during matching).
+      const segLower = seg.toLowerCase();
       if (!inProviderResourcePath &&
-          Object.prototype.hasOwnProperty.call(ARM_SCOPE_RULES, seg)) {
-        result.push(seg);
+          Object.prototype.hasOwnProperty.call(ARM_SCOPE_RULES, segLower)) {
+        result.push(seg); // preserve original casing in armPath output
         i++;
         if (i < segments.length) {
           // Replace the scope-value segment with the semantic placeholder,
           // regardless of its literal value (resource group names, tenant IDs,
           // etc. can be arbitrary strings that generic normalisation misses).
-          result.push(ARM_SCOPE_RULES[seg]);
+          result.push(ARM_SCOPE_RULES[segLower]);
           i++;
         }
         continue;
@@ -264,7 +445,30 @@
       // After /providers/{Namespace}, ARM paths alternate:
       //   type / name / childType / childName / ...
       // We only replace name positions, never type positions.
+      //
+      // Special case: extension resources add a second /providers/{Namespace}
+      // suffix after the parent resource name position.  For example:
+      //   .../virtualMachines/{vmName}/providers/microsoft.insights/metrics
+      //                               ↑ a new provider prefix, NOT a name position
+      // Detect this by checking whether the current segment is literally
+      // "providers" and the next segment looks like a provider namespace
+      // (contains a dot).  When detected, treat it as a new /providers/ entry:
+      // keep both segments literal and reset the resource-position counter.
       if (inProviderResourcePath) {
+        const nextSeg = segments[i + 1];
+        if (
+          seg === "providers" &&
+          nextSeg &&
+          _ARM_PROVIDER_NS_RE.test(nextSeg)
+        ) {
+          // New /providers/{Namespace} pair inside the resource path.
+          // Keep "providers" and the namespace literal; reset position counter.
+          result.push(seg);       // "providers"
+          result.push(nextSeg);   // e.g. "microsoft.insights"
+          i += 2;
+          resourcePosition = 0;
+          continue;
+        }
         const isNamePosition = (resourcePosition % 2 === 1);
         if (isNamePosition && !seg.startsWith("{") && !isLiteralArmSegment(seg)) {
           // Name position: replace with conservative structural placeholder.
@@ -298,8 +502,15 @@
   /**
    * Normalise a URL path minimally for v1.
    * - Strip trailing slash (unless root "/")
-   * - Decode percent-encoding
+   * - Decode percent-encoding per-segment (RFC 3986 §3.3)
    * - Replace known-shape segments (GUIDs, pure integers) with placeholders
+   *
+   * Decoding is applied per-segment (after splitting on "/") so that
+   * percent-encoded slashes (%2F) inside a segment do not corrupt the
+   * path hierarchy.  RFC 3986 §3.3 requires that the path be split on
+   * literal "/" before any pct-decoding is applied to individual segments.
+   * Encoded slashes (%2F / %2f) are preserved as "%2F" in the output to
+   * keep them distinct from real path separators.
    *
    * We do NOT attempt to match arbitrary resource-name segments to spec
    * path templates here — that is the job of templateAzureArmPath(), which
@@ -309,21 +520,35 @@
    * @returns {string}  Normalised path.
    */
   function normalisePath(rawPath) {
-    let path;
-    try {
-      path = decodeURIComponent(rawPath);
-    } catch (_) {
-      path = rawPath;
+    // Split on "/" BEFORE decoding so that %2F inside a segment does not
+    // become a path separator and corrupt the segment boundaries.
+    const rawSegments = rawPath.split("/");
+
+    // Decode each segment individually, preserving encoded slashes (%2F)
+    // so they cannot corrupt segment boundaries when the path is re-joined.
+    const decoded = rawSegments.map((seg) => {
+      if (!seg) return seg; // fast-path empty (leading/trailing) segments
+      // Temporarily replace encoded slashes before decoding, then restore them.
+      // This ensures %2F never becomes a literal "/" that looks like a separator.
+      const withProtectedSlashes = seg.replace(/%2[Ff]/g, "\x00");
+      let result;
+      try {
+        result = decodeURIComponent(withProtectedSlashes);
+      } catch (_) {
+        result = withProtectedSlashes;
+      }
+      return result.replace(/\x00/g, "%2F");
+    });
+
+    // Strip trailing empty segment produced by a trailing slash (e.g. "/a/b/"
+    // splits to ["", "a", "b", ""] — drop the trailing "" but only when the
+    // path is not the root "/").
+    if (decoded.length > 2 && decoded[decoded.length - 1] === "") {
+      decoded.pop();
     }
 
-    // Strip trailing slash (keep root intact)
-    if (path.length > 1 && path.endsWith("/")) {
-      path = path.slice(0, -1);
-    }
-
-    // Replace known-shape segments
-    const segments = path.split("/");
-    const normalised = segments.map((seg) => {
+    // Replace known-shape segments with placeholders.
+    const normalised = decoded.map((seg) => {
       for (const rule of TEMPLATE_RULES) {
         if (rule.test.test(seg)) return rule.replace;
       }

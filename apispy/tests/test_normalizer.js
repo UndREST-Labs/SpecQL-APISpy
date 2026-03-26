@@ -85,6 +85,23 @@ eq(Normalizer.normalisePath("/a/b/c"), "/a/b/c", "clean path unchanged");
 eq(Normalizer.normalisePath("/a/b/c/"), "/a/b/c", "trailing slash removed");
 eq(Normalizer.normalisePath("/"), "/", "root preserved");
 
+console.log("\n=== Normalizer.normalisePath — RFC 3986: split before decode ===");
+{
+  // A segment containing %2F (encoded slash) must NOT become a new path
+  // separator.  RFC 3986 §3.3 requires splitting on literal "/" before
+  // decoding pct-encoded characters within each segment.  Encoded slashes
+  // are preserved as "%2F" in the output to keep them distinguishable from
+  // real path separators.
+  const result = Normalizer.normalisePath("/subscriptions/foo%2Fbar/resourceGroups/rg1");
+  // Expected: 5 elements when split on "/" (the %2F stays within its segment)
+  assert(result.split("/").length === 5,
+    "encoded %2F does not create an extra path segment (split count = 5)");
+  assert(result.includes("foo%2Fbar"),
+    "encoded %2F preserved as '%2F' within its segment (not decoded to '/')");
+  assert(!result.includes("/foo/bar/"),
+    "encoded %2F does not corrupt segment boundary into a new path level");
+}
+
 // ── Azure ARM structural templating ──────────────────────────────────────────
 
 console.log("\n=== Normalizer.templateAzureArmPath — representative ARM paths ===");
@@ -255,6 +272,75 @@ console.log("\n=== Normalizer.normalise — ARM templating gated on Azure host =
   eq(r.armPath, r.normalisedPath, "Graph webhook path: armPath equals normalisedPath (no ARM templating)");
   assert(!r.armPath.includes("{subscriptionId}"), "Graph webhook path: 'subscriptions' NOT replaced with {subscriptionId}");
   assert(r.armPath.includes("subscriptions"),     "Graph webhook path: literal 'subscriptions' preserved");
+}
+
+console.log(`\nNormalizer: ${pass} passed, ${fail} failed`);
+if (fail > 0) process.exit(1);
+
+// ── Extension resource (double-provider) path templating ─────────────────────
+//
+// ARM extension resources are expressed as double-provider paths where the
+// first /providers/Namespace/ identifies the parent resource type and the
+// second identifies the extension provider:
+//
+//   .../providers/Microsoft.Compute/virtualMachines/{vmName}/providers/microsoft.insights/metrics
+//
+// The second provider namespace must NOT be replaced with {name} — it is a
+// namespace identifier, not a resource name.
+
+console.log("\n=== Normalizer.templateAzureArmPath — extension resource: second provider preserved ===");
+{
+  // microsoft.insights metrics on a VM (/{resourceUri}/providers/microsoft.insights/metrics)
+  const r = Normalizer.normalise(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/myRG/providers/Microsoft.Compute/virtualMachines/myVM/providers/microsoft.insights/metrics",
+    "GET"
+  );
+  assert(r.armPath.includes("microsoft.insights"),
+    "double-provider: second namespace 'microsoft.insights' preserved in armPath (not replaced with {name})");
+  assert(!r.armPath.endsWith("/providers/{name}/metrics"),
+    "double-provider: armPath does NOT end with /providers/{name}/metrics");
+  assert(r.armPath.endsWith("/providers/microsoft.insights/metrics"),
+    "double-provider: armPath ends with /providers/microsoft.insights/metrics");
+  assert(r.armPath.includes("{name}"),
+    "double-provider: VM name position IS replaced with {name}");
+}
+
+console.log("\n=== Normalizer.templateAzureArmPath — extension resource: Authorization roleAssignments ===");
+{
+  const r = Normalizer.normalise(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/myRG/providers/Microsoft.KeyVault/vaults/myVault/providers/Microsoft.Authorization/roleAssignments",
+    "GET"
+  );
+  assert(r.armPath.includes("Microsoft.Authorization"),
+    "double-provider: 'Microsoft.Authorization' preserved as second namespace");
+  assert(r.armPath.endsWith("/providers/Microsoft.Authorization/roleAssignments"),
+    "double-provider: armPath ends with /providers/Microsoft.Authorization/roleAssignments");
+}
+
+console.log("\n=== Normalizer.templateAzureArmPath — extension resource: ResourceHealth on VM ===");
+{
+  const r = Normalizer.normalise(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.ResourceHealth/availabilityStatuses",
+    "GET"
+  );
+  assert(r.armPath.includes("Microsoft.ResourceHealth"),
+    "double-provider: 'Microsoft.ResourceHealth' preserved as second namespace");
+  assert(r.armPath.includes("Microsoft.Compute"),
+    "double-provider: first namespace 'Microsoft.Compute' also preserved");
+}
+
+console.log("\n=== Normalizer.templateAzureArmPath — single-provider paths unchanged ===");
+{
+  // Ensure single-provider paths are unaffected by the double-provider fix
+  const r = Normalizer.normalise(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/myVault/keys/myKey",
+    "GET"
+  );
+  assert(!r.armPath.includes("myVault"), "single-provider: literal vault name replaced with {name}");
+  assert(!r.armPath.includes("myKey"),   "single-provider: literal key name replaced with {name}");
+  assert(r.armPath.includes("Microsoft.KeyVault"), "single-provider: namespace preserved");
+  assert(r.armPath.endsWith("/providers/Microsoft.KeyVault/vaults/{name}/keys/{name}"),
+    "single-provider: standard type/name alternation unchanged");
 }
 
 console.log(`\nNormalizer: ${pass} passed, ${fail} failed`);
