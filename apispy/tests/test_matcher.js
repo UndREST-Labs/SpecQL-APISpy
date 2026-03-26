@@ -551,6 +551,154 @@ console.log("\n=== Matcher.classify — canonical fallback: camelCase shard key 
   eq(r.matched_version, "2024-03-01", "correct api-version matched");
 }
 
+// ── {default} singleton-suffix fallback ──────────────────────────────────────
+//
+// Some Azure ARM specs define singleton resources as `/{resourceType}/{default}`
+// where `{default}` takes the literal value "default".  Clients sometimes omit
+// the trailing "/default" suffix and call the parent path directly.
+//
+// When no direct or canonical match is found, the matcher should try the
+// request's canonical key against a "parent-path index" built from shard
+// routes ending in `/{default}`.  This prevents valid singleton requests from
+// being classified as "provider_known_route_unknown" (Unknown route).
+//
+// Real-world example (from issue report):
+//   Request: GET /providers/Microsoft.Resources/dataBoundaries?api-version=2023-07-01
+//   Shard:   GET /providers/Microsoft.Resources/dataBoundaries/{default}  (v: 2024-08-01)
+//   Before:  🔶 provider_known_route_unknown / route_not_in_shard
+//   After:   ⚠️ route_match_version_mismatch  (available: 2024-08-01)
+
+const SINGLETON_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Singleton route: only one valid value for {default}, the literal "default"
+        "GET /providers/Microsoft.Resources/dataBoundaries/{default}": {
+          method: "GET",
+          path_template: "/providers/Microsoft.Resources/dataBoundaries/{default}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-08-01": { is_preview: false, spec_files: ["databoundaries/2024-08-01/dataBoundaries.json"] },
+          },
+        },
+        "PUT /providers/Microsoft.Resources/dataBoundaries/{default}": {
+          method: "PUT",
+          path_template: "/providers/Microsoft.Resources/dataBoundaries/{default}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-08-01": { is_preview: false, spec_files: ["databoundaries/2024-08-01/dataBoundaries.json"] },
+          },
+        },
+        // Unrelated collection route that does NOT end in {default}
+        "GET /subscriptions/{subscriptionId}/providers/Microsoft.Resources/tags": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/providers/Microsoft.Resources/tags",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2021-04-01": { is_preview: false, spec_files: ["tags/2021-04-01/tags.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: version mismatch (issue report) ===");
+{
+  // Real-world case: client calls without '/default' suffix, api-version not in spec
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2023-07-01",
+    "GET"
+  );
+  eq(n.normalisedPath, "/providers/Microsoft.Resources/dataBoundaries",
+    "normalisedPath has no trailing {default}");
+
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route_mismatch (not unknown_route) when {default} suffix omitted and api-version not in spec");
+  assert(r.matched_route_key === "GET /providers/Microsoft.Resources/dataBoundaries/{default}",
+    "matched_route_key is the original shard key with {default}");
+  assert(Array.isArray(r.matched_versions) && r.matched_versions.includes("2024-08-01"),
+    "matched_versions includes the spec version");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+  eq(r.provider_namespace, "Microsoft.Resources", "correct provider_namespace");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: exact match when api-version present ===");
+{
+  // Exact api-version match via singleton fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2024-08-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "exact_match when {default} suffix omitted but api-version IS in spec");
+  eq(r.matched_version, "2024-08-01", "correct api-version matched");
+  assert(r.matched_route_key === "GET /providers/Microsoft.Resources/dataBoundaries/{default}",
+    "matched_route_key is the singleton shard key");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: no api-version ===");
+{
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries",
+    "GET"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "route_mismatch when {default} suffix omitted and no api-version");
+  eq(r.reason, "no_api_version_in_request", "reason=no_api_version_in_request");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: PUT method ===");
+{
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Resources/dataBoundaries?api-version=2024-08-01",
+    "PUT"
+  );
+  const r = Matcher.classify(n, SINGLETON_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "PUT method also matches via {default} singleton suffix fallback");
+}
+
+console.log("\n=== Matcher.classify — {default} singleton suffix: non-default placeholder NOT matched ===");
+{
+  // A route ending in {vaultName} (NOT {default}) must NOT trigger the singleton fallback
+  // and must remain provider_known_route_unknown for list requests.
+  const nonDefaultShard = {
+    metadata: { provider_namespace: "Microsoft.KeyVault" },
+    provider_namespace: "Microsoft.KeyVault",
+    hosts: {
+      "management.azure.com": {
+        routes: {
+          "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}": {
+            method: "GET",
+            path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}",
+            provider_namespace: "Microsoft.KeyVault",
+            versions: {
+              "2023-07-01": { is_preview: false, spec_files: ["keyvault/2023-07-01/vaults.json"] },
+            },
+          },
+        },
+      },
+    },
+  };
+  const n = norm(
+    "https://management.azure.com/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg1/providers/Microsoft.KeyVault/vaults?api-version=2023-07-01",
+    "GET"
+  );
+  // List-vaults is NOT in the shard (only single-vault is). {vaultName} ≠ {default},
+  // so the singleton fallback must NOT activate and the result must still be UNKNOWN.
+  const r = Matcher.classify(n, nonDefaultShard, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "list-vaults request is NOT matched against single-vault route — {vaultName} is not a singleton");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard when no {default} singleton key matches");
+}
+
 // ── ARM_ROOT_ROUTE status ─────────────────────────────────────────────────────
 //
 // Valid ARM root/tenant-scope endpoints on management.azure.com that have no
