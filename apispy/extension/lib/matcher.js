@@ -448,9 +448,10 @@
    * @returns {{ scopeRoutes: object, scopeMethods: object }}
    * @private
    */
-  function _buildScopeBasedIndices(routes) {
+  function _buildScopeBasedIndices(routes, providerNamespace) {
     const scopeRoutes  = Object.create(null);
     const scopeMethods = Object.create(null);
+    const nsLower      = providerNamespace ? providerNamespace.toLowerCase() : "";
 
     for (const routeKey of Object.keys(routes)) {
       const spaceIdx = routeKey.indexOf(" ");
@@ -458,26 +459,61 @@
       const method   = routeKey.slice(0, spaceIdx);
       const pathPart = routeKey.slice(spaceIdx + 1);
 
-      // Pattern: /{scope-placeholder}/providers/Namespace/...
-      // Split on "/" — leading slash means segs[0]="" segs[1]="{scope}" etc.
+      // Split on "/" — leading slash means segs[0]="" segs[1]=first segment.
       const segs = pathPart.split("/");
       if (segs.length < 3) continue;
 
-      // Check first segment is a known scope-like placeholder
+      let suffix = null;
+
+      // Case 1: /{scope-placeholder}/providers/Namespace/...
+      // The first path segment is a known ARM scope placeholder.
       const firstSeg = segs[1];
-      if (!firstSeg.startsWith("{") || !firstSeg.endsWith("}")) continue;
-      if (!_SCOPE_PLACEHOLDERS.has(firstSeg.slice(1, -1))) continue;
+      if (firstSeg.startsWith("{") && firstSeg.endsWith("}") &&
+          _SCOPE_PLACEHOLDERS.has(firstSeg.slice(1, -1))) {
+        const providersIdx = pathPart.indexOf("/providers/", 1);
+        if (providersIdx >= 0) {
+          suffix = pathPart.slice(providersIdx);
+        }
+      }
 
-      // Find the /providers/ suffix that follows the scope placeholder.
-      // indexOf starting from 1 skips the leading "/" so we find the first
-      // /providers/ AFTER the scope segment.
-      const providersIdx = pathPart.indexOf("/providers/", 1);
-      if (providersIdx < 0) continue;
+      // Case 2: Double-provider path where the first provider namespace is a
+      // {placeholder}, representing a variable parent resource type.
+      //
+      // Example:
+      //   /subscriptions/{subId}/resourceGroups/{rg}/providers/{clusterRp}/
+      //   {clusterResourceName}/{clusterName}/providers/Microsoft.KubernetesConfiguration/extensions
+      //
+      // These routes cannot be matched by the normaliser's ARM templating
+      // because the first provider namespace is variable.  We index them by the
+      // suffix starting at the SECOND /providers/ occurrence (the shard's own
+      // provider namespace), just like scope-placeholder routes.
+      if (!suffix) {
+        const firstProvidersIdx = pathPart.indexOf("/providers/");
+        if (firstProvidersIdx >= 0) {
+          const afterFirst = pathPart.slice(firstProvidersIdx + "/providers/".length);
+          const firstNsEnd = afterFirst.indexOf("/");
+          const firstNs    = firstNsEnd >= 0 ? afterFirst.slice(0, firstNsEnd) : afterFirst;
+          // First provider namespace is a placeholder (e.g. {clusterRp})
+          if (firstNs.startsWith("{") && firstNs.endsWith("}")) {
+            const secondProvidersIdx = pathPart.indexOf("/providers/", firstProvidersIdx + 1);
+            if (secondProvidersIdx >= 0) {
+              const afterSecond = pathPart.slice(secondProvidersIdx + "/providers/".length);
+              const secondNsEnd = afterSecond.indexOf("/");
+              const secondNs    = secondNsEnd >= 0 ? afterSecond.slice(0, secondNsEnd) : afterSecond;
+              // Verify the second provider matches this shard's namespace
+              if (secondNs.toLowerCase() === nsLower) {
+                suffix = pathPart.slice(secondProvidersIdx);
+              }
+            }
+          }
+        }
+      }
 
-      const suffix       = pathPart.slice(providersIdx);
-      const canonFull    = _canonicaliseScopeSuffix(method, suffix);
+      if (!suffix) continue;
+
+      const canonFull     = _canonicaliseScopeSuffix(method, suffix);
       const routeSpaceIdx = canonFull.indexOf(" ");
-      const canonSuffix  = canonFull.slice(routeSpaceIdx + 1);
+      const canonSuffix   = canonFull.slice(routeSpaceIdx + 1);
 
       // Scope routes index: method + " " + canonSuffix → route entry
       if (!scopeRoutes[canonFull]) {
@@ -591,6 +627,89 @@
   }
 
   /**
+   * Attempt a type-wildcard lookup for routes that use `{placeholder}` at
+   * TYPE positions within the provider section.
+   *
+   * Some Azure REST API specs parameterise the resource type segment itself
+   * (e.g. `{endpointType}` in Traffic Manager, `{recordType}` in Private DNS,
+   * `{parentType}` in Event Grid, `{keyType}` in Web Apps, `{scopePath}` in
+   * Application Insights, `{externalCloudProviderType}` in Cost Management).
+   *
+   * The ARM normaliser keeps the concrete type value (e.g. "AzureEndpoints",
+   * "A", "topics") as a literal at those positions in the request canonical key.
+   * The shard's canonical key, however, has `{name}` there (all `{xxx}` are
+   * normalised by `_canonicaliseRouteKey`).
+   *
+   * This function retries the lookup by replacing each type-position literal
+   * (segments at even offsets within the provider section: type, name, type,
+   * name, …) one at a time with `{name}` and checking the canonical index.
+   * The first hit is returned; null if none match.
+   *
+   * @param {string} canonKey    Canonical route key ("METHOD /path").
+   * @param {object} canonIndex  Canonical route index from `_buildCanonicalRouteIndex`.
+   * @param {string} providerNs  Provider namespace to anchor the suffix search.
+   * @returns {{ routeDef: object, originalKey: string }|null}
+   * @private
+   */
+  function _tryTypeWildcardLookup(canonKey, canonIndex, providerNs) {
+    const spaceIdx = canonKey.indexOf(" ");
+    const canonPath = canonKey.slice(spaceIdx + 1);
+
+    // Extract the sub-path starting at /providers/providerNs
+    const suffix = _extractScopeSuffix(canonPath, providerNs);
+    if (!suffix) return null;
+
+    // Position of the suffix inside canonPath
+    const prefixLen  = canonPath.length - suffix.length;
+    const keyPrefix  = canonKey.slice(0, spaceIdx + 1) + canonPath.slice(0, prefixLen);
+
+    // suffix: /providers/Namespace/seg0/seg1/seg2/...
+    // segs[0]="", segs[1]="providers", segs[2]=Namespace,
+    // segs[3]=type0, segs[4]=name0, segs[5]=type1, segs[6]=name1, ...
+    // Type positions within the provider section: indices 3, 5, 7, ...
+    const segs = suffix.split("/");
+
+    // Collect indices of type-position segments that are still concrete literals
+    // (i.e. not already {name}).  These are candidates for wildcarding.
+    const typePositions = [];
+    for (let i = 3; i < segs.length; i += 2) {
+      if (segs[i] !== "{name}") {
+        typePositions.push(i);
+      }
+    }
+    if (typePositions.length === 0) return null;
+
+    // Strategy 1: Try replacing each type-position literal with {name} one at a
+    // time.  This handles all single-discriminator cases regardless of how many
+    // type-position literals are present (e.g. `{endpointType}` in Traffic
+    // Manager, `{keyType}` in Web Apps even when several earlier type literals
+    // like `sites`, `slots`, `host` precede it).
+    for (const pos of typePositions) {
+      const newSegs = segs.slice();
+      newSegs[pos] = "{name}";
+      const entry = canonIndex[keyPrefix + newSegs.join("/")];
+      if (entry) return entry;
+    }
+
+    // Strategy 2: Try replacing pairs of type-position literals simultaneously.
+    // This handles routes where the spec uses {placeholder} at two type positions
+    // (e.g. ServiceFabric `/{location}/osType/{osType}/clusterVersions` where
+    // both the concrete location and osType values need to be wildcarded).
+    // Cap pair combinations at the first 4 positions to keep overhead bounded.
+    const pairBound = Math.min(typePositions.length, 4);
+    for (let a = 0; a < pairBound - 1; a++) {
+      for (let b = a + 1; b < pairBound; b++) {
+        const newSegs = segs.slice();
+        newSegs[typePositions[a]] = "{name}";
+        newSegs[typePositions[b]] = "{name}";
+        const entry = canonIndex[keyPrefix + newSegs.join("/")];
+        if (entry) return entry;
+      }
+    }
+    return null;
+  }
+
+  /**
    * WeakMap cache for route indices keyed on the shard routes object.
    *
    * Indices are built lazily the first time a shard is matched and then reused
@@ -607,15 +726,16 @@
    * Return (or lazily build and cache) all route indices for a given routes
    * object: canonical, singleton, path-method, scope-routes, and scope-methods.
    *
-   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @param {object} routes           Shard routes map (routeKey → routeDef).
+   * @param {string} providerNamespace  Shard provider namespace (e.g. "Microsoft.Resources").
    * @returns {{ canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object }}
    * @private
    */
-  function _getRouteIndices(routes) {
+  function _getRouteIndices(routes, providerNamespace) {
     if (_routeIndexCache.has(routes)) {
       return _routeIndexCache.get(routes);
     }
-    const { scopeRoutes, scopeMethods } = _buildScopeBasedIndices(routes);
+    const { scopeRoutes, scopeMethods } = _buildScopeBasedIndices(routes, providerNamespace);
     const indices = {
       canon:       _buildCanonicalRouteIndex(routes),
       singleton:   _buildDefaultSingletonIndex(routes),
@@ -710,7 +830,7 @@
         pathMethod:  pathMethodIndex,
         scopeRoutes: scopeRoutesIndex,
         scopeMethods: scopeMethodsIndex,
-      } = _getRouteIndices(routes);
+      } = _getRouteIndices(routes, providerNamespace);
       const canonKey  = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
       const canonPath = canonKey.slice(canonKey.indexOf(" ") + 1);
 
@@ -732,6 +852,23 @@
       const singletonEntry = singletonIndex[canonKey];
       if (singletonEntry) {
         return _resolveRouteMatch(singletonEntry.routeDef, singletonEntry.originalKey, providerNamespace, norm.apiVersion);
+      }
+
+      // Type-wildcard fallback for type-position placeholder discriminators.
+      //
+      // Some Azure REST API specs use `{placeholder}` at TYPE positions within
+      // the provider section (e.g. `{endpointType}` in Traffic Manager,
+      // `{recordType}` in Private DNS, `{parentType}` in Event Grid, `{keyType}`
+      // in Web Apps, `{scopePath}` in Application Insights,
+      // `{externalCloudProviderType}` in Cost Management).
+      //
+      // The ARM normaliser keeps concrete type values (e.g. "AzureEndpoints",
+      // "A", "topics") as literals at those positions while the shard canonical
+      // has `{name}` there.  Try replacing each type-position literal with
+      // `{name}` one at a time and check the canonical index.
+      const typeWildEntry = _tryTypeWildcardLookup(canonKey, canonIndex, providerNamespace);
+      if (typeWildEntry) {
+        return _resolveRouteMatch(typeWildEntry.routeDef, typeWildEntry.originalKey, providerNamespace, norm.apiVersion);
       }
 
       // Scope-based suffix fallback.
