@@ -52,6 +52,18 @@
   });
 
   /**
+   * Regex source string for a valid Azure provider namespace segment, e.g.
+   * "Microsoft.KeyVault" or "microsoft.insights".  Same pattern is used in
+   * normalizer.js (_ARM_PROVIDER_NS_RE) for the double-provider detection and
+   * here in `inferProviderNamespace` and `_canonicaliseRouteKey`.
+   *
+   * Format: starts with a letter, followed by letters/digits, a dot, then one
+   * or more dot-separated alphanumeric components.
+   * @private
+   */
+  const _ARM_NS_PATTERN_SRC = "[A-Za-z][A-Za-z0-9]*\\.[A-Za-z0-9.]+";
+
+  /**
    * ARM root-level path keywords whose first segment unambiguously identifies
    * a request as targeting the Azure Resource Manager root surface (no
    * provider namespace in the URL).
@@ -95,13 +107,28 @@
 
   /**
    * Try to infer the provider namespace from a URL path.
-   * Looks for /providers/Some.Namespace/ or /providers/Some.Namespace at end.
+   * Returns the **last** `/providers/Namespace` occurrence in the path.
+   *
+   * Azure ARM extension resources (e.g. diagnostic settings, metrics, role
+   * assignments) are expressed as double-provider paths:
+   *
+   *   .../providers/Microsoft.Compute/virtualMachines/{name}/providers/microsoft.insights/metrics
+   *
+   * The first `/providers/` segment identifies the *parent* resource type;
+   * the second identifies the *extension* provider that owns the route spec.
+   * Returning the last match loads the correct shard (the extension provider)
+   * and enables the scope-based suffix index to find the route.
+   *
+   * For single-provider paths the last match equals the first, so behaviour
+   * for ordinary ARM routes is unchanged.
    *
    * Examples:
    *   /subscriptions/{guid}/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/x
    *     → "Microsoft.Storage"
    *   /providers/Microsoft.AAD/domainServices
    *     → "Microsoft.AAD"
+   *   .../providers/Microsoft.Compute/virtualMachines/{name}/providers/microsoft.insights/metrics
+   *     → "microsoft.insights"
    *
    * Returns null if no provider segment is found.
    *
@@ -109,9 +136,14 @@
    * @returns {string|null}
    */
   function inferProviderNamespace(path) {
-    // Match /providers/Namespace.Part (may have more segments after)
-    const match = path.match(/\/providers\/([A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9.]+?)(?:\/|$)/);
-    return match ? match[1] : null;
+    // Collect ALL /providers/Namespace occurrences and return the last one.
+    const pattern = new RegExp("\\/providers\\/(" + _ARM_NS_PATTERN_SRC + "?)(?:\\/|$)", "g");
+    let last = null;
+    let match;
+    while ((match = pattern.exec(path)) !== null) {
+      last = match[1];
+    }
+    return last;
   }
 
   /**
@@ -146,7 +178,7 @@
   /**
    * Canonicalise a route key for resilient comparison across shard variations.
    *
-   * Applies three normalisations on top of `_normalisePlaceholders`:
+   * Applies four normalisations on top of `_normalisePlaceholders`:
    *
    *   1. Placeholder normalisation: `{vaultName}` → `{name}` (same as
    *      `_normalisePlaceholders`).
@@ -163,6 +195,15 @@
    *      routes end with `/` (e.g. `.../deployments/`) while the normaliser
    *      always strips trailing slashes.  Stripping on both sides makes the
    *      comparison slash-agnostic.
+   *
+   *   4. Intermediate provider namespace normalisation: some Azure REST API
+   *      specs (e.g. Microsoft.SecurityInsights) use a placeholder for the
+   *      FIRST provider namespace in double-provider (extension resource)
+   *      paths, e.g. `{operationalInsightsResourceProvider}`.  After step 1,
+   *      this placeholder is already `{name}`.  The corresponding request key
+   *      has the literal namespace (e.g. `Microsoft.OperationalInsights`).
+   *      This step replaces every non-last provider namespace in the path
+   *      with `{name}` so both sides normalise to the same canonical form.
    *
    * @param {string} str  Route key string ("METHOD /path/template").
    * @returns {string}    Canonicalised route key.
@@ -183,6 +224,25 @@
     // 3. Strip trailing slash from path portion (some shard keys for
     //    collection routes end with '/', normaliser never emits one)
     result = result.replace(/\s(.+)\/$/, (_, path) => " " + path);
+
+    // 4. Normalise intermediate provider namespaces to {name}.
+    //    Double-provider (extension resource) paths have two /providers/
+    //    occurrences.  Some specs (e.g. Microsoft.SecurityInsights) use a
+    //    generic placeholder like {operationalInsightsResourceProvider} for
+    //    the first (parent) namespace.  After step 1 this is already {name}.
+    //    But the corresponding request canonical key has the literal namespace
+    //    (e.g. `Microsoft.OperationalInsights`).  Replace ALL non-last
+    //    provider namespace occurrences with {name} so both sides match.
+    //    Pattern: /providers/NAMESPACE/ where NAMESPACE is X.Y form (literal)
+    //    and ANOTHER /providers/ follows later in the path.
+    //
+    //    Regex: capture the path as everything after the space.
+    //    We only change literal namespaces (X.Y pattern); placeholders
+    //    ({name}) are already handled by step 1.
+    result = result.replace(
+      new RegExp("( .*?)\\/providers\\/(" + _ARM_NS_PATTERN_SRC + ")(\\/.*\\/providers\\/)", "g"),
+      (_, pre, _ns, after) => pre + "/providers/{name}" + after
+    );
 
     return result;
   }

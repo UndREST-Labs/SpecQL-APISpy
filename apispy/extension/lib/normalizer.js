@@ -83,6 +83,17 @@
   // ─── Azure ARM structural templating ────────────────────────────────────────
 
   /**
+   * Regex that matches a valid Azure provider namespace (e.g. "Microsoft.KeyVault"
+   * or "microsoft.insights").  Same character class is used in matcher.js for
+   * `inferProviderNamespace` and `_canonicaliseRouteKey`.
+   *
+   * Format: one identifier component, a dot, then one or more dot-separated
+   * identifier components, e.g. "Microsoft.ResourceHealth" or "a.b.c".
+   * @private
+   */
+  const _ARM_PROVIDER_NS_RE = /^[A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9.]+$/;
+
+  /**
    * Allowlist of known ARM path segments that should remain literal even when
    * they appear in a structural "name" position within a resource path.
    *
@@ -99,6 +110,9 @@
    */
   const ARM_LITERAL_SEGMENTS = new Set([
     "default",
+    "current",        // singleton "current state" (SQL, HybridCompute, Synapse, etc.)
+    "latest",         // singleton "latest version/invoice" (Billing, Compute, etc.)
+    "service",        // singleton service endpoint (e.g. microsoft.insights diagnosticSettings/service)
     "listKeys",
     "listConnectionStrings",
     "regenerateKey",
@@ -264,7 +278,30 @@
       // After /providers/{Namespace}, ARM paths alternate:
       //   type / name / childType / childName / ...
       // We only replace name positions, never type positions.
+      //
+      // Special case: extension resources add a second /providers/{Namespace}
+      // suffix after the parent resource name position.  For example:
+      //   .../virtualMachines/{vmName}/providers/microsoft.insights/metrics
+      //                               ↑ a new provider prefix, NOT a name position
+      // Detect this by checking whether the current segment is literally
+      // "providers" and the next segment looks like a provider namespace
+      // (contains a dot).  When detected, treat it as a new /providers/ entry:
+      // keep both segments literal and reset the resource-position counter.
       if (inProviderResourcePath) {
+        const nextSeg = segments[i + 1];
+        if (
+          seg === "providers" &&
+          nextSeg &&
+          _ARM_PROVIDER_NS_RE.test(nextSeg)
+        ) {
+          // New /providers/{Namespace} pair inside the resource path.
+          // Keep "providers" and the namespace literal; reset position counter.
+          result.push(seg);       // "providers"
+          result.push(nextSeg);   // e.g. "microsoft.insights"
+          i += 2;
+          resourcePosition = 0;
+          continue;
+        }
         const isNamePosition = (resourcePosition % 2 === 1);
         if (isNamePosition && !seg.startsWith("{") && !isLiteralArmSegment(seg)) {
           // Name position: replace with conservative structural placeholder.

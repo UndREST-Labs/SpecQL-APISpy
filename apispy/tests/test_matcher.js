@@ -77,6 +77,26 @@ eq(Matcher.inferProviderNamespace("/providers/Microsoft.AAD/operations"),
 eq(Matcher.inferProviderNamespace("/subscriptions/abc"),
    null, "returns null when no provider segment");
 
+console.log("\n=== Matcher.inferProviderNamespace — double-provider (extension resource) ===");
+// Extension resources have two /providers/ segments; the LAST identifies the
+// extension provider that owns the route spec.
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/microsoft.insights/metrics"),
+   "microsoft.insights",
+   "double-provider: returns LAST provider namespace (microsoft.insights), not first (Microsoft.Compute)");
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/myVault/providers/Microsoft.Authorization/roleAssignments"),
+   "Microsoft.Authorization",
+   "double-provider: returns Microsoft.Authorization (last), not Microsoft.KeyVault (first)");
+eq(Matcher.inferProviderNamespace(
+     "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa/providers/Microsoft.Security/defenderForStorageSettings/mdsetting"),
+   "Microsoft.Security",
+   "double-provider: returns Microsoft.Security (last), not Microsoft.Storage (first)");
+// Single-provider paths unchanged
+eq(Matcher.inferProviderNamespace("/subscriptions/abc/providers/Microsoft.Resources/deployments/myDep"),
+   "Microsoft.Resources",
+   "single-provider: unchanged — still returns Microsoft.Resources");
+
 console.log("\n=== Matcher.classify — out of scope ===");
 {
   const n = norm("https://example.com/api/data", "GET");
@@ -1085,6 +1105,117 @@ console.log("\n=== Matcher.classify — scope-based suffix: genuinely unknown pa
     "reason stays route_not_in_shard for genuinely unknown path");
   assert(r.available_methods === null,
     "available_methods is null for genuinely unknown path");
+}
+
+// ── Double-provider (ARM extension resource) end-to-end matching ──────────────
+//
+// Azure ARM extension resources use double-provider paths where the second
+// /providers/Namespace/ identifies the extension that owns the route spec.
+// Previously:
+//  1. inferProviderNamespace returned the FIRST namespace → wrong shard loaded
+//  2. templateAzureArmPath replaced the second namespace with {name} → wrong key
+// Now both are fixed: inferProviderNamespace returns the LAST namespace and the
+// normaliser preserves the second provider namespace literal.
+
+const EXT_SHARD = {
+  metadata: { provider_namespace: "Microsoft.FakeExtension" },
+  provider_namespace: "Microsoft.FakeExtension",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "GET /{resourceUri}/providers/Microsoft.FakeExtension/metrics": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/metrics",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+        "GET /{resourceUri}/providers/Microsoft.FakeExtension/diagnosticSettings/{name}": {
+          method: "GET",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/diagnosticSettings/{settingName}",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+        "DELETE /{resourceUri}/providers/Microsoft.FakeExtension/metrics": {
+          method: "DELETE",
+          path_template: "/{resourceUri}/providers/Microsoft.FakeExtension/metrics",
+          provider_namespace: "Microsoft.FakeExtension",
+          versions: { "2024-01-01": { is_preview: false } },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — double-provider: extension metrics on VM (exact match) ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/metrics?api-version=2024-01-01",
+    "GET"
+  );
+  // Verify normaliser fix: second provider namespace preserved in armPath
+  assert(n.armPath && n.armPath.includes("Microsoft.FakeExtension"),
+    "double-provider: normaliser preserves second namespace in armPath");
+  assert(n.armPath && !n.armPath.endsWith("/providers/{name}/metrics"),
+    "double-provider: second namespace is NOT replaced with {name}");
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "double-provider: VM extension metrics → exact_match (via scope-based suffix)");
+  eq(r.matched_version, "2024-01-01", "correct api-version matched");
+  assert(r.matched_route_key && r.matched_route_key.includes("{resourceUri}"),
+    "matched_route_key contains original {resourceUri} placeholder");
+}
+
+console.log("\n=== Matcher.classify — double-provider: extension on Storage account (wrong version) ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/mysa/providers/Microsoft.FakeExtension/metrics?api-version=2022-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "double-provider: SA extension metrics (wrong version) → route_match_version_mismatch");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+}
+
+console.log("\n=== Matcher.classify — double-provider: extension named child resource ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/myVault/providers/Microsoft.FakeExtension/diagnosticSettings/mySetting?api-version=2024-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "double-provider: extension named setting → exact_match");
+}
+
+console.log("\n=== Matcher.classify — double-provider: OPTIONS → http_method_not_in_spec ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/metrics",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "double-provider OPTIONS → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "double-provider OPTIONS → reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("GET"),
+    "available_methods lists GET");
+  assert(r.available_methods.includes("DELETE"),
+    "available_methods lists DELETE");
+}
+
+console.log("\n=== Matcher.classify — double-provider: genuinely unknown extension path ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/myVM/providers/Microsoft.FakeExtension/unknownThing?api-version=2024-01-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, EXT_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "double-provider genuinely unknown path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "double-provider genuinely unknown path → reason=route_not_in_shard");
 }
 
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
