@@ -916,3 +916,176 @@ console.log("\n=== Matcher.classify — http_method_not_in_spec: POST to known p
 }
 
 
+
+// ── Scope-based suffix fallback ───────────────────────────────────────────────
+//
+// Azure ARM specs frequently define routes with a variable-length scope
+// placeholder (`{scope}`, `{resourceUri}`, `{resourceScope}`, …) as the first
+// path segment:
+//
+//   GET /{scope}/providers/Microsoft.Resources/deployments/{name}
+//
+// The ARM normaliser always emits the full concrete scope prefix, which never
+// matches the /{scope}/providers/… shard key directly.  The scope-based suffix
+// index bridges this gap by matching on the /providers/Namespace/rest suffix.
+//
+// Real-world example from the issue report (CSV):
+//   GET .../subscriptions/{subId}/providers/Microsoft.Resources/deployments
+//   Shard only has: GET /{scope}/providers/Microsoft.Resources/deployments/
+//   Before: 🔶 Unknown route / route_not_in_shard
+//   After:  ✅ exact_match  (or ⚠️ route_match_version_mismatch)
+
+const SCOPE_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Resources" },
+  provider_namespace: "Microsoft.Resources",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        // Trailing-slash list route (common shard format quirk)
+        "GET /{scope}/providers/Microsoft.Resources/deployments/": {
+          method: "GET",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+            "2020-08-01": { is_preview: false },
+          },
+        },
+        "GET /{scope}/providers/Microsoft.Resources/deployments/{deploymentName}": {
+          method: "GET",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments/{deploymentName}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+            "2022-09-01": { is_preview: false },
+          },
+        },
+        "DELETE /{scope}/providers/Microsoft.Resources/deployments/{deploymentName}": {
+          method: "DELETE",
+          path_template: "/{scope}/providers/Microsoft.Resources/deployments/{deploymentName}",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+          },
+        },
+        "PATCH /{scope}/providers/Microsoft.Resources/tags/default": {
+          method: "PATCH",
+          path_template: "/{scope}/providers/Microsoft.Resources/tags/default",
+          provider_namespace: "Microsoft.Resources",
+          versions: {
+            "2024-11-01": { is_preview: false },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — scope-based suffix: subscription-scope list (exact version) ===");
+{
+  // GET /subscriptions/{subId}/providers/Microsoft.Resources/deployments
+  // Shard: GET /{scope}/providers/Microsoft.Resources/deployments/ (trailing slash)
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/providers/Microsoft.Resources/deployments?api-version=2024-11-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "subscription-scope list → exact_match via scope-based index");
+  eq(r.matched_version, "2024-11-01", "correct api-version matched");
+  eq(r.provider_namespace, "Microsoft.Resources", "provider_namespace correct");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: resourceGroup-scope list (wrong version) ===");
+{
+  // GET /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Resources/deployments
+  // api-version not in spec → version mismatch (not unknown route)
+  const n = norm(
+    "https://management.azure.com/subscriptions/7d8bc1a3-741d-40ab-916f-a209b0507a47/resourceGroups/CT-UMAMI-RG/providers/Microsoft.Resources/deployments?api-version=2022-12-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.ROUTE_MISMATCH,
+    "rg-scope list, wrong api-version → route_match_version_mismatch (not route_not_in_shard)");
+  eq(r.reason, "api_version_not_in_spec", "reason=api_version_not_in_spec");
+  assert(r.matched_versions && r.matched_versions.includes("2024-11-01"),
+    "matched_versions includes correct spec version");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: named resource exact match ===");
+{
+  // GET /subscriptions/{subId}/providers/Microsoft.Resources/deployments/{name}
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/providers/Microsoft.Resources/deployments/myDeploy?api-version=2022-09-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "sub-scope named deployment → exact_match via scope-based index");
+  eq(r.matched_version, "2022-09-01", "correct api-version matched");
+  // matched_route_key should be the original scope-based shard key
+  assert(r.matched_route_key && r.matched_route_key.includes("{scope}"),
+    "matched_route_key preserves original {scope} placeholder");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: DELETE on scope route ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/deployments/myDeploy?api-version=2024-11-01",
+    "DELETE"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "DELETE on scope route → exact_match");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: OPTIONS → http_method_not_in_spec ===");
+{
+  // CORS preflight to a scope-based path — path IS known, method is not
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/deployments/myDeploy",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to scope route → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("GET"),
+    "available_methods lists GET");
+  assert(r.available_methods.includes("DELETE"),
+    "available_methods lists DELETE");
+  assert(!r.available_methods.includes("OPTIONS"),
+    "OPTIONS is NOT in available_methods");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: tags/default via scope ===");
+{
+  // ARM tags operations use /{scope}/providers/Microsoft.Resources/tags/default
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/resourceGroups/rg1/providers/Microsoft.Resources/tags/default?api-version=2024-11-01",
+    "PATCH"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "PATCH tags/default via scope route → exact_match");
+}
+
+console.log("\n=== Matcher.classify — scope-based suffix: genuinely unknown path stays route_not_in_shard ===");
+{
+  // A path that has no scope-based route for it must not false-positive
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc123/providers/Microsoft.Resources/doesNotExist?api-version=2024-11-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, SCOPE_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "truly unknown path → still PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard for genuinely unknown path");
+  assert(r.available_methods === null,
+    "available_methods is null for genuinely unknown path");
+}
+
+console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
+if (fail > 0) process.exit(1);

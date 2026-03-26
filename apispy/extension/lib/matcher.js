@@ -253,6 +253,174 @@
   }
 
   /**
+   * Set of first-segment placeholder names that represent a variable-length
+   * ARM scope or resource URI prefix in REST API spec route templates.
+   *
+   * Routes beginning with one of these placeholders follow the pattern:
+   *
+   *   /{scope-placeholder}/providers/Namespace/resource...
+   *
+   * The placeholder expands at runtime to a variable-length ARM path:
+   *   - /subscriptions/{subId}
+   *   - /subscriptions/{subId}/resourceGroups/{rgName}
+   *   - /providers/Microsoft.Management/managementGroups/{mgId}
+   *   - any other ARM resource URI
+   *
+   * @type {Set<string>}
+   * @private
+   */
+  const _SCOPE_PLACEHOLDERS = new Set([
+    "scope",           // Generic ARM scope (subscription, RG, management group, etc.)
+    "resourceUri",     // Any ARM resource URI (used by diagnostics, metrics, etc.)
+    "resourceScope",   // Policy-style scope
+    "resourceId",      // Full ARM resource ID (used by security, backup, etc.)
+    "connectedClusterResourceUri",  // Arc-enabled cluster extension routes
+    "customLocationResourceUri",    // Custom location extension routes
+    "billingScope",    // Billing scope (subscriptions, MCA accounts, etc.)
+    "scopeId",         // Azure Policy scope assignment identifier
+    "idScope",         // IoT Hub identity scope
+  ]);
+
+  /**
+   * Escape special regular-expression characters in a string.
+   *
+   * Used to safely embed provider namespace strings (which contain `.`) in
+   * regular expressions without `.` matching an arbitrary character.
+   *
+   * @param {string} str  Input string.
+   * @returns {string}    Regex-escaped string.
+   * @private
+   */
+  function _escapeRegexp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /**
+   * Canonicalise a scope-based suffix route key for resilient matching.
+   *
+   * Applies `_canonicaliseRouteKey` (placeholder normalisation + ARM keyword
+   * lowercasing + trailing-slash stripping) and then lowercases the entire
+   * path portion.  The extra lowercasing makes the scope suffix key insensitive
+   * to provider namespace casing variations across shard generations
+   * (e.g. `Microsoft.Resources` vs `microsoft.resources`, `microsoft.insights`
+   * vs `Microsoft.Insights`).
+   *
+   * The method component is preserved in its original uppercase form.
+   *
+   * @param {string} method  Uppercase HTTP method (e.g. "GET").
+   * @param {string} suffix  Path suffix starting at "/providers/Namespace/...".
+   * @returns {string}       Canonicalised scope suffix key ("METHOD /path").
+   * @private
+   */
+  function _canonicaliseScopeSuffix(method, suffix) {
+    const canonFull = _canonicaliseRouteKey(method + " " + suffix);
+    const spaceIdx  = canonFull.indexOf(" ");
+    return canonFull.slice(0, spaceIdx + 1) + canonFull.slice(spaceIdx + 1).toLowerCase();
+  }
+
+  /**
+   * Extract the "/providers/Namespace/..." scope suffix from a canonical path.
+   *
+   * Searches for the first occurrence of "/providers/ProviderNamespace" (case-
+   * insensitive) and returns the path substring from that point.  The resulting
+   * suffix can be fed into `_canonicaliseScopeSuffix` for scope-based index
+   * lookup.
+   *
+   * Returns null if the provider namespace is not found in the canonical path.
+   *
+   * @param {string} canonPath   Canonical path (from `_canonicaliseRouteKey`).
+   * @param {string} providerNs  Provider namespace to anchor the search
+   *                             (e.g. "Microsoft.Resources").
+   * @returns {string|null}
+   * @private
+   */
+  function _extractScopeSuffix(canonPath, providerNs) {
+    const pattern = new RegExp(
+      "/providers/" + _escapeRegexp(providerNs) + "(?=/|$)",
+      "i"
+    );
+    const match = canonPath.match(pattern);
+    return match ? canonPath.slice(match.index) : null;
+  }
+
+  /**
+   * Build scope-based route indices for resilient matching of routes defined
+   * with a variable-length ARM scope placeholder as their first path segment.
+   *
+   * Many Azure ARM REST API specs define extension routes using a single
+   * placeholder (`{scope}`, `{resourceUri}`, `{resourceScope}`, etc.) that
+   * expands to a variable-length ARM path prefix at runtime:
+   *
+   *   /{scope}/providers/Microsoft.Resources/deployments/{name}
+   *
+   * When a request arrives at a concrete path (e.g.:
+   *   /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Resources/deployments/{name}
+   * ), the ARM normaliser emits the full scoped path — which does not match
+   * the `/{scope}/providers/...` shard key.  The scope-based index bridges
+   * this gap by keying on the `/providers/Namespace/...` suffix rather than
+   * the full route path.
+   *
+   * Returns two indices:
+   *
+   *   scopeRoutes  — `METHOD " " canonScopeSuffix` → `{ routeDef, originalKey }`.
+   *                  Used for direct method + suffix matching.
+   *
+   *   scopeMethods — `canonScopeSuffix` → sorted array of HTTP methods.
+   *                  Used for `http_method_not_in_spec` detection when the
+   *                  request method is not defined for a known scope-based path.
+   *
+   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @returns {{ scopeRoutes: object, scopeMethods: object }}
+   * @private
+   */
+  function _buildScopeBasedIndices(routes) {
+    const scopeRoutes  = Object.create(null);
+    const scopeMethods = Object.create(null);
+
+    for (const routeKey of Object.keys(routes)) {
+      const spaceIdx = routeKey.indexOf(" ");
+      if (spaceIdx < 0) continue;
+      const method   = routeKey.slice(0, spaceIdx);
+      const pathPart = routeKey.slice(spaceIdx + 1);
+
+      // Pattern: /{scope-placeholder}/providers/Namespace/...
+      // Split on "/" — leading slash means segs[0]="" segs[1]="{scope}" etc.
+      const segs = pathPart.split("/");
+      if (segs.length < 3) continue;
+
+      // Check first segment is a known scope-like placeholder
+      const firstSeg = segs[1];
+      if (!firstSeg.startsWith("{") || !firstSeg.endsWith("}")) continue;
+      if (!_SCOPE_PLACEHOLDERS.has(firstSeg.slice(1, -1))) continue;
+
+      // Find the /providers/ suffix that follows the scope placeholder.
+      // indexOf starting from 1 skips the leading "/" so we find the first
+      // /providers/ AFTER the scope segment.
+      const providersIdx = pathPart.indexOf("/providers/", 1);
+      if (providersIdx < 0) continue;
+
+      const suffix       = pathPart.slice(providersIdx);
+      const canonFull    = _canonicaliseScopeSuffix(method, suffix);
+      const routeSpaceIdx = canonFull.indexOf(" ");
+      const canonSuffix  = canonFull.slice(routeSpaceIdx + 1);
+
+      // Scope routes index: method + " " + canonSuffix → route entry
+      if (!scopeRoutes[canonFull]) {
+        scopeRoutes[canonFull] = { routeDef: routes[routeKey], originalKey: routeKey };
+      }
+      // Scope methods index: canonSuffix → list of methods (for method detection)
+      if (!scopeMethods[canonSuffix]) {
+        scopeMethods[canonSuffix] = [];
+      }
+      if (!scopeMethods[canonSuffix].includes(method)) {
+        scopeMethods[canonSuffix].push(method);
+      }
+    }
+
+    return { scopeRoutes, scopeMethods };
+  }
+
+  /**
    * Build a secondary index of shard routes whose path ends with `/{default}`.
    *
    * Some Azure REST API specs model singleton resources using the parameter
@@ -355,27 +523,30 @@
    * reference).  The WeakMap allows the cached indices to be garbage-collected
    * when the shard is no longer referenced.
    *
-   * @type {WeakMap<object, { canon: object, singleton: object, pathMethod: object }>}
+   * @type {WeakMap<object, { canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object }>}
    * @private
    */
   const _routeIndexCache = new WeakMap();
 
   /**
-   * Return (or lazily build and cache) the canonical, singleton, and
-   * path-method indices for a given routes object.
+   * Return (or lazily build and cache) all route indices for a given routes
+   * object: canonical, singleton, path-method, scope-routes, and scope-methods.
    *
    * @param {object} routes  Shard routes map (routeKey → routeDef).
-   * @returns {{ canon: object, singleton: object, pathMethod: object }}
+   * @returns {{ canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object }}
    * @private
    */
   function _getRouteIndices(routes) {
     if (_routeIndexCache.has(routes)) {
       return _routeIndexCache.get(routes);
     }
+    const { scopeRoutes, scopeMethods } = _buildScopeBasedIndices(routes);
     const indices = {
-      canon:      _buildCanonicalRouteIndex(routes),
-      singleton:  _buildDefaultSingletonIndex(routes),
-      pathMethod: _buildPathMethodIndex(routes),
+      canon:       _buildCanonicalRouteIndex(routes),
+      singleton:   _buildDefaultSingletonIndex(routes),
+      pathMethod:  _buildPathMethodIndex(routes),
+      scopeRoutes,
+      scopeMethods,
     };
     _routeIndexCache.set(routes, indices);
     return indices;
@@ -384,7 +555,7 @@
   /**
    * Attempt to match a normalised request against a loaded shard.
    *
-   * Strategy (v4 — ARM-aware):
+   * Strategy (v5 — ARM-aware):
    *   1. Build candidate route keys from norm.armPath (ARM-templated) and
    *      norm.normalisedPath (generic-normalised), in that priority order.
    *   2. Try each candidate in order; use the first matching route key.
@@ -394,11 +565,18 @@
    *   5. Default-singleton suffix fallback: if the spec defines the route with
    *      a `/{default}` suffix that the client omitted, match against that
    *      singleton route rather than reporting "unknown route".
-   *   6. HTTP method not-in-spec fallback: if the canonical path IS present in
-   *      the shard under a different method (e.g. `OPTIONS` to a `POST`-only
-   *      route), return reason="http_method_not_in_spec" with the available
-   *      methods rather than "route_not_in_shard".
-   *   7. If no key matches, report provider_known_route_unknown.
+   *   6. Scope-based suffix fallback: many Azure specs define routes using a
+   *      variable-length ARM scope placeholder (`{scope}`, `{resourceUri}`,
+   *      `{resourceScope}`, …) as the first path segment.  The ARM normaliser
+   *      emits the full concrete scope prefix, which never matches
+   *      `/{scope}/providers/…` directly.  The scope-based index matches by
+   *      the `/providers/Namespace/rest` suffix anchored on the shard's own
+   *      provider namespace, handling both exact-method and
+   *      `http_method_not_in_spec` cases.
+   *   7. HTTP method not-in-spec fallback (non-scope routes): if the canonical
+   *      path IS present in the shard under a different method (e.g. `OPTIONS`
+   *      to a `POST`-only route), return reason="http_method_not_in_spec".
+   *   8. If no key matches, report provider_known_route_unknown.
    *
    * Trying norm.armPath first reduces false "provider_known_route_unknown"
    * results caused by literal Azure resource names (vault names, site names,
@@ -448,11 +626,18 @@
     //     never does (e.g. ".../deployments/" in the shard vs
     //     ".../deployments" from the normaliser).
     //
-    // Indices are cached per routes object (_getRouteIndices) and also reused
-    // by the {default} singleton-suffix fallback and the path-method fallback.
+    // Indices are cached per routes object (_getRouteIndices) and reused by all
+    // subsequent fallbacks.
     if (norm.armPath) {
-      const { canon: canonIndex, singleton: singletonIndex, pathMethod: pathMethodIndex } = _getRouteIndices(routes);
-      const canonKey = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
+      const {
+        canon:       canonIndex,
+        singleton:   singletonIndex,
+        pathMethod:  pathMethodIndex,
+        scopeRoutes: scopeRoutesIndex,
+        scopeMethods: scopeMethodsIndex,
+      } = _getRouteIndices(routes);
+      const canonKey  = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
+      const canonPath = canonKey.slice(canonKey.indexOf(" ") + 1);
 
       const entry = canonIndex[canonKey];
       if (entry) {
@@ -474,7 +659,48 @@
         return _resolveRouteMatch(singletonEntry.routeDef, singletonEntry.originalKey, providerNamespace, norm.apiVersion);
       }
 
-      // HTTP method not-in-spec fallback.
+      // Scope-based suffix fallback.
+      //
+      // Many Azure ARM specs define routes with a variable-length ARM scope
+      // placeholder (`{scope}`, `{resourceUri}`, `{resourceScope}`, …) as the
+      // first path segment:
+      //
+      //   GET /{scope}/providers/Microsoft.Resources/deployments/{name}
+      //
+      // The ARM normaliser always emits the full concrete scope prefix (e.g.
+      // /subscriptions/{subId}/resourceGroups/{rg}/providers/…), which never
+      // matches the `/{scope}/providers/…` shard key in any of the previous
+      // lookup steps.
+      //
+      // The scope-based index (scopeRoutesIndex) is keyed by:
+      //   METHOD " " lowercase(/providers/Namespace/rest)
+      // extracted from the scope-placeholder route in the shard.  For lookup
+      // we extract the same suffix from the canonical request path, anchored
+      // on the shard's provider namespace.
+      const scopeSuffix = _extractScopeSuffix(canonPath, providerNamespace);
+      if (scopeSuffix !== null) {
+        const canonScopeSuffixKey = _canonicaliseScopeSuffix(norm.method, scopeSuffix);
+        const scopeEntry = scopeRoutesIndex[canonScopeSuffixKey];
+        if (scopeEntry) {
+          return _resolveRouteMatch(scopeEntry.routeDef, scopeEntry.originalKey, providerNamespace, norm.apiVersion);
+        }
+
+        // HTTP method not-in-spec for scope-based routes.
+        // The path IS known via the scope index but the requested method is not
+        // defined for it.
+        const canonScopePathOnly      = canonScopeSuffixKey.slice(canonScopeSuffixKey.indexOf(" ") + 1);
+        const scopeAvailableMethods   = scopeMethodsIndex[canonScopePathOnly];
+        if (scopeAvailableMethods && scopeAvailableMethods.length > 0) {
+          return _result(STATUS.PROVIDER_KNOWN_NO_ROUTE, {
+            provider_namespace: providerNamespace,
+            reason:             "http_method_not_in_spec",
+            available_methods:  scopeAvailableMethods.slice().sort(),
+            shard_name:         providerNamespace,
+          });
+        }
+      }
+
+      // HTTP method not-in-spec fallback (non-scope routes).
       //
       // Browsers send automatic `OPTIONS` (CORS preflight) and sometimes
       // `HEAD` requests to paths that the spec only defines for other methods
@@ -485,7 +711,6 @@
       // Return a more informative reason ("http_method_not_in_spec") and the
       // list of spec-defined methods for the path so callers can distinguish
       // "OPTIONS to a known endpoint" from a genuinely unknown path.
-      const canonPath = canonKey.slice(canonKey.indexOf(" ") + 1);
       const availableMethods = pathMethodIndex[canonPath];
       if (availableMethods && availableMethods.length > 0) {
         return _result(STATUS.PROVIDER_KNOWN_NO_ROUTE, {
