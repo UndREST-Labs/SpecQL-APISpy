@@ -217,6 +217,42 @@
   }
 
   /**
+   * Build a path → available-methods index for all routes in a shard host.
+   *
+   * The index enables a last-resort "method not in spec" check: when a request
+   * fails all route-key lookups (exact, canonical, and singleton-suffix), we
+   * can still detect that the requested path IS known in the shard but the
+   * HTTP method is not defined for it.  This distinguishes an `OPTIONS` (CORS
+   * preflight) or any other non-spec method from a genuinely unknown path.
+   *
+   * Keys are canonical paths (the canonical route key with the method prefix
+   * stripped), so the lookup is resilient to the same casing and trailing-slash
+   * variations handled by `_canonicaliseRouteKey`.
+   *
+   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @returns {object}       Canonical path → sorted array of HTTP methods.
+   * @private
+   */
+  function _buildPathMethodIndex(routes) {
+    const index = Object.create(null);
+    for (const routeKey of Object.keys(routes)) {
+      const spaceIdx = routeKey.indexOf(" ");
+      if (spaceIdx < 0) continue;
+      const method    = routeKey.slice(0, spaceIdx);
+      const canonKey  = _canonicaliseRouteKey(routeKey);
+      const canonPath = canonKey.slice(canonKey.indexOf(" ") + 1);
+
+      if (!index[canonPath]) {
+        index[canonPath] = [];
+      }
+      if (!index[canonPath].includes(method)) {
+        index[canonPath].push(method);
+      }
+    }
+    return index;
+  }
+
+  /**
    * Build a secondary index of shard routes whose path ends with `/{default}`.
    *
    * Some Azure REST API specs model singleton resources using the parameter
@@ -319,17 +355,17 @@
    * reference).  The WeakMap allows the cached indices to be garbage-collected
    * when the shard is no longer referenced.
    *
-   * @type {WeakMap<object, { canon: object, singleton: object }>}
+   * @type {WeakMap<object, { canon: object, singleton: object, pathMethod: object }>}
    * @private
    */
   const _routeIndexCache = new WeakMap();
 
   /**
-   * Return (or lazily build and cache) the canonical and singleton indices
-   * for a given routes object.
+   * Return (or lazily build and cache) the canonical, singleton, and
+   * path-method indices for a given routes object.
    *
    * @param {object} routes  Shard routes map (routeKey → routeDef).
-   * @returns {{ canon: object, singleton: object }}
+   * @returns {{ canon: object, singleton: object, pathMethod: object }}
    * @private
    */
   function _getRouteIndices(routes) {
@@ -337,8 +373,9 @@
       return _routeIndexCache.get(routes);
     }
     const indices = {
-      canon:     _buildCanonicalRouteIndex(routes),
-      singleton: _buildDefaultSingletonIndex(routes),
+      canon:      _buildCanonicalRouteIndex(routes),
+      singleton:  _buildDefaultSingletonIndex(routes),
+      pathMethod: _buildPathMethodIndex(routes),
     };
     _routeIndexCache.set(routes, indices);
     return indices;
@@ -347,7 +384,7 @@
   /**
    * Attempt to match a normalised request against a loaded shard.
    *
-   * Strategy (v3 — ARM-aware):
+   * Strategy (v4 — ARM-aware):
    *   1. Build candidate route keys from norm.armPath (ARM-templated) and
    *      norm.normalisedPath (generic-normalised), in that priority order.
    *   2. Try each candidate in order; use the first matching route key.
@@ -357,7 +394,11 @@
    *   5. Default-singleton suffix fallback: if the spec defines the route with
    *      a `/{default}` suffix that the client omitted, match against that
    *      singleton route rather than reporting "unknown route".
-   *   6. If no key matches, report provider_known_route_unknown.
+   *   6. HTTP method not-in-spec fallback: if the canonical path IS present in
+   *      the shard under a different method (e.g. `OPTIONS` to a `POST`-only
+   *      route), return reason="http_method_not_in_spec" with the available
+   *      methods rather than "route_not_in_shard".
+   *   7. If no key matches, report provider_known_route_unknown.
    *
    * Trying norm.armPath first reduces false "provider_known_route_unknown"
    * results caused by literal Azure resource names (vault names, site names,
@@ -408,9 +449,9 @@
     //     ".../deployments" from the normaliser).
     //
     // Indices are cached per routes object (_getRouteIndices) and also reused
-    // by the {default} singleton-suffix fallback below.
+    // by the {default} singleton-suffix fallback and the path-method fallback.
     if (norm.armPath) {
-      const { canon: canonIndex, singleton: singletonIndex } = _getRouteIndices(routes);
+      const { canon: canonIndex, singleton: singletonIndex, pathMethod: pathMethodIndex } = _getRouteIndices(routes);
       const canonKey = _canonicaliseRouteKey(buildRouteKey(norm.method, norm.armPath));
 
       const entry = canonIndex[canonKey];
@@ -431,6 +472,28 @@
       const singletonEntry = singletonIndex[canonKey];
       if (singletonEntry) {
         return _resolveRouteMatch(singletonEntry.routeDef, singletonEntry.originalKey, providerNamespace, norm.apiVersion);
+      }
+
+      // HTTP method not-in-spec fallback.
+      //
+      // Browsers send automatic `OPTIONS` (CORS preflight) and sometimes
+      // `HEAD` requests to paths that the spec only defines for other methods
+      // (GET, POST, PUT, …).  When ALL route-key lookups above fail but the
+      // canonical path IS present in the shard under a different method, the
+      // path itself is known — the method just isn't in the spec.
+      //
+      // Return a more informative reason ("http_method_not_in_spec") and the
+      // list of spec-defined methods for the path so callers can distinguish
+      // "OPTIONS to a known endpoint" from a genuinely unknown path.
+      const canonPath = canonKey.slice(canonKey.indexOf(" ") + 1);
+      const availableMethods = pathMethodIndex[canonPath];
+      if (availableMethods && availableMethods.length > 0) {
+        return _result(STATUS.PROVIDER_KNOWN_NO_ROUTE, {
+          provider_namespace: providerNamespace,
+          reason:             "http_method_not_in_spec",
+          available_methods:  availableMethods.slice().sort(),
+          shard_name:         providerNamespace,
+        });
       }
     }
 
@@ -514,6 +577,7 @@
         matched_route_key:  null,
         matched_versions:   null,
         matched_version:    null,
+        available_methods:  null,
         shard_name:         null,
         reason:             null,
         error:              null,

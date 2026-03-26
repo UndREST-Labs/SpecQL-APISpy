@@ -774,5 +774,145 @@ console.log("\n=== Matcher.classify — NO_SPEC_MATCH still returned for non-ARM
   eq(r.status, Matcher.STATUS.NO_SPEC_MATCH, "non-management host: still no_spec_match (not arm_root_route)");
 }
 
-console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
-if (fail > 0) process.exit(1);
+// ── HTTP method not-in-spec fallback ─────────────────────────────────────────
+//
+// Browsers and load-balancers automatically issue `OPTIONS` (CORS preflight)
+// and sometimes `HEAD` requests to paths that the spec defines only for other
+// methods (GET, POST, PUT, DELETE, PATCH).  Previously these fell through to
+// `reason: "route_not_in_shard"` — indistinguishable from a genuinely unknown
+// path.  After the fix the matcher reports `reason: "http_method_not_in_spec"`
+// and includes the spec-defined methods so callers can present a more
+// accurate diagnosis.
+//
+// Real-world example from the issue report:
+//   OPTIONS /providers/Microsoft.Management/getEntities  (CORS preflight)
+//   Shard only has: POST /providers/Microsoft.Management/getEntities
+//   Before: 🔶 Unknown route / route_not_in_shard
+//   After:  🔶 Unknown route / http_method_not_in_spec (available: POST)
+
+const METHOD_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Management" },
+  provider_namespace: "Microsoft.Management",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "POST /providers/Microsoft.Management/getEntities": {
+          method: "POST",
+          path_template: "/providers/Microsoft.Management/getEntities",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-02-01": { is_preview: false, spec_files: ["management/2020-02-01/management.json"] },
+            "2019-11-01": { is_preview: false, spec_files: ["management/2019-11-01/management.json"] },
+          },
+        },
+        "GET /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "GET",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+        "PATCH /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "PATCH",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+        "DELETE /providers/Microsoft.Management/managementGroups/{name}": {
+          method: "DELETE",
+          path_template: "/providers/Microsoft.Management/managementGroups/{managementGroupId}",
+          provider_namespace: "Microsoft.Management",
+          versions: {
+            "2020-05-01": { is_preview: false, spec_files: ["management/2020-05-01/management.json"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to POST-only path (issue report) ===");
+{
+  // CORS preflight to a POST-only endpoint — the path IS known, the method is not
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to POST-only path → PROVIDER_KNOWN_NO_ROUTE (not a genuinely unknown route)");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec (not route_not_in_shard)");
+  assert(Array.isArray(r.available_methods) && r.available_methods.includes("POST"),
+    "available_methods includes POST");
+  assert(!r.available_methods.includes("OPTIONS"),
+    "OPTIONS is not listed in available_methods (it is not in the spec)");
+  eq(r.provider_namespace, "Microsoft.Management", "provider_namespace correct");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: HEAD to GET-only path ===");
+{
+  // HEAD is a common HTTP method that proxies/health-checks issue, but specs rarely define it
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "HEAD"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "HEAD to POST-only path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec for HEAD");
+  assert(Array.isArray(r.available_methods), "available_methods is an array");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to multi-method path ===");
+{
+  // Path has GET, PATCH, DELETE — OPTIONS is still not in spec
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/managementGroups/mg1",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to multi-method path → PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "http_method_not_in_spec",
+    "reason=http_method_not_in_spec for OPTIONS on multi-method path");
+  assert(r.available_methods.includes("GET"),    "available_methods includes GET");
+  assert(r.available_methods.includes("PATCH"),  "available_methods includes PATCH");
+  assert(r.available_methods.includes("DELETE"), "available_methods includes DELETE");
+  assert(!r.available_methods.includes("OPTIONS"), "available_methods does NOT include OPTIONS");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: OPTIONS to unknown path stays route_not_in_shard ===");
+{
+  // A genuinely unknown path must NOT benefit from the method-not-in-spec fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/doesNotExist?api-version=2020-02-01",
+    "OPTIONS"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "OPTIONS to completely unknown path → still PROVIDER_KNOWN_NO_ROUTE");
+  eq(r.reason, "route_not_in_shard",
+    "reason stays route_not_in_shard for a genuinely unknown path");
+  assert(r.available_methods === null,
+    "available_methods is null for unknown path");
+}
+
+console.log("\n=== Matcher.classify — http_method_not_in_spec: POST to known path stays normal ===");
+{
+  // A normal POST request to a known path should NOT be affected by the new fallback
+  const n = norm(
+    "https://management.azure.com/providers/Microsoft.Management/getEntities?api-version=2020-02-01",
+    "POST"
+  );
+  const r = Matcher.classify(n, METHOD_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "POST to POST-only path → exact_match (not affected by method fallback)");
+  eq(r.matched_version, "2020-02-01", "correct api-version matched");
+}
+
+

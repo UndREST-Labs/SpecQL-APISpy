@@ -384,6 +384,7 @@ function showDetail(entry) {
     ["Provider namespace",  r.provider_namespace || ""],
     ["Matched route",       r.matched_route_key || ""],
     ["Available versions",  (r.matched_versions && r.matched_versions.join(", ")) || ""],
+    ...(r.available_methods ? [["Available methods", r.available_methods.join(", ")]] : []),
     ["Shard / source",      r.shard_name || ""],
     ["Reason",              r.reason || ""],
     ...(r.error ? [["Load error", r.error, "load-error"]] : []),
