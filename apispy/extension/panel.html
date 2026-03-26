@@ -38,11 +38,13 @@
       <thead>
         <tr>
           <th class="col-time">Time</th>
-          <th class="col-method">Method</th>
+          <th class="col-method">Method<button class="col-filter-btn" data-col="method" title="Filter by Method">▾</button></th>
           <th class="col-host">Host</th>
           <th class="col-path">Path</th>
-          <th class="col-version">api-version</th>
-          <th class="col-status">Status</th>
+          <th class="col-version">api-version<button class="col-filter-btn" data-col="apiVersion" title="Filter by api-version">▾</button></th>
+          <th class="col-status">Status<button class="col-filter-btn" data-col="status" title="Filter by Status">▾</button></th>
+          <th class="col-reason">Reason<button class="col-filter-btn" data-col="reason" title="Filter by Reason">▾</button></th>
+          <th class="col-shard">Shard<button class="col-filter-btn" data-col="shard" title="Filter by Shard">▾</button></th>
         </tr>
       </thead>
       <tbody id="request-tbody">
@@ -65,6 +67,16 @@
       </div>
       <dl id="detail-fields" class="detail-fields"></dl>
     </section>
+
+    <!-- Column-level filter dropdown (shared, repositioned per column) -->
+    <div id="col-filter-dropdown" class="col-filter-dropdown hidden" role="dialog" aria-label="Column filter">
+      <div class="col-filter-header">
+        <label class="col-filter-all-label">
+          <input type="checkbox" id="col-filter-select-all" checked> Select All
+        </label>
+      </div>
+      <div id="col-filter-list" class="col-filter-list"></div>
+    </div>
   </main>
 
   <!-- lib order matters: loader must be first (no bundler in v1) -->

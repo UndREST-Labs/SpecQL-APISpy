@@ -38,6 +38,18 @@ const state = {
    * @type {Set<string>}
    */
   activeFilters: new Set(ALL_STATUSES),
+  /**
+   * Per-column filter sets.  null = no filter (all values shown).
+   * When a Set is present only entries whose column value is in the Set are shown.
+   * @type {Object.<string, Set<string>|null>}
+   */
+  columnFilters: {
+    method:     null,
+    apiVersion: null,
+    status:     null,
+    reason:     null,
+    shard:      null,
+  },
   /** @type {number|null} Index of the selected row (for detail panel). */
   selectedIdx: null,
   /** @type {boolean} Whether newly added rows should be scrolled into view. */
@@ -64,6 +76,9 @@ const detailCopy     = document.getElementById("detail-copy");
 const detailNetwork  = document.getElementById("detail-find-network");
 const detailFields   = document.getElementById("detail-fields");
 const detailHeading  = document.getElementById("detail-heading");
+const colFilterDropdown  = document.getElementById("col-filter-dropdown");
+const colFilterSelectAll = document.getElementById("col-filter-select-all");
+const colFilterList      = document.getElementById("col-filter-list");
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 
@@ -265,6 +280,8 @@ function renderRow(entry, idx) {
     batchPathCell(entry),
     cell(entry.apiVersion || "",                  "col-version"),
     statusCell(entry.result),
+    cell(entry.result.reason || "",               "col-reason"),
+    cell(entry.result.shard_name || "",           "col-shard"),
   ].join("");
 
   tr.addEventListener("click", () => selectRow(idx, tr));
@@ -321,6 +338,7 @@ function rerender() {
   tbody.innerHTML = "";
   state.requests.forEach((entry, idx) => renderRow(entry, idx));
   toggleEmptyState();
+  updateCountBadge();
 }
 
 function toggleEmptyState() {
@@ -329,7 +347,13 @@ function toggleEmptyState() {
 }
 
 function updateCountBadge() {
-  requestCount.textContent = state.requests.length;
+  const total   = state.requests.length;
+  const visible = state.requests.filter(passesFilter).length;
+  if (visible === total) {
+    requestCount.textContent = total;
+  } else {
+    requestCount.textContent = visible + " / " + total;
+  }
 }
 
 function setStatus(msg) {
@@ -429,7 +453,133 @@ function closeDetail() {
  * @returns {boolean}
  */
 function passesFilter(entry) {
-  return state.activeFilters.has(entry.result.status);
+  if (!state.activeFilters.has(entry.result.status)) return false;
+  const cf = state.columnFilters;
+  if (cf.method     !== null && !cf.method.has(entry.method || ""))                return false;
+  if (cf.apiVersion !== null && !cf.apiVersion.has(entry.apiVersion || ""))        return false;
+  if (cf.status     !== null && !cf.status.has(entry.result.status || ""))         return false;
+  if (cf.reason     !== null && !cf.reason.has(entry.result.reason || ""))         return false;
+  if (cf.shard      !== null && !cf.shard.has(entry.result.shard_name || ""))      return false;
+  return true;
+}
+
+// ── Column-level filter dropdown ──────────────────────────────────────────────
+
+/** Currently open column filter key, or null if the dropdown is closed. */
+let _colFilterActive = null;
+
+/**
+ * Return the column filter value for a given entry.
+ * @param {RequestEntry} entry
+ * @param {string} col  Column key (method|apiVersion|status|reason|shard)
+ * @returns {string}
+ */
+function getColumnValue(entry, col) {
+  switch (col) {
+    case "method":     return entry.method || "";
+    case "apiVersion": return entry.apiVersion || "";
+    case "status":     return entry.result.status || "";
+    case "reason":     return entry.result.reason || "";
+    case "shard":      return entry.result.shard_name || "";
+    default:           return "";
+  }
+}
+
+/**
+ * Return sorted unique values for a column across all recorded requests.
+ * @param {string} col
+ * @returns {string[]}
+ */
+function getUniqueColumnValues(col) {
+  const vals = new Set();
+  state.requests.forEach((e) => vals.add(getColumnValue(e, col)));
+  return Array.from(vals).sort();
+}
+
+/**
+ * Open (or toggle) the column filter dropdown for the given column,
+ * positioned directly below the triggering button element.
+ * @param {string} col     Column key.
+ * @param {Element} btnEl  The header button that was clicked.
+ */
+function openColumnFilter(col, btnEl) {
+  // Toggle: close if already open for the same column
+  if (_colFilterActive === col && !colFilterDropdown.classList.contains("hidden")) {
+    closeColumnFilter();
+    return;
+  }
+  _colFilterActive = col;
+
+  // Populate checkbox list
+  const values = getUniqueColumnValues(col);
+  const currentFilter = state.columnFilters[col]; // null or Set
+  colFilterList.innerHTML = "";
+  values.forEach((val) => {
+    const label = document.createElement("label");
+    label.className = "col-filter-item";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = val;
+    cb.checked = currentFilter === null || currentFilter.has(val);
+    cb.addEventListener("change", onColFilterItemChange);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode("\u00a0" + (val || "(empty)")));
+    colFilterList.appendChild(label);
+  });
+  syncSelectAll();
+
+  // Position dropdown below the button
+  const rect = btnEl.getBoundingClientRect();
+  colFilterDropdown.style.left = Math.max(0, rect.left) + "px";
+  colFilterDropdown.style.top  = (rect.bottom + 2) + "px";
+  colFilterDropdown.classList.remove("hidden");
+}
+
+/** Close the column filter dropdown without applying any further change. */
+function closeColumnFilter() {
+  _colFilterActive = null;
+  colFilterDropdown.classList.add("hidden");
+}
+
+/**
+ * Sync the "Select All" checkbox state to reflect the current item checkboxes.
+ */
+function syncSelectAll() {
+  const boxes = Array.from(colFilterList.querySelectorAll("input[type=checkbox]"));
+  const checkedCount = boxes.filter((b) => b.checked).length;
+  colFilterSelectAll.checked       = checkedCount === boxes.length;
+  colFilterSelectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+}
+
+/** Called when an individual value checkbox changes. */
+function onColFilterItemChange() {
+  const boxes   = Array.from(colFilterList.querySelectorAll("input[type=checkbox]"));
+  const checked = boxes.filter((b) => b.checked).map((b) => b.value);
+  state.columnFilters[_colFilterActive] =
+    checked.length === boxes.length ? null : new Set(checked);
+  syncSelectAll();
+  applyColumnFilter(_colFilterActive);
+}
+
+/** Called when the "Select All" checkbox changes. */
+function onColFilterSelectAllChange() {
+  const allChecked = colFilterSelectAll.checked;
+  colFilterList.querySelectorAll("input[type=checkbox]")
+    .forEach((b) => { b.checked = allChecked; });
+  state.columnFilters[_colFilterActive] = allChecked ? null : new Set();
+  colFilterSelectAll.indeterminate = false;
+  applyColumnFilter(_colFilterActive);
+}
+
+/**
+ * Re-render the table and update the count badge after a column filter change.
+ * Also marks the column header button as active when a filter is in effect.
+ * @param {string} col
+ */
+function applyColumnFilter(col) {
+  const btn = document.querySelector(".col-filter-btn[data-col=\"" + col + "\"]");
+  if (btn) btn.classList.toggle("active", state.columnFilters[col] !== null);
+  rerender();
 }
 
 // ── Clipboard / export ────────────────────────────────────────────────────────
@@ -646,6 +796,7 @@ function attachUIListeners() {
     state.selectedIdx = null;
     tbody.innerHTML = "";
     closeDetail();
+    closeColumnFilter();
     updateCountBadge();
     toggleEmptyState();
   });
@@ -667,6 +818,32 @@ function attachUIListeners() {
           4000
         );
       }
+    }
+  });
+
+  // Column filter buttons (delegated from thead)
+  document.querySelector(".request-table thead").addEventListener("click", (e) => {
+    const btn = e.target.closest(".col-filter-btn[data-col]");
+    if (!btn) return;
+    e.stopPropagation();
+    openColumnFilter(btn.dataset.col, btn);
+  });
+
+  // Column filter dropdown — "Select All" checkbox
+  colFilterSelectAll.addEventListener("change", onColFilterSelectAllChange);
+
+  // Close column filter dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (colFilterDropdown.classList.contains("hidden")) return;
+    if (!colFilterDropdown.contains(e.target) && !e.target.closest(".col-filter-btn")) {
+      closeColumnFilter();
+    }
+  });
+
+  // Close column filter dropdown on Escape
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !colFilterDropdown.classList.contains("hidden")) {
+      closeColumnFilter();
     }
   });
 
