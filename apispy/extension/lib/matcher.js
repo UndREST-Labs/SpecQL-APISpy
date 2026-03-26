@@ -178,7 +178,7 @@
   /**
    * Canonicalise a route key for resilient comparison across shard variations.
    *
-   * Applies four normalisations on top of `_normalisePlaceholders`:
+   * Applies five normalisations on top of `_normalisePlaceholders`:
    *
    *   1. Placeholder normalisation: `{vaultName}` → `{name}` (same as
    *      `_normalisePlaceholders`).
@@ -204,6 +204,14 @@
    *      has the literal namespace (e.g. `Microsoft.OperationalInsights`).
    *      This step replaces every non-last provider namespace in the path
    *      with `{name}` so both sides normalise to the same canonical form.
+   *
+   *   5. `default` singleton value normalisation: Azure ARM specs often define
+   *      singleton sub-resources using the parameter name `{default}`, whose
+   *      only valid runtime value is the literal string "default".  After step 1
+   *      the shard's `/{default}` placeholder becomes `/{name}`.  Meanwhile
+   *      the request canonical key has the literal `/default` segment (preserved
+   *      by ARM_LITERAL_SEGMENTS in the normaliser).  This step normalises
+   *      `/default` to `/{name}` so both sides compare equal.
    *
    * @param {string} str  Route key string ("METHOD /path/template").
    * @returns {string}    Canonicalised route key.
@@ -243,6 +251,13 @@
       new RegExp("( .*?)\\/providers\\/(" + _ARM_NS_PATTERN_SRC + ")(\\/.*\\/providers\\/)", "g"),
       (_, pre, _ns, after) => pre + "/providers/{name}" + after
     );
+
+    // 5. Normalise the literal path segment "default" to {name}.
+    //    Azure ARM specs define singleton sub-resources via `{default}`, whose
+    //    only valid value is "default".  After step 1 the shard's /{default}
+    //    becomes /{name}.  The request path (which ARM_LITERAL_SEGMENTS
+    //    preserves as /default) must also become /{name} for the comparison.
+    result = result.replace(/\/default(?=\/|$)/g, "/{name}");
 
     return result;
   }
