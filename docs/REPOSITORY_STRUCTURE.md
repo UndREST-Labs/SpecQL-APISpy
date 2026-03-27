@@ -28,7 +28,9 @@ SpeQL/
 │   │   ├── lib/         # filters, normalizer, loader, matcher modules
 │   │   └── icons/
 │   ├── scripts/
-│   │   └── prepare_data.py  # Re-bundles shards from SpecRecon zip export
+│   │   ├── portal_sweep.py  # Automated portal sweep: visits all services, exports CSV
+│   │   ├── prepare_data.py  # Re-bundles shards from SpecRecon zip export
+│   │   └── generate_screenshots.py  # Generates demos/ screenshots of the extension
 │   └── tests/           # Node.js unit tests for extension modules
 ├── config/               # Configuration files
 │   └── SpeQL.yml        # CodeQL database configuration
@@ -116,6 +118,7 @@ SpeQL/
 
 ### APISpy DevTools Extension
 - [apispy/extension/README.md](../apispy/extension/README.md) - Extension installation and usage
+- [apispy/scripts/PORTAL_SWEEP.md](../apispy/scripts/PORTAL_SWEEP.md) - Automated portal sweep guide
 
 ### Reference
 - [docs/QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Command reference

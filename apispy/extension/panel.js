@@ -95,6 +95,34 @@ async function init() {
   }
 
   updateTbodyHeight();
+
+  // In standalone mode (opened as a normal page, not inside DevTools), restore
+  // previously captured requests from localStorage so saveCSV() has data to export.
+  // Check the explicit flag set by the Playwright script via add_init_script; fall back
+  // to the chrome.devtools heuristic for normal DevTools usage.
+  const standaloneFlag = localStorage.getItem("apispy_standalone_mode") === "1";
+  const inDevTools = !standaloneFlag && typeof chrome !== "undefined" && !!(chrome.devtools && chrome.devtools.network);
+  if (!inDevTools) {
+    // Primary path: render pre-processed entries stored by devtools.js during
+    // the sweep.  All Normalizer/Matcher/shard work was already done at capture
+    // time (one request at a time as they arrived), so this is synchronous.
+    try {
+      _restoreFromProcessedEntries();
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      console.error("[APISpy] restore failed:", msg);
+      setStatus("Restore error: " + msg);
+    }
+    // Fallback: restore already-processed entries from the legacy key written
+    // by panel.js when it was running live inside DevTools.
+    if (state.requests.length === 0) {
+      _restoreFromStorage();
+    }
+    // Signal to the Playwright sweep script that restore is complete.
+    // This is set unconditionally (even on error) so the poll always resolves.
+    _restoreComplete = true;
+  }
+
   attachNetworkObserver();
   attachUIListeners();
 }
@@ -117,9 +145,97 @@ function updateTbodyHeight() {
     : "0px";
 }
 
+/**
+ * Set to true once the standalone-mode restore has finished (even when 0
+ * requests were captured).  The Playwright sweep script polls this flag
+ * instead of polling state.requests.length so it can tell "still loading"
+ * from "genuinely empty".
+ */
+let _restoreComplete = false;
+
+// ── localStorage persistence (for automated CSV export) ───────────────────────
+
+/**
+ * Persist state.requests to localStorage so a standalone panel.html page can
+ * read and export the data after a Playwright sweep without needing DevTools.
+ * Only active when the sweep script has set the `apispy_sweep_mode` flag.
+ */
+function _persistRequests() {
+  if (localStorage.getItem("apispy_sweep_mode") !== "1") return;
+  try {
+    localStorage.setItem("apispy_requests", JSON.stringify(state.requests));
+  } catch (_) {
+    // Quota exceeded or private-browsing restrictions — silently ignore.
+  }
+}
+
+/**
+ * Restore requests from localStorage into state and re-render the table.
+ * Only called when the panel is opened in standalone mode (not inside DevTools).
+ * This is the legacy path for the old "apispy_requests" key (already-processed
+ * entries written by panel.js when it was running live inside DevTools).
+ */
+function _restoreFromStorage() {
+  try {
+    const raw = localStorage.getItem("apispy_requests");
+    if (!raw) return;
+    const entries = JSON.parse(raw);
+    if (!Array.isArray(entries) || entries.length === 0) return;
+    entries.forEach((entry, i) => {
+      state.requests.push(entry);
+      renderRow(entry, i);
+    });
+    updateCountBadge();
+    setStatus("Restored " + entries.length + " captured request(s) from previous sweep.");
+  } catch (_) {
+    // Corrupt data — ignore.
+  }
+}
+
+/**
+ * Read the pre-processed ARM entries stored by devtools.js during the sweep
+ * and render them into the table synchronously.
+ *
+ * devtools.js processes each request through the full Normalizer/Matcher/Loader
+ * pipeline as it arrives and writes compact entries to "apispy_sweep_entries".
+ * There is no async shard loading needed here — all matching is already done.
+ */
+function _restoreFromProcessedEntries() {
+  let entries;
+  try {
+    const stored = localStorage.getItem("apispy_sweep_entries");
+    if (!stored) return;
+    entries = JSON.parse(stored);
+    if (!Array.isArray(entries) || entries.length === 0) return;
+  } catch (_) {
+    return;
+  }
+
+  setStatus("Restoring " + entries.length + " captured entry(s)…");
+
+  entries.forEach((entry, i) => {
+    // Assign a fresh sequential index for this panel session.
+    entry.idx = i;
+    state.requests.push(entry);
+    renderRow(entry, i);
+  });
+
+  updateCountBadge();
+
+  if (state.requests.length > 0) {
+    setStatus("Restored " + state.requests.length + " entry(s) from sweep.");
+  }
+}
+
 // ── Network observation ───────────────────────────────────────────────────────
 
 function attachNetworkObserver() {
+  // Guard: chrome.devtools is only available when running inside Chrome DevTools.
+  // When panel.html is opened as a standalone page (for CSV export automation),
+  // this API is absent and we skip the listener registration.
+  if (typeof chrome === "undefined" || !chrome.devtools || !chrome.devtools.network) {
+    return;
+  }
   chrome.devtools.network.onRequestFinished.addListener(onRequestFinished);
 }
 
@@ -144,6 +260,7 @@ async function onRequestFinished(req) {
     state.requests.push(entry);
     renderRow(entry, state.requests.length - 1);
     updateCountBadge();
+    _persistRequests();
   }
 
   // Always expand ARM batch requests even if the parent row was filtered out.
@@ -191,6 +308,7 @@ async function expandBatchSubRequests(req) {
     state.requests.push(entry);
     renderRow(entry, state.requests.length - 1);
     updateCountBadge();
+    _persistRequests();
   }
 }
 
@@ -803,6 +921,7 @@ function attachUIListeners() {
     closeColumnFilter();
     updateCountBadge();
     toggleEmptyState();
+    localStorage.removeItem("apispy_requests");
   });
 
   // Detail panel buttons
