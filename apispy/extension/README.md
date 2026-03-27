@@ -73,7 +73,7 @@ ARM API calls as a CSV file.
 **Quick start:**
 
 ```bash
-pip install azure-identity playwright
+pip install -r requirements.txt
 python3 -m playwright install chromium
 
 # Run the sweep (from the repository root)
