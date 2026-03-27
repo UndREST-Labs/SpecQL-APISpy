@@ -710,6 +710,121 @@
   }
 
   /**
+   * Regex that matches a valid Azure provider namespace — used by
+   * `_normaliseNamePositions` to detect double-provider boundaries.
+   *
+   * @type {RegExp}
+   * @private
+   */
+  const _ARM_PROVIDER_NS_RE_MATCHER = new RegExp("^" + _ARM_NS_PATTERN_SRC + "$");
+
+  /**
+   * Replace all name-position literals (odd offsets after each
+   * ``/providers/Namespace/``) with ``{name}`` in a canonicalised route key.
+   *
+   * This mirrors the ARM normaliser's type/name alternation logic: after
+   * ``/providers/{Namespace}``, even-indexed segments are resource types
+   * (kept literal) and odd-indexed segments are resource names (replaced
+   * with ``{name}``).  Extension resources (a second ``/providers/``
+   * occurrence) reset the position counter.
+   *
+   * The canonical key has already been through ``_canonicaliseRouteKey``,
+   * so all ``{xxx}`` placeholders are already ``{name}``, ARM keywords are
+   * lowercased, and trailing slashes are stripped.  This function only
+   * affects *literal* segments at name positions that the normaliser
+   * might have replaced with ``{name}`` but the shard kept verbatim
+   * (e.g. ``logs``, ``getEntityTypeImageUploadUrl``).
+   *
+   * @param {string} canonKey  Canonical route key ("METHOD /path").
+   * @returns {string}         Name-normalised route key.
+   * @private
+   */
+  function _normaliseNamePositions(canonKey) {
+    const spaceIdx = canonKey.indexOf(" ");
+    if (spaceIdx < 0) return canonKey;
+    const method = canonKey.slice(0, spaceIdx);
+    const path   = canonKey.slice(spaceIdx + 1);
+
+    const segs   = path.split("/");
+    const result = [];
+    let inProv   = false;
+    let resPos   = 0;
+    let i = 0;
+
+    while (i < segs.length) {
+      const s  = segs[i];
+      const sl = s.toLowerCase();
+
+      // Before /providers/: pass through (scope segments already canonical)
+      if (!inProv && sl === "providers") {
+        result.push(s);
+        i++;
+        if (i < segs.length) { result.push(segs[i]); i++; }
+        inProv = true;
+        resPos = 0;
+        continue;
+      }
+
+      if (inProv) {
+        const next = segs[i + 1];
+        // Double-provider detection
+        if (sl === "providers" && next && _ARM_PROVIDER_NS_RE_MATCHER.test(next)) {
+          result.push(s);
+          result.push(next);
+          i += 2;
+          resPos = 0;
+          continue;
+        }
+        const isName = (resPos % 2 === 1);
+        if (isName && s !== "{name}") {
+          result.push("{name}");
+        } else {
+          result.push(s);
+        }
+        resPos++;
+        i++;
+        continue;
+      }
+
+      result.push(s);
+      i++;
+    }
+
+    return method + " " + result.join("/");
+  }
+
+  /**
+   * Build a secondary route index where **all** name-position literals in
+   * the provider section are normalised to ``{name}``.
+   *
+   * This handles the gap between the shard (which may keep literals like
+   * ``logs``, ``listKeys``, or action verbs at name positions) and the
+   * runtime normaliser (which replaces them with ``{name}`` unless they
+   * appear in ``ARM_LITERAL_SEGMENTS``).  Adding every possible literal
+   * to the allowlist is fragile; this index provides a robust fallback by
+   * normalising *both* sides to ``{name}`` at every name position.
+   *
+   * When two shard routes normalise to the same key the first entry wins.
+   *
+   * @param {object} routes  Shard routes map (routeKey → routeDef).
+   * @returns {object}       Name-normalised key → ``{ routeDef, originalKey }``.
+   * @private
+   */
+  function _buildNameNormalisedIndex(routes) {
+    const index = Object.create(null);
+    for (const routeKey of Object.keys(routes)) {
+      const canonKey    = _canonicaliseRouteKey(routeKey);
+      const nameNormKey = _normaliseNamePositions(canonKey);
+      // Only add if different from the canonical key — avoids bloating
+      // the index with entries that the canonical index already covers.
+      if (nameNormKey !== canonKey && !index[nameNormKey]) {
+        index[nameNormKey] = { routeDef: routes[routeKey], originalKey: routeKey };
+      }
+    }
+    return index;
+  }
+
+  /**
    * WeakMap cache for route indices keyed on the shard routes object.
    *
    * Indices are built lazily the first time a shard is matched and then reused
@@ -717,18 +832,19 @@
    * reference).  The WeakMap allows the cached indices to be garbage-collected
    * when the shard is no longer referenced.
    *
-   * @type {WeakMap<object, { canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object }>}
+   * @type {WeakMap<object, { canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object, nameNorm: object }>}
    * @private
    */
   const _routeIndexCache = new WeakMap();
 
   /**
    * Return (or lazily build and cache) all route indices for a given routes
-   * object: canonical, singleton, path-method, scope-routes, and scope-methods.
+   * object: canonical, singleton, path-method, scope-routes, scope-methods,
+   * and name-normalised.
    *
    * @param {object} routes           Shard routes map (routeKey → routeDef).
    * @param {string} providerNamespace  Shard provider namespace (e.g. "Microsoft.Resources").
-   * @returns {{ canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object }}
+   * @returns {{ canon: object, singleton: object, pathMethod: object, scopeRoutes: object, scopeMethods: object, nameNorm: object }}
    * @private
    */
   function _getRouteIndices(routes, providerNamespace) {
@@ -740,6 +856,7 @@
       canon:       _buildCanonicalRouteIndex(routes),
       singleton:   _buildDefaultSingletonIndex(routes),
       pathMethod:  _buildPathMethodIndex(routes),
+      nameNorm:    _buildNameNormalisedIndex(routes),
       scopeRoutes,
       scopeMethods,
     };
@@ -750,7 +867,7 @@
   /**
    * Attempt to match a normalised request against a loaded shard.
    *
-   * Strategy (v5 — ARM-aware):
+   * Strategy (v6 — ARM-aware with name-literal fallback):
    *   1. Build candidate route keys from norm.armPath (ARM-templated) and
    *      norm.normalisedPath (generic-normalised), in that priority order.
    *   2. Try each candidate in order; use the first matching route key.
@@ -760,6 +877,10 @@
    *   5. Default-singleton suffix fallback: if the spec defines the route with
    *      a `/{default}` suffix that the client omitted, match against that
    *      singleton route rather than reporting "unknown route".
+   *   5b. Name-literal fallback: normalise all name-position literals (odd
+   *       offsets after /providers/{Namespace}) to `{name}` on both sides.
+   *       Handles shard routes that keep literals at name positions (actions,
+   *       singletons, config endpoints) that the ARM normaliser replaced.
    *   6. Scope-based suffix fallback: many Azure specs define routes using a
    *      variable-length ARM scope placeholder (`{scope}`, `{resourceUri}`,
    *      `{resourceScope}`, …) as the first path segment.  The ARM normaliser
@@ -828,6 +949,7 @@
         canon:       canonIndex,
         singleton:   singletonIndex,
         pathMethod:  pathMethodIndex,
+        nameNorm:    nameNormIndex,
         scopeRoutes: scopeRoutesIndex,
         scopeMethods: scopeMethodsIndex,
       } = _getRouteIndices(routes, providerNamespace);
@@ -869,6 +991,22 @@
       const typeWildEntry = _tryTypeWildcardLookup(canonKey, canonIndex, providerNamespace);
       if (typeWildEntry) {
         return _resolveRouteMatch(typeWildEntry.routeDef, typeWildEntry.originalKey, providerNamespace, norm.apiVersion);
+      }
+
+      // Name-literal fallback.
+      //
+      // Some shard route keys contain literal segments at name positions
+      // (e.g. "config/logs", "images/getEntityTypeImageUploadUrl") that the
+      // ARM normaliser replaces with {name} when the literal is not in
+      // ARM_LITERAL_SEGMENTS.  The name-normalised index canonicalises both
+      // sides to {name} at every name position, bridging this gap without
+      // requiring a complete ARM_LITERAL_SEGMENTS allowlist.
+      const nameNormKey = _normaliseNamePositions(canonKey);
+      if (nameNormKey !== canonKey) {
+        const nameNormEntry = nameNormIndex[nameNormKey];
+        if (nameNormEntry) {
+          return _resolveRouteMatch(nameNormEntry.routeDef, nameNormEntry.originalKey, providerNamespace, norm.apiVersion);
+        }
       }
 
       // Scope-based suffix fallback.
@@ -1032,6 +1170,7 @@
     buildRouteKey,
     normalisePlaceholders:  _normalisePlaceholders,
     canonicaliseRouteKey:   _canonicaliseRouteKey,
+    normaliseNamePositions: _normaliseNamePositions,
     STATUS,
     STATUS_LABELS,
   };
