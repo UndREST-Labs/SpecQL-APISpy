@@ -1220,3 +1220,119 @@ console.log("\n=== Matcher.classify — double-provider: genuinely unknown exten
 
 console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
+
+// ── Tests for _normaliseNamePositions ────────────────────────────────────────
+
+console.log("\n=== Matcher.normaliseNamePositions — basic name-position normalisation ===");
+{
+  // After /providers/NS/, odd positions are name-positions.
+  // "logs" at pos 3 (name) should become {name}.
+  eq(
+    Matcher.normaliseNamePositions("GET /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.web/sites/{name}/config/logs"),
+    "GET /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.web/sites/{name}/config/{name}",
+    "logs at name position normalised to {name}"
+  );
+}
+
+console.log("\n=== Matcher.normaliseNamePositions — type positions left alone ===");
+{
+  // Type positions (even) should remain literal.
+  eq(
+    Matcher.normaliseNamePositions("GET /subscriptions/{name}/providers/microsoft.storage/storageaccounts/{name}"),
+    "GET /subscriptions/{name}/providers/microsoft.storage/storageaccounts/{name}",
+    "type-position literal preserved, name-position {name} unchanged"
+  );
+}
+
+console.log("\n=== Matcher.normaliseNamePositions — action verb at name position ===");
+{
+  eq(
+    Matcher.normaliseNamePositions("POST /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.customerinsights/hubs/{name}/images/getEntityTypeImageUploadUrl"),
+    "POST /subscriptions/{name}/resourcegroups/{name}/providers/microsoft.customerinsights/hubs/{name}/images/{name}",
+    "action verb at name position normalised to {name}"
+  );
+}
+
+console.log("\n=== Matcher.normaliseNamePositions — double-provider handled ===");
+{
+  eq(
+    Matcher.normaliseNamePositions("GET /subscriptions/{name}/resourcegroups/{name}/providers/{name}/sites/{name}/providers/microsoft.insights/metrics"),
+    "GET /subscriptions/{name}/resourcegroups/{name}/providers/{name}/sites/{name}/providers/microsoft.insights/metrics",
+    "double-provider: second provider section type-position preserved"
+  );
+}
+
+console.log("\n=== Matcher.normaliseNamePositions — no provider section ===");
+{
+  eq(
+    Matcher.normaliseNamePositions("GET /subscriptions/{name}/resourcegroups/{name}"),
+    "GET /subscriptions/{name}/resourcegroups/{name}",
+    "no provider section: path unchanged"
+  );
+}
+
+// ── Tests for name-literal fallback in matchAgainstShard ─────────────────────
+
+// Build a shard that has a literal at a name position (config/logs)
+const NAME_LITERAL_SHARD = {
+  metadata: { provider_namespace: "Microsoft.Web" },
+  provider_namespace: "Microsoft.Web",
+  hosts: {
+    "management.azure.com": {
+      routes: {
+        "GET /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/config/logs": {
+          method: "GET",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{siteName}/config/logs",
+          versions: { "2023-12-01": { is_preview: false } },
+        },
+        "PUT /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{name}/config/logs": {
+          method: "PUT",
+          path_template: "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Web/sites/{siteName}/config/logs",
+          versions: { "2023-12-01": { is_preview: false } },
+        },
+      },
+    },
+  },
+};
+
+console.log("\n=== Matcher.classify — name-literal fallback: config/logs matches ===");
+{
+  // The normaliser replaces "logs" at name position with {name} because
+  // "logs" is not in ARM_LITERAL_SEGMENTS.  The shard has the literal.
+  // The name-literal fallback index should bridge this gap.
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Web/sites/mySite/config/logs?api-version=2023-12-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, NAME_LITERAL_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "name-literal fallback: config/logs → exact_match");
+  eq(r.matched_version, "2023-12-01",
+    "correct api-version matched via name-literal fallback");
+}
+
+console.log("\n=== Matcher.classify — name-literal fallback: PUT config/logs matches ===");
+{
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Web/sites/mySite/config/logs?api-version=2023-12-01",
+    "PUT"
+  );
+  const r = Matcher.classify(n, NAME_LITERAL_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.EXACT_MATCH,
+    "name-literal fallback: PUT config/logs → exact_match");
+}
+
+console.log("\n=== Matcher.classify — name-literal fallback: unknown route still not matched ===");
+{
+  // Use a genuinely different TYPE structure, not just a different name value
+  const n = norm(
+    "https://management.azure.com/subscriptions/abc/resourceGroups/rg/providers/Microsoft.Web/sites/mySite/unknownType/someChild?api-version=2023-12-01",
+    "GET"
+  );
+  const r = Matcher.classify(n, NAME_LITERAL_SHARD, { inScope: true });
+  eq(r.status, Matcher.STATUS.PROVIDER_KNOWN_NO_ROUTE,
+    "name-literal fallback: genuinely unknown route type → PROVIDER_KNOWN_NO_ROUTE");
+}
+
+console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
+if (fail > 0) process.exit(1);

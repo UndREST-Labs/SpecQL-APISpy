@@ -245,6 +245,11 @@ def normalize_path_template_for_key(path_template: str) -> str:
     during route lookup, this function replaces every non-scope placeholder
     with ``{name}``.
 
+    **Query-string stripping** — ``x-ms-paths`` entries may embed query
+    parameters in the path key (e.g. ``/path?comp=list``).  The runtime
+    normaliser only sees the URL pathname (no query string), so the query
+    portion is stripped before the route key is generated.
+
     ARM scope parameters that are preserved as-is (they already match the
     ARM normaliser output)::
 
@@ -263,17 +268,23 @@ def normalize_path_template_for_key(path_template: str) -> str:
         → /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/
           providers/Microsoft.Storage/storageAccounts/{name}/blobServices/default
 
+        /path?comp=list&restype=container
+        → /path
+
     Returns ``path_template`` unchanged when it contains no non-scope
     placeholders.
     """
     if not path_template:
         return path_template
 
+    # Strip query string (x-ms-paths may include one).
+    base_path = path_template.split("?", 1)[0] if "?" in path_template else path_template
+
     def _replace(match: re.Match) -> str:
         placeholder = match.group(0)
         return placeholder if placeholder in _ARM_SCOPE_PARAMS else "{name}"
 
-    return _PLACEHOLDER_RE.sub(_replace, path_template)
+    return _PLACEHOLDER_RE.sub(_replace, base_path)
 
 
 # ---------------------------------------------------------------------------

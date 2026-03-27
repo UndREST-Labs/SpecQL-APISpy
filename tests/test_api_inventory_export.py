@@ -534,7 +534,7 @@ class TestGroupedExport:
         exp.run_export(source, output, minified=False, verbose=False, grouped=True)
         index = json.loads((output / "api-index-grouped.json").read_text())
 
-        route_key = "GET /providers/Microsoft.Test/things/{name}?api-version=2023-01-01"
+        route_key = "GET /providers/Microsoft.Test/things/{name}"
         ver = (
             index["providers"]["Microsoft.Test"]
             ["hosts"]["management.azure.com"]

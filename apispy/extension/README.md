@@ -28,10 +28,10 @@ Out-of-scope traffic (non-Azure/Microsoft hosts, URLs with no recognisable provi
 apispy/
 ├── extension/          ← The unpacked Chrome extension directory
 │   ├── manifest.json   ← MV3 extension manifest
-│   ├── devtools.html   ← DevTools page entry point
-│   ├── devtools.js     ← Registers the APISpy panel
+│   ├── devtools.html   ← DevTools page entry point (loads lib scripts for sweep processing)
+│   ├── devtools.js     ← Registers the APISpy panel; full ARM processing during sweep mode
 │   ├── panel.html      ← Panel UI markup
-│   ├── panel.js        ← Panel logic: observation, rendering, filtering
+│   ├── panel.js        ← Panel logic: observation, rendering, filtering, standalone restore
 │   ├── panel.css       ← Panel styles
 │   ├── lib/
 │   │   ├── filters.js      ← In-scope heuristics (host/URL based)
@@ -46,12 +46,55 @@ apispy/
 │       ├── icon48.png
 │       └── icon128.png
 ├── scripts/
-│   └── prepare_data.py     ← Extracts shards from the SpecRecon zip export
+│   ├── portal_sweep.py     ← Automated portal sweep (device code auth + Playwright)
+│   ├── prepare_data.py     ← Extracts shards from the SpecRecon zip export
+│   └── generate_screenshots.py  ← Generates demos/ screenshots of the extension
 └── tests/
     ├── test_filters.js
     ├── test_normalizer.js
     └── test_matcher.js
 ```
+
+---
+
+## Automated Portal Sweep
+
+`apispy/scripts/portal_sweep.py` automates a full Azure Portal sweep using
+Playwright and the APISpy extension.  It authenticates via Azure device code
+flow, visits every service on the **All Services** page, and exports all captured
+ARM API calls as a CSV file.
+
+**What it produces:**
+
+- `apispy-TIMESTAMP.csv` — every matched ARM request observed across all 305 portal services
+- `apispy-sweep-TIMESTAMP.webm` — full browser recording (with `--record-video`)
+- `apispy-portal-sweep-browser.gif` — trimmed GIF demo of the browser sweep (if `ffmpeg` is on PATH)
+
+**Quick start:**
+
+```bash
+pip install -r requirements.txt
+python3 -m playwright install chromium
+
+# Run the sweep (from the repository root)
+python3 apispy/scripts/portal_sweep.py
+
+# With browser video recording
+python3 apispy/scripts/portal_sweep.py --record-video --output-dir ./results
+```
+
+**How sweep mode works:**
+
+The sweep script sets `apispy_sweep_mode = '1'` in the browser's `localStorage`
+before navigation begins.  `devtools.js` detects this flag and, for every ARM
+request it intercepts, immediately runs the full Normalizer → Loader → Matcher
+pipeline and stores a compact pre-processed entry in `apispy_sweep_entries`.
+When the sweep finishes, the script opens `panel.html` in standalone mode; it
+reads the pre-processed entries synchronously and renders them — no async shard
+loading required.  The net effect is the same real-time processing quality as
+normal interactive use, but fully automated.
+
+> For full documentation see [`apispy/scripts/PORTAL_SWEEP.md`](../scripts/PORTAL_SWEEP.md).
 
 ---
 
