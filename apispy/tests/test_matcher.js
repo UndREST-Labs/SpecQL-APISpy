@@ -1334,5 +1334,5 @@ console.log("\n=== Matcher.classify — name-literal fallback: unknown route sti
     "name-literal fallback: genuinely unknown route type → PROVIDER_KNOWN_NO_ROUTE");
 }
 
-console.log(`\nMatcher (with name-literal tests): ${pass} passed, ${fail} failed`);
+console.log(`\nMatcher: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

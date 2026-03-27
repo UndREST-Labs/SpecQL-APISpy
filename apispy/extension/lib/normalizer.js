@@ -112,7 +112,8 @@
   const ARM_LITERAL_SEGMENTS = new Set([
     // Already established singletons / action verbs
     "default",
-    "dafault",        // spec typo in Microsoft.Network (applicationGatewayWafDynamicManifests)
+    "dafault",        // intentional: typo for "default" in the Microsoft.Network spec
+                      // (applicationGatewayWafDynamicManifests/dafault)
     "current",        // singleton "current state" (SQL, HybridCompute, Synapse, etc.)
     "latest",         // singleton "latest version/invoice" (Billing, Compute, etc.)
     "service",        // singleton service endpoint (e.g. microsoft.insights diagnosticSettings/service)

@@ -877,11 +877,11 @@
    *   5. Default-singleton suffix fallback: if the spec defines the route with
    *      a `/{default}` suffix that the client omitted, match against that
    *      singleton route rather than reporting "unknown route".
-   *   5b. Name-literal fallback: normalise all name-position literals (odd
-   *       offsets after /providers/{Namespace}) to `{name}` on both sides.
-   *       Handles shard routes that keep literals at name positions (actions,
-   *       singletons, config endpoints) that the ARM normaliser replaced.
-   *   6. Scope-based suffix fallback: many Azure specs define routes using a
+   *   6. Name-literal fallback: normalise all name-position literals (odd
+   *      offsets after /providers/{Namespace}) to `{name}` on the shard side.
+   *      Handles shard routes that keep literals at name positions (actions,
+   *      singletons, config endpoints) that the ARM normaliser replaced.
+   *   7. Scope-based suffix fallback: many Azure specs define routes using a
    *      variable-length ARM scope placeholder (`{scope}`, `{resourceUri}`,
    *      `{resourceScope}`, …) as the first path segment.  The ARM normaliser
    *      emits the full concrete scope prefix, which never matches
@@ -889,10 +889,10 @@
    *      the `/providers/Namespace/rest` suffix anchored on the shard's own
    *      provider namespace, handling both exact-method and
    *      `http_method_not_in_spec` cases.
-   *   7. HTTP method not-in-spec fallback (non-scope routes): if the canonical
+   *   8. HTTP method not-in-spec fallback (non-scope routes): if the canonical
    *      path IS present in the shard under a different method (e.g. `OPTIONS`
    *      to a `POST`-only route), return reason="http_method_not_in_spec".
-   *   8. If no key matches, report provider_known_route_unknown.
+   *   9. If no key matches, report provider_known_route_unknown.
    *
    * Trying norm.armPath first reduces false "provider_known_route_unknown"
    * results caused by literal Azure resource names (vault names, site names,
