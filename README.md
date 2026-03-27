@@ -13,6 +13,7 @@ The suite currently consists of two components:
 
 - [Quick Start with CLI Menu](#quick-start-with-cli-menu)
 - [Components Overview](#components-overview)
+- [APISpy — DevTools Browser Extension](#apispy--devtools-browser-extension)
 - [Vulnerabilities Detected](#vulnerabilities-detected)
 - [Repository Structure](#repository-structure)
 - [Smart Memory Management](#smart-memory-management)
@@ -21,7 +22,6 @@ The suite currently consists of two components:
 - [Database Management](#database-management)
 - [Query Details](#query-details)
 - [Export Pipeline](#export-pipeline)
-- [APISpy — DevTools Browser Extension](#apispy--devtools-browser-extension)
 - [References](#references)
 - [Contributing](#contributing)
 - [License](#license)
@@ -101,6 +101,14 @@ APISpy provides dynamic, real-time observation of live API requests from within 
 | **Unit Tests** | `apispy/tests/` | Node.js unit tests for the extension's filters, normalizer, and matcher modules |
 
 Each component is introduced briefly above and covered in detail in the sections that follow.
+
+## APISpy — DevTools Browser Extension
+
+**AP👁️Spy** is a Chrome/Edge DevTools extension bundled in this repository (`apispy/`) that provides real-time observation of Azure/Microsoft API calls directly in the browser.  It classifies every outgoing request against the SpecRecon API inventory — flagging exact matches, version mismatches, and unknown routes without leaving the browser.  The extension ships with all 302 provider shards pre-bundled and supports ARM batch inspection, multi-select status filters, column-level filters, clipboard/CSV export, and more.
+
+Load the unpacked extension from `apispy/extension/` via **chrome://extensions → Developer mode → Load unpacked**.  See [apispy/extension/README.md](apispy/extension/README.md) for full installation and usage details.
+
+---
 
 ## Vulnerabilities Detected
 
@@ -828,14 +836,6 @@ For full schema documentation, consumer guidance, and CI integration details, se
 - [`docs/inventory/EXPORT_PIPELINE.md`](docs/inventory/EXPORT_PIPELINE.md)
 - [`docs/inventory/API_INDEX_SCHEMA.md`](docs/inventory/API_INDEX_SCHEMA.md)
 - [`docs/inventory/CONSUMER_GUIDE.md`](docs/inventory/CONSUMER_GUIDE.md)
-
-## APISpy — DevTools Browser Extension
-
-**AP👁️Spy** is a Chrome/Edge DevTools extension bundled in this repository (`apispy/`) that provides real-time observation of Azure/Microsoft API calls directly in the browser.  It classifies every outgoing request against the SpecRecon API inventory — flagging exact matches, version mismatches, and unknown routes without leaving the browser.  The extension ships with all 302 provider shards pre-bundled and supports ARM batch inspection, multi-select status filters, clipboard/CSV export, and more.
-
-Load the unpacked extension from `apispy/extension/` via **chrome://extensions → Developer mode → Load unpacked**.  See [apispy/extension/README.md](apispy/extension/README.md) for full installation and usage details.
-
----
 
 ## References
 
