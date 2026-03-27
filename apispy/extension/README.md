@@ -7,7 +7,7 @@ It adds a custom panel to Chromium-based browser developer tools that watches ou
 
 ## What does it do?
 
-For every Azure/Microsoft API request observed in the DevTools network inspector, APISpy classifies the request into one of four states:
+For every Azure/Microsoft API request observed in the DevTools network inspector, APISpy classifies the request into one of five states:
 
 | Status | Meaning |
 |---|---|
@@ -15,8 +15,9 @@ For every Azure/Microsoft API request observed in the DevTools network inspector
 | ⚠️ **Version mismatch** | Route found, but the requested `api-version` is not in the spec |
 | 🔶 **Unknown route** | Provider namespace is known; route not found in bundled shard |
 | ❌ **No spec match** | No provider namespace inferred from the request URL |
+| ℹ️ **ARM root route** | Valid ARM endpoint with no provider namespace (e.g. `/subscriptions`, `/tenants`) |
 
-Only requests for which a provider namespace can be inferred are shown in the panel.  
+Requests with a recognised provider namespace, plus ARM root routes, are shown in the panel.  
 Out-of-scope traffic (non-Azure/Microsoft hosts, URLs with no recognisable provider path) is silently dropped.
 
 ---
@@ -65,7 +66,7 @@ at `apispy/scripts/generate_screenshots.py` (headless Chromium, 1280×720).
 
 ### Requests table — mixed classification results
 
-The table shows six observed requests spanning all four status types, including
+The table shows observed requests spanning all five status types, including
 an ARM batch sub-request (↳ row).
 
 ![APISpy requests table](../../demos/apispy-requests.png)
@@ -107,7 +108,7 @@ python3 apispy/scripts/generate_screenshots.py
 
 ### Status filter pills
 
-The toolbar contains multi-select filter pills: **All** · **✅ Exact** · **⚠️ Version** · **🔶 Route** · **❌ No match**.  
+The toolbar contains multi-select filter pills: **All** · **✅ Exact** · **⚠️ Version** · **🔶 Route** · **❌ No match** · **ℹ️ ARM root**.  
 Each pill can be toggled independently to show only the desired classification(s).  Clicking **All** resets all filters.
 
 ### ARM batch inspection
@@ -117,6 +118,14 @@ Each pill can be toggled independently to show only the desired classification(s
 ### Autoscroll
 
 The **Scroll** button in the toolbar toggles autoscroll.  When enabled, the panel automatically scrolls to the newest row as requests arrive.
+
+### Clear
+
+The **Clear** button in the toolbar removes all observed requests from the panel, resetting the display to the empty state.
+
+### Column-level filters
+
+Each table column header (Method, api-version, Status, Reason, Shard) has a **▾** button that opens a per-column value picker.  Selecting a subset of values restricts the table to rows that match all active column filters simultaneously.  An active column filter highlights the column's **▾** button.  Column filters compose with the status filter pills — only rows satisfying both are shown.
 
 ### Detail panel and draggable divider
 
@@ -194,12 +203,15 @@ node apispy/tests/test_matcher.js
 
 ## Known limitations
 
-- **Path template matching is conservative.**  
-  The normalizer only replaces GUID-shaped path segments (`{guid}`) and pure
-  numeric IDs (`{id}`).  Arbitrary resource names (e.g. `myStorageAccount`) are
-  not mapped to spec path template parameters.  This means many ARM routes
-  will appear as *Unknown route* even when the provider shard is bundled.
-  Improving the template-matching heuristic is the primary v2 task.
+- **Path template matching for non-ARM APIs.**  
+  For Azure Resource Manager URLs the normalizer applies structural ARM rules:
+  subscription/resource-group/tenant/location/management-group scope segments are
+  replaced with canonical placeholders, and name-position segments within the
+  provider resource path are replaced with `{name}`.  This significantly reduces
+  false *Unknown route* results for ARM paths.  However, non-ARM API paths (e.g.
+  Microsoft Graph `v1.0/…` paths) only receive basic normalisation (GUID and
+  pure-integer segment replacement), so many Graph routes still appear as
+  *Unknown route* even when the provider shard is bundled.
 
 - **No background sync.**  
   The bundled index is a point-in-time snapshot.  There is no automatic update
@@ -213,11 +225,10 @@ node apispy/tests/test_matcher.js
 
 ## Future planned enhancements
 
-1. **Better path template matching** — fuzzy segment matching against spec templates.
-2. **Remote artifact updates** — pull latest shards from GitHub Pages / artifact store.
-3. **Graph API support** — add Microsoft Graph spec shards.
-4. **Export timestamp display** — show index freshness in the panel.
-5. **Filter persistence** — remember the last-used filter across panel opens.
+1. **Remote artifact updates** — pull latest shards from GitHub Pages / artifact store.
+2. **Graph API support** — add Microsoft Graph spec shards.
+3. **Export timestamp display** — show index freshness in the panel.
+4. **Filter persistence** — remember the last-used filter across panel opens.
 
 ---
 
