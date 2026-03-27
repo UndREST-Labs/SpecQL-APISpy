@@ -998,12 +998,12 @@
       // Some shard route keys contain literal segments at name positions
       // (e.g. "config/logs", "images/getEntityTypeImageUploadUrl") that the
       // ARM normaliser replaces with {name} when the literal is not in
-      // ARM_LITERAL_SEGMENTS.  The name-normalised index canonicalises both
-      // sides to {name} at every name position, bridging this gap without
-      // requiring a complete ARM_LITERAL_SEGMENTS allowlist.
-      const nameNormKey = _normaliseNamePositions(canonKey);
-      if (nameNormKey !== canonKey) {
-        const nameNormEntry = nameNormIndex[nameNormKey];
+      // ARM_LITERAL_SEGMENTS.  The name-normalised index canonicalises the
+      // SHARD side to {name} at every name position, so the request's
+      // canonical key (which already has {name} from the normaliser) can
+      // match directly.
+      {
+        const nameNormEntry = nameNormIndex[canonKey];
         if (nameNormEntry) {
           return _resolveRouteMatch(nameNormEntry.routeDef, nameNormEntry.originalKey, providerNamespace, norm.apiVersion);
         }

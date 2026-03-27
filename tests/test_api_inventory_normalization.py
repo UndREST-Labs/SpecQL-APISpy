@@ -339,3 +339,27 @@ class TestNormalizePathTemplateForKey:
 
     def test_none(self):
         assert norm.normalize_path_template_for_key(None) is None
+
+    def test_query_string_stripped(self):
+        """x-ms-paths query strings must be stripped from the route key."""
+        path = "/providers/Microsoft.Test/things/{name}?api-version=2023-01-01"
+        expected = "/providers/Microsoft.Test/things/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_query_string_with_multiple_params(self):
+        """x-ms-paths with multiple query parameters stripped."""
+        path = "/v2/{name}/blobs/{digest}?mode=chunk&comp=metadata"
+        expected = "/v2/{name}/blobs/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_query_string_disambiguation_stripped(self):
+        """x-ms-paths disambiguation markers stripped."""
+        path = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Solutions/applicationDefinitions/{applicationDefinitionName}?disambiguation_dummy"
+        expected = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Solutions/applicationDefinitions/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
+
+    def test_no_query_string_unchanged(self):
+        """Paths without query strings are unaffected by stripping."""
+        path = "/subscriptions/{subscriptionId}/providers/Microsoft.Test/things/{name}"
+        expected = "/subscriptions/{subscriptionId}/providers/Microsoft.Test/things/{name}"
+        assert norm.normalize_path_template_for_key(path) == expected
