@@ -7,6 +7,7 @@ injects representative mock request entries, and captures PNG screenshots.
 Output (written to demos/):
   apispy-empty.png     – initial state, no requests observed
   apispy-requests.png  – populated table with mixed request statuses
+  apispy-filter.png    – column-filter dropdown open on the Status column
   apispy-detail.png    – table with a row selected and the detail panel open
 
 Usage (from the repository root):
@@ -264,6 +265,30 @@ _INJECT_ENTRIES_JS = """
         error:             null
       },
       raw: {}
+    },
+
+    // 7 — ARM root route: list subscriptions
+    {
+      idx: 6,
+      time: "10:23:33",
+      url:  BASE + "/subscriptions?api-version=2022-12-01",
+      method:     "GET",
+      host:       "management.azure.com",
+      pathname:   "/subscriptions",
+      normPath:   "/subscriptions",
+      apiVersion: "2022-12-01",
+      norm: { ok: true },
+      result: {
+        status:            "arm_root_route",
+        label:             "\u2139\ufe0f ARM root route",
+        provider_namespace: null,
+        reason:            "arm_root_no_provider",
+        matched_route_key: null,
+        matched_versions:  null,
+        shard_name:        null,
+        error:             null
+      },
+      raw: {}
     }
   ];
 
@@ -321,7 +346,42 @@ def _generate(port: int) -> None:
         page.screenshot(path=out)
         print(f"  \u2713 {out}")
 
-        # ── Screenshot 3: detail panel open ────────────────────────────────
+        # ── Screenshot 3: column-filter dropdown ────────────────────────────
+        # Open the Status column filter, then uncheck "exact_match" so that
+        # exact-match rows are filtered out.  This demonstrates both the
+        # dropdown UI and the live filtering effect (row count drops).
+        status_btn = page.query_selector('.col-filter-btn[data-col="status"]')
+        if status_btn:
+            status_btn.click()
+            page.wait_for_timeout(300)
+            # Uncheck the exact_match checkbox so those rows disappear.
+            exact_cb = page.query_selector(
+                '#col-filter-list input[type="checkbox"][value="exact_match"]'
+            )
+            if exact_cb:
+                exact_cb.click()
+                page.wait_for_timeout(300)
+
+        out = str(DEMOS_DIR / "apispy-filter.png")
+        page.screenshot(path=out)
+        print(f"  \u2713 {out}")
+
+        # Re-enable exact_match before closing so the detail screenshot has all rows.
+        exact_cb = page.query_selector(
+            '#col-filter-list input[type="checkbox"][value="exact_match"]'
+        )
+        if exact_cb:
+            exact_cb.click()
+            page.wait_for_timeout(200)
+
+        # Close the dropdown before selecting a row.
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(200)
+
+        # ── Screenshot 4: detail panel open ────────────────────────────────
+        # Use a taller detail panel so all fields are visible without scrolling.
+        page.evaluate("state.detailHeight = 400")
+
         # Click the second row (index 1 — the version-mismatch entry).
         rows = page.query_selector_all("#request-tbody tr")
         if rows and len(rows) > 1:

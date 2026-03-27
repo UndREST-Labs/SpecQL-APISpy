@@ -111,7 +111,10 @@ function updateTbodyHeight() {
   const toolbarH  = toolbarEl ? toolbarEl.offsetHeight : 42;
   const theadH    = theadEl   ? theadEl.offsetHeight   : 28;
   const detailH   = detailPanel.classList.contains("hidden") ? 0 : state.detailHeight;
-  tbody.style.height = Math.max(60, window.innerHeight - toolbarH - theadH - detailH) + "px";
+  const hasRows   = tbody.children.length > 0;
+  tbody.style.height = hasRows
+    ? Math.max(60, window.innerHeight - toolbarH - theadH - detailH) + "px"
+    : "0px";
 }
 
 // ── Network observation ───────────────────────────────────────────────────────
@@ -344,6 +347,7 @@ function rerender() {
 function toggleEmptyState() {
   const hasRows = tbody.children.length > 0;
   emptyState.classList.toggle("hidden", hasRows);
+  updateTbodyHeight();
 }
 
 function updateCountBadge() {

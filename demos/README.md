@@ -84,21 +84,32 @@ in an automated agent environment using Playwright.
 
 ### Empty state (`apispy-empty.png`)
 
-Initial panel state — no Azure/Microsoft API requests have been observed yet.
+Initial panel state — no Azure/Microsoft API requests have been observed yet.  The toolbar
+shows the status-filter toggles and the count badge reads 0.
 
 ![APISpy empty state](apispy-empty.png)
 
 ### Requests table (`apispy-requests.png`)
 
-Panel populated with observed requests, showing all four classification statuses:
-✅ Exact match, ⚠️ Version mismatch, 🔶 Unknown route, and an ARM batch sub-request (↳).
+Panel populated with observed requests, showing all five classification statuses:
+✅ Exact match, ⚠️ Version mismatch, 🔶 Unknown route, ℹ️ ARM root route, and an ARM
+batch sub-request (↳).
 
 ![APISpy requests table](apispy-requests.png)
 
+### Column filter (`apispy-filter.png`)
+
+The Status column-filter dropdown is open, letting users show only selected status values.
+Each column header (Method, api-version, Status, Reason, Shard) has its own independent
+multi-value filter accessible via the ▾ button.
+
+![APISpy column filter](apispy-filter.png)
+
 ### Detail panel (`apispy-detail.png`)
 
-A row is selected, opening the detail panel with the full request breakdown: matched
-route key, available spec versions, provider namespace, and reason code.
+A row is selected, opening the resizable detail panel with the full request breakdown:
+URL, method, host, path, normalised path, api-version, status, provider namespace,
+matched route key, available spec versions, shard source, and reason code.
 
 ![APISpy detail panel](apispy-detail.png)
 
@@ -116,6 +127,7 @@ route key, available spec versions, provider namespace, and reason code.
 - **Size**: 1280×720 pixels
 - **Tool**: Playwright (headless Chromium)
 - **Script**: `apispy/scripts/generate_screenshots.py`
+- **Output**: `demos/apispy-{empty,requests,filter,detail}.png`
 
 ## Usage in Documentation
 
