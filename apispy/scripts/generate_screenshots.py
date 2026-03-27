@@ -347,15 +347,32 @@ def _generate(port: int) -> None:
         print(f"  \u2713 {out}")
 
         # ── Screenshot 3: column-filter dropdown ────────────────────────────
-        # Open the Status column filter to show the multi-value dropdown UI.
+        # Open the Status column filter, then uncheck "exact_match" so that
+        # exact-match rows are filtered out.  This demonstrates both the
+        # dropdown UI and the live filtering effect (row count drops).
         status_btn = page.query_selector('.col-filter-btn[data-col="status"]')
         if status_btn:
             status_btn.click()
             page.wait_for_timeout(300)
+            # Uncheck the exact_match checkbox so those rows disappear.
+            exact_cb = page.query_selector(
+                '#col-filter-list input[type="checkbox"][value="exact_match"]'
+            )
+            if exact_cb:
+                exact_cb.click()
+                page.wait_for_timeout(300)
 
         out = str(DEMOS_DIR / "apispy-filter.png")
         page.screenshot(path=out)
         print(f"  \u2713 {out}")
+
+        # Re-enable exact_match before closing so the detail screenshot has all rows.
+        exact_cb = page.query_selector(
+            '#col-filter-list input[type="checkbox"][value="exact_match"]'
+        )
+        if exact_cb:
+            exact_cb.click()
+            page.wait_for_timeout(200)
 
         # Close the dropdown before selecting a row.
         page.keyboard.press("Escape")
