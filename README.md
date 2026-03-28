@@ -22,6 +22,7 @@ The suite currently consists of two components:
 - [Database Management](#database-management)
 - [Query Details](#query-details)
 - [Export Pipeline](#export-pipeline)
+- [Azure Resource Enumeration](#azure-resource-enumeration)
 - [References](#references)
 - [Contributing](#contributing)
 - [License](#license)
@@ -89,6 +90,7 @@ SpeQL analyses the Azure REST API spec corpus for security vulnerabilities. It c
 | **Database Refresh Scripts** | `refresh-database.sh` · `refresh_database.py` | Clone and build a CodeQL database from the Azure REST API spec corpus, with options to target specific Azure services |
 | **SARIF Analysis Tools** | `scripts/sarif-analysis/` | Shell scripts for deduplicating, parsing, and prioritizing CodeQL findings from SARIF output files |
 | **Export Pipeline** | `scripts/export/export_api_inventory.py` | Walks the spec corpus and produces a JSON index of every Azure REST API operation in flat and grouped/sharded formats, consumed by APISpy |
+| **Azure Resource Enumerator** | `scripts/azure_resource_enum.py` | Authenticates via device code and enumerates every Azure resource across all subscriptions in the tenant, exporting results to a CSV (REST equivalent of `Get-AzResource`) |
 
 ### APISpy — DevTools Browser Extension
 
@@ -214,6 +216,7 @@ SpeQL/
 │       └── qlpack.yml          # Query pack dependencies
 ├── results/                    # Analysis results (generated)
 ├── scripts/
+│   ├── azure_resource_enum.py    # Enumerate all Azure resources → CSV (Get-AzResource equivalent)
 │   ├── export/                 # API inventory export pipeline
 │   │   ├── export_api_inventory.py   # Produces api-index.json and grouped/sharded variants
 │   │   └── normalize_api_inventory.py
@@ -836,6 +839,62 @@ For full schema documentation, consumer guidance, and CI integration details, se
 - [`docs/inventory/EXPORT_PIPELINE.md`](docs/inventory/EXPORT_PIPELINE.md)
 - [`docs/inventory/API_INDEX_SCHEMA.md`](docs/inventory/API_INDEX_SCHEMA.md)
 - [`docs/inventory/CONSUMER_GUIDE.md`](docs/inventory/CONSUMER_GUIDE.md)
+
+## Azure Resource Enumeration
+
+`scripts/azure_resource_enum.py` authenticates to Azure via the same device-code flow used by `portal_sweep.py` and then calls the Azure Resource Manager REST API to enumerate every resource visible to the authenticated principal — the Python equivalent of the PowerShell [`Get-AzResource`](https://learn.microsoft.com/en-us/powershell/module/az.resources/get-azresource) cmdlet.
+
+![Azure Resource Enumeration Demo](demos/09-azure-resource-enum.gif)
+
+### What it does
+
+1. Authenticates using Azure device-code flow (no credentials stored)
+2. Lists all subscriptions in the tenant
+3. Pages through every resource in each subscription (`$expand=createdTime,changedTime,provisioningState`)
+4. Exports all resources and their properties to a CSV file
+
+### Prerequisites
+
+```bash
+pip install azure-identity   # already in requirements.txt
+```
+
+### Usage
+
+```bash
+# From the repository root — authenticate and export to azure_resources.csv
+python3 scripts/azure_resource_enum.py
+
+# Custom output path
+python3 scripts/azure_resource_enum.py --output ./results/tenant_resources.csv
+
+# Pin a specific ARM API version
+python3 scripts/azure_resource_enum.py --api-version 2021-04-01
+```
+
+### CSV columns
+
+| Column | Description |
+|--------|-------------|
+| `id` | Full ARM resource ID |
+| `name` | Resource name |
+| `type` | Resource type (e.g. `Microsoft.Compute/virtualMachines`) |
+| `location` | Azure region |
+| `resourceGroup` | Resource group name (derived from ID if absent) |
+| `subscriptionId` | Subscription GUID |
+| `managedBy` | Managed-by resource ID (if applicable) |
+| `kind` | Resource kind sub-type |
+| `etag` | Entity tag |
+| `createdTime` | Creation timestamp (ISO 8601) |
+| `changedTime` | Last-modified timestamp (ISO 8601) |
+| `provisioningState` | Current provisioning state |
+| `tags` | Tags (JSON) |
+| `sku` | SKU details (JSON) |
+| `plan` | Marketplace plan (JSON) |
+| `identity` | Managed identity (JSON) |
+| `zones` | Availability zones (JSON) |
+| `extendedLocation` | Extended location (JSON) |
+| `properties` | Resource-specific properties (JSON) |
 
 ## References
 

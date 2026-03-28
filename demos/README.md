@@ -52,6 +52,15 @@ End-to-end demonstration from setup to results:
 - Analyzing SARIF results
 - Complete security analysis workflow
 
+### 9. Azure Resource Enumeration (`09-azure-resource-enum.gif`)
+Demonstrates `scripts/azure_resource_enum.py` — tenant-wide resource discovery:
+- Device-code authentication to Azure (same flow as `portal_sweep.py`)
+- Enumerating all subscriptions in the tenant
+- Listing every resource per subscription (REST equivalent of `Get-AzResource`)
+- Exporting all resources and their properties to a CSV file
+
+![Azure Resource Enumeration Demo](09-azure-resource-enum.gif)
+
 ## Generating Demos
 
 To regenerate all VHS terminal demos, use the provided script:

@@ -42,6 +42,8 @@ tapes=(
     "tests/vhs/05-cli-menu.tape"
     "tests/vhs/06-sarif-analysis.tape"
     "tests/vhs/07-complete-workflow.tape"
+    "tests/vhs/08-apispy-portal-sweep.tape"
+    "tests/vhs/09-azure-resource-enum.tape"
 )
 
 # Descriptions for each tape
@@ -53,6 +55,8 @@ descriptions=(
     "Interactive CLI Menu"
     "SARIF Analysis Tools"
     "Complete Workflow"
+    "APISpy Portal Sweep"
+    "Azure Resource Enumeration"
 )
 
 echo -e "${YELLOW}Found ${#tapes[@]} VHS tape files to process${NC}"
