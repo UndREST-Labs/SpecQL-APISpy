@@ -52,6 +52,12 @@ End-to-end demonstration from setup to results:
 - Analyzing SARIF results
 - Complete security analysis workflow
 
+### 8. APISpy Portal Sweep (`apispy-portal-sweep-terminal.gif`)
+Demonstrates the automated portal sweep script:
+- Running `python3 apispy/scripts/portal_sweep.py --help` to view all options
+- Simulating a complete sweep of all 305 Azure Portal services
+- Showing the ARM request capture, URL collection, and CSV export phases
+
 ### 9. Azure Resource Enumeration (`09-azure-resource-enum.gif`)
 Demonstrates `scripts/azure_resource_enum.py` — tenant-wide resource discovery:
 - Device-code authentication to Azure (same flow as `portal_sweep.py`)
@@ -126,9 +132,9 @@ matched route key, available spec versions, shard source, and reason code.
 
 **Terminal GIF demos**
 - **Format**: Animated GIF
-- **Size**: 1000x600 pixels
-- **Theme**: Catppuccin Mocha
-- **Font Size**: 13pt
+- **Size**: 1000×720 pixels
+- **Theme**: TokyoNight
+- **Font Size**: 16pt
 - **Tool**: VHS (Video Hype Script) by Charm
 
 **Extension screenshots**
@@ -146,6 +152,7 @@ These GIFs are referenced throughout the SpeQL documentation:
 - `docs/CLI_MENU_GUIDE.md` - CLI navigation examples
 - `docs/DATABASE_REFRESH.md` - Database management workflows
 - `docs/SARIF_ANALYSIS_QUICKSTART.md` - SARIF tool demonstrations
+- `apispy/scripts/PORTAL_SWEEP.md` - Portal sweep terminal demo
 
 ## License
 

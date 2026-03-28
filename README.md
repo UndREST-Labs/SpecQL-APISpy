@@ -14,6 +14,7 @@ The suite currently consists of two components:
 - [Quick Start with CLI Menu](#quick-start-with-cli-menu)
 - [Components Overview](#components-overview)
 - [APISpy — DevTools Browser Extension](#apispy--devtools-browser-extension)
+  - [APISpy Portal Sweep](#apispy-portal-sweep)
 - [Vulnerabilities Detected](#vulnerabilities-detected)
 - [Repository Structure](#repository-structure)
 - [Smart Memory Management](#smart-memory-management)
@@ -99,6 +100,7 @@ APISpy provides dynamic, real-time observation of live API requests from within 
 | Tool | Entry Point | Description |
 |------|-------------|-------------|
 | **DevTools Extension** | `apispy/extension/` | Chrome/Edge DevTools panel that classifies live Azure API requests against the SpecRecon inventory — surfacing exact matches, version mismatches, and unknown routes |
+| **Portal Sweep** | `apispy/scripts/portal_sweep.py` | Playwright-based automation that walks every service on the Azure Portal All Services page with the APISpy extension, exporting all captured ARM calls as a CSV — see [apispy/scripts/PORTAL_SWEEP.md](apispy/scripts/PORTAL_SWEEP.md) |
 | **Shard Bundler** | `apispy/scripts/prepare_data.py` | Re-bundles provider shards from a SpecRecon export zip into the extension's `data/` directory |
 | **Unit Tests** | `apispy/tests/` | Node.js unit tests for the extension's filters, normalizer, and matcher modules |
 
@@ -109,6 +111,16 @@ Each component is introduced briefly above and covered in detail in the sections
 **AP👁️Spy** is a Chrome/Edge DevTools extension bundled in this repository (`apispy/`) that provides real-time observation of Azure/Microsoft API calls directly in the browser.  It classifies every outgoing request against the SpecRecon API inventory — flagging exact matches, version mismatches, and unknown routes without leaving the browser.  The extension ships with all 302 provider shards pre-bundled and supports ARM batch inspection, multi-select status filters, column-level filters, clipboard/CSV export, and more.
 
 Load the unpacked extension from `apispy/extension/` via **chrome://extensions → Developer mode → Load unpacked**.  See [apispy/extension/README.md](apispy/extension/README.md) for full installation and usage details.
+
+### APISpy Portal Sweep
+
+`portal_sweep.py` is a companion automation script that walks every service on the Azure Portal **All Services** page with the APISpy extension running, then exports all captured ARM API calls as a CSV file — providing broad, automated coverage of real-world Azure API traffic across all 305 services.
+
+```bash
+python3 apispy/scripts/portal_sweep.py
+```
+
+See [apispy/scripts/PORTAL_SWEEP.md](apispy/scripts/PORTAL_SWEEP.md) for full usage details, options, and output format.
 
 ---
 
@@ -189,6 +201,7 @@ SpeQL/
 │   │   ├── lib/                 # filters, normalizer, loader, matcher modules
 │   │   └── icons/
 │   ├── scripts/
+│   │   ├── portal_sweep.py      # Playwright sweep of all Azure Portal services → exports ARM calls as CSV
 │   │   └── prepare_data.py      # Re-bundles shards from a SpecRecon zip export
 │   └── tests/                   # Node.js unit tests for extension modules
 ├── config/
@@ -227,7 +240,17 @@ SpeQL/
 │       └── README.md           # Detailed script documentation
 ├── tests/                      # Test scripts
 │   ├── test_json_file_count_fix.sh
-│   └── test_memory_management.sh
+│   ├── test_memory_management.sh
+│   └── vhs/                    # VHS tape recordings for animated GIF demos
+│       ├── 01-setup.tape
+│       ├── 02-database-refresh.tape
+│       ├── 03-python-analyzer.tape
+│       ├── 04-codeql-queries.tape
+│       ├── 05-cli-menu.tape
+│       ├── 06-sarif-analysis.tape
+│       ├── 07-complete-workflow.tape
+│       ├── 08-apispy-portal-sweep.tape
+│       └── helpers/            # Mock scripts used by VHS tapes
 └── utils/                      # Utility scripts
     └── memory_utils.sh         # Memory management utilities
 ```
