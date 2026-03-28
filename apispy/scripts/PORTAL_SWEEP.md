@@ -4,6 +4,8 @@
 service on the Azure Portal **All Services** page with the APISpy DevTools
 extension running, then exports the collected ARM API calls as a CSV file.
 
+![APISpy Portal Sweep terminal demo](../../demos/apispy-portal-sweep-terminal.gif)
+
 ---
 
 ## How it works
