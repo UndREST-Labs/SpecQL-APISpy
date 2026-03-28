@@ -28,7 +28,7 @@ SpeQL/
 │   │   ├── lib/         # filters, normalizer, loader, matcher modules
 │   │   └── icons/
 │   ├── scripts/
-│   │   ├── portal_sweep.py  # Automated portal sweep: visits all services, exports CSV
+│   │   ├── portal_sweep.py  # Playwright sweep of all Azure Portal services → exports ARM calls as CSV
 │   │   ├── prepare_data.py  # Re-bundles shards from SpecRecon zip export
 │   │   └── generate_screenshots.py  # Generates demos/ screenshots of the extension
 │   └── tests/           # Node.js unit tests for extension modules
@@ -62,8 +62,19 @@ SpeQL/
 ├── database/            # CodeQL database (created by refresh scripts)
 │   └── azure-api-db/    # Not tracked in Git (generated)
 ├── results/             # Analysis results (generated, not tracked)
-└── tests/               # Test scripts
-    └── test_json_file_count_fix.sh
+├── tests/               # Test scripts
+│   ├── test_json_file_count_fix.sh
+│   ├── test_memory_management.sh
+│   └── vhs/             # VHS tape recordings for animated GIF demos
+│       ├── 01-setup.tape
+│       ├── 02-database-refresh.tape
+│       ├── 03-python-analyzer.tape
+│       ├── 04-codeql-queries.tape
+│       ├── 05-cli-menu.tape
+│       ├── 06-sarif-analysis.tape
+│       ├── 07-complete-workflow.tape
+│       ├── 08-apispy-portal-sweep.tape
+│       └── helpers/     # Mock scripts used by VHS tapes
 ```
 
 ## Key Changes from Previous Structure
