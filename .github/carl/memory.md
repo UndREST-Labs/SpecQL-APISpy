@@ -106,12 +106,27 @@ carl doctor
 - cARL governance artefacts are stored in `.github/carl/` and
   `.github/instructions/`.
 
+## Governance migration status
+
+**This file is a transitional memory bridge, not a completed cARL runtime.**
+
+`.github/aadlc/` artefacts remain present alongside `.github/carl/`
+artefacts. Formal migration has not yet been completed. Until `carl
+convert aadlc` has been run and the migration verified:
+
+- Agents must read **both** `.github/aadlc/` artefacts **and** this
+  file when orienting for a task.
+- Do not treat `.github/carl/memory.md` alone as the complete runtime
+  authority — the AADLC artefacts may contain additional durable
+  knowledge not yet migrated here.
+- Once `carl convert aadlc --apply` has been run and reviewed, remove
+  this notice and update the **Last updated** timestamp.
+
 ## Open questions
 
 - Migration from `.github/aadlc/` to `.github/carl/` is not yet
-  complete. `aadlc` artefacts remain alongside `carl` artefacts.
-  Use `carl convert aadlc` when the CLI is available to migrate
-  durable knowledge formally.
+  complete. Use `carl convert aadlc` when the CLI is available to
+  migrate durable knowledge formally.
 
 ## Last updated
 
