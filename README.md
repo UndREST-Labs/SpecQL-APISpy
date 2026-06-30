@@ -875,6 +875,8 @@ Contributions are welcome! Please submit pull requests with:
 - Additional test cases
 - Documentation enhancements
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines, including optional [cARL CLI setup](CONTRIBUTING.md#maintainer-tooling--carl-cli-optional) for maintainers who manage the AI coding-agent governance layer.
+
 ## License
 
 See LICENSE file for details.

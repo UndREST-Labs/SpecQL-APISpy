@@ -22,6 +22,28 @@ SpecRecon is a suite of API spec and API request reconnaissance tools. It curren
 - (Optional) CodeQL CLI for query development
 - Git
 
+### Maintainer Tooling — cARL CLI (optional)
+
+This repository uses [cARL](https://github.com/goldjg/cARL) (Cognitive Agent Runtime Layer) to govern AI coding-agent behaviour via the `.github/instructions/` packs and `.github/carl/` artefacts. The governance files are already committed and active, so most contributors do not need the `carl` CLI.
+
+Maintainers who want to run health checks, update runtime artefacts, or verify the cARL installation should install the CLI.
+
+**Install the latest release**
+
+Download the binary for your platform from the [cARL releases page](https://github.com/goldjg/cARL/releases/latest) and place it on your `PATH`. The [cARL README QuickStart](https://github.com/goldjg/cARL#quick-start) has platform-specific one-liners (Linux, macOS, Windows).
+
+**Verify the installation**
+
+```bash
+carl doctor
+```
+
+Expected output when healthy:
+
+```
+INFO    runtime is healthy — all managed artefacts are present and canonical
+```
+
 ### Getting Started
 ```bash
 # Clone the repository
