@@ -58,7 +58,7 @@ files consumed by the APISpy extension's `data/` directory.
   runtime dependencies for the core analyzer (`analyze.py`).
 - **CodeQL database path**: `database/azure-api-db/` — do not change
   without updating all scripts that reference it.
-- **qlpack.yml dependency**: `queries/azure-security/qlpack.yml` currently sets `codeql/javascript-all: "*"` (consider pinning to `~0.9.0` to avoid installing incompatible 2.x libraries).
+- **qlpack.yml dependency**: `queries/azure-security/qlpack.yml` pins `codeql/javascript-all: "~0.9.0"` — do not widen or replace with `*`. This enforces the 0.9.x constraint required by CodeQL 2.20.x.
 
 ## Trust boundaries
 
