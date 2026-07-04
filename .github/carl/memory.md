@@ -53,12 +53,12 @@ files consumed by the APISpy extension's `data/` directory.
 
 - **CodeQL CLI version**: Must use 2.20.1 or 2.20.2. Version 2.23.x and
   newer have compatibility issues with JSON-only database creation.
-- **CodeQL javascript-all version**: Must be 0.9.4 (0.9.x); constrained by `JAVASCRIPT_ALL_VERSION="0.9.4"` in `setup.sh` (install-time) and `codeql/javascript-all: "~0.9.0"` in `qlpack.yml` (runtime dependency). Newer 2.x libraries contain syntax that CodeQL 2.20.2 cannot parse.
+- **CodeQL javascript-all version**: Must be exactly 0.9.4; pinned by `JAVASCRIPT_ALL_VERSION="0.9.4"` in `setup.sh` (install-time) and `codeql/javascript-all: "0.9.4"` in `qlpack.yml` (runtime dependency). Newer 2.x libraries contain syntax that CodeQL 2.20.2 cannot parse.
 - **Python requirement**: Python 3.6 or higher. No mandatory third-party
   runtime dependencies for the core analyzer (`analyze.py`).
 - **CodeQL database path**: `database/azure-api-db/` — do not change
   without updating all scripts that reference it.
-- **qlpack.yml dependency**: `queries/azure-security/qlpack.yml` pins `codeql/javascript-all: "~0.9.0"` — do not widen or replace with `*`. This enforces the 0.9.x constraint required by CodeQL 2.20.x.
+- **qlpack.yml dependency**: `queries/azure-security/qlpack.yml` pins `codeql/javascript-all: "0.9.4"` exactly — do not widen or replace with a range or `*`. This enforces the exact version required by CodeQL 2.20.x.
 
 ## Trust boundaries
 
